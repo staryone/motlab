@@ -5,7 +5,7 @@ How `motlab render`, `motlab video` and Export turn scene pages into an MP4, how
 ## Steps
 
 1. A small static server serves the project folder (the nearest folder above the page with a `project.json`, else the page's folder, or `--root`) on `127.0.0.1`.
-2. Chrome starts with `--headless=new --enable-gpu --force_high_performance_gpu --enable-unsafe-swiftshader`. The GPU actually in use is read from `WEBGL_debug_renderer_info` and printed at the start.
+2. Chrome starts with `--headless=new --enable-gpu --force_high_performance_gpu --enable-unsafe-swiftshader`, plus `--no-sandbox` when motlab runs as root. The GPU actually in use is read from `WEBGL_debug_renderer_info` and printed at the start.
 3. `src/page/runtime.js` is injected into the page. For each frame it calls `renderAt`, makes a `VideoFrame` from the canvas and feeds it to a `VideoEncoder`.
 4. Mediabunny muxes the encoded chunks into an MP4 inside the page, which is POSTed to Node. If that fails, the engine retries with a raw Annex B bitstream.
 5. ffmpeg copies the stream (`-c copy`) into the final file. This pass writes BT.709 tags with the encoder's range into the bitstream, joins the parts from parallel mode, adds audio and moves `moov` to the front. It always runs, even after a successful Mediabunny mux, because the encoders tag colour inconsistently (see quirks).

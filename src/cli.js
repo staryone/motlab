@@ -47,7 +47,7 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
   --root      folder to serve (default: the nearest folder above the page with a project.json, else the page's folder)
   --chrome    path to Chrome (default: autodetect, or the CHROME environment variable)
 
-Chrome always runs with --enable-gpu --force_high_performance_gpu --enable-unsafe-swiftshader (--gpu is accepted and ignored, so older commands
+Chrome always runs with --enable-gpu --force_high_performance_gpu --enable-unsafe-swiftshader, plus --no-sandbox when running as root (--gpu is accepted and ignored, so older commands
 that pass it keep working). Needs ffmpeg and ffprobe on PATH.
 
 Engine folder: ${fileURLToPath(new URL('..', import.meta.url))}  (README.md, example/, src/page/footage.js)`;
