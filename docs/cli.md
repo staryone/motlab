@@ -52,7 +52,7 @@ When the page throws while loading, the error names the file, line and column, f
 | `--chrome` | Path to Chrome. Default: found automatically, or the `CHROME` environment variable |
 | `--format` | `png` or `jpg`, for `stills` |
 
-`--gpu` is accepted and ignored, so older commands that pass it keep working. Chrome always runs with `--enable-gpu --force_high_performance_gpu --enable-unsafe-swiftshader`; the last lets WebGL fall back to software where there is no GPU.
+`--gpu` is accepted and ignored, so older commands that pass it keep working. Chrome always runs with `--enable-gpu --force_high_performance_gpu --enable-unsafe-swiftshader`; the last lets WebGL fall back to software where there is no GPU. When motlab runs as root, as in a container or on a VPS logged in as root, Chrome also gets `--no-sandbox`, because Chrome refuses to start as root without it; motlab only opens the user's own pages.
 
 ## Environment
 

@@ -24,13 +24,19 @@ export function findChrome(explicit) {
 // only opens the user's own pages.
 export const GPU_FLAGS = ['--enable-gpu', '--force_high_performance_gpu', '--enable-unsafe-swiftshader', ...(process.platform === 'darwin' ? ['--use-angle=metal'] : [])];
 
+// Chrome refuses to start as root without --no-sandbox ("Running as root without
+// --no-sandbox is not supported"), which is how it runs in a container or on a
+// VPS logged in as root. motlab only opens the user's own pages, so the sandbox
+// buys nothing here; add the flag when root, and only then.
+export const SANDBOX_FLAGS = typeof process.getuid === 'function' && process.getuid() === 0 ? ['--no-sandbox'] : [];
+
 const live = new Set();
 process.on('exit', () => { for (const c of live) c.killSync(); });
 
 export async function launchChrome({ chromePath, extraArgs = [] }) {
   const profile = mkdtempSync(join(tmpdir(), 'motlab-chrome-'));
   const proc = spawn(chromePath, [
-    '--headless=new', ...GPU_FLAGS,
+    '--headless=new', ...GPU_FLAGS, ...SANDBOX_FLAGS,
     '--remote-debugging-port=0', `--user-data-dir=${profile}`,
     '--no-first-run', '--no-default-browser-check', '--hide-scrollbars', '--mute-audio',
     '--disable-background-timer-throttling', '--disable-renderer-backgrounding', '--disable-backgrounding-occluded-windows',

@@ -4,6 +4,10 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
+### Fixed
+
+- Running motlab as root, as in a container or on a VPS logged in as root, failed at the first scene with "Chrome exited early (code 1): Running as root without --no-sandbox is not supported", because Chrome refuses to start as root and motlab passed no such flag. Chrome now gets `--no-sandbox` when motlab runs as root, and only then; motlab only opens the user's own pages. Checked on Ubuntu 24.04 as root, no GPU, Google Chrome 157: `motlab render example --scale 1` went from failing at once to a 9 s, 1080p render in 13.6 s (8.5 s on a repeat run, with the encoder probe cached), and `npm test` passed 34/34. Not tried: a non-root user in a container where Chrome's sandbox still fails.
+
 ### Changed
 
 - The copyright line in `LICENSE` names Stanyslaus Hary (motlab) instead of "motlab contributors". The licence is still MIT.
