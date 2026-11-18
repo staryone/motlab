@@ -8,7 +8,7 @@ import { codecString, defaultBitrate } from './codecs.js';
 
 const CANDIDATES = [{ codec: 'h264', hw: true }, { codec: 'h264', hw: false }, { codec: 'hevc', hw: true }, { codec: 'hevc', hw: false }];
 // Constant QP values that keep SSIM against a lossless reference near 0.999 on the skill's 2D and 3D templates.
-export const DEFAULT_QP = { h264: 18, hevc: 20 };
+const DEFAULT_QP = { h264: 18, hevc: 20 };
 export const label = c => `${c.codec === 'hevc' ? 'HEVC' : 'H.264'} ${c.hw ? 'hardware' : 'software'}`;
 export const rate = c => c.rc === 'quantizer' ? `constant QP ${c.qp}` : `${(c.bitrate / 1e6).toFixed(1)} Mbit/s VBR`;
 

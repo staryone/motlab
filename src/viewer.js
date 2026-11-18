@@ -11,13 +11,13 @@ import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { projectPaths } from './project.js';
 
-export const FIRST_PORT = 4173, LAST_PORT = 4190;
+const FIRST_PORT = 4173, LAST_PORT = 4190;
 const BIN = fileURLToPath(new URL('../bin/motlab.js', import.meta.url));
-export const LOG = join(homedir(), '.motlab', 'viewer.log');
+const LOG = join(homedir(), '.motlab', 'viewer.log');
 
 // The motlab viewer on this machine: { port, url, pid, workspace }, or null. pid and workspace are missing for a
 // viewer from before motlab start existed.
-export async function findViewer() {
+async function findViewer() {
   for (let port = FIRST_PORT; port <= LAST_PORT; port++) {
     const r = await fetch(`http://127.0.0.1:${port}/__motlab/editor`, { signal: AbortSignal.timeout(800) }).then(r => r.json()).catch(() => null);
     if (r?.motlab === 'editor') return { port, url: `http://127.0.0.1:${port}`, pid: r.pid, workspace: r.workspace };
