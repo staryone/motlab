@@ -80,12 +80,12 @@
      buttons, the range bar and the full-screen pill are left out. The bar is hidden ('bar-off') unless the pointer is near
      the bottom edge, so it covers nothing while the frame is looked at */
   #dock { display: contents; }
-  #scrubWrap, #fsScene, #fullExit { display: none; }
+  #scrubWrap, #fsScene, #fullExit, #fullBar { display: none; }
   #canvas:fullscreen { overflow: hidden; background: #111; }
   #canvas:fullscreen #stage { position: absolute; inset: 0; padding: 0; }
-  #canvas:fullscreen #dock { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 3; display: flex; flex-direction: column; padding: 6px 6px 4px;
+  #canvas:fullscreen #dock { position: absolute; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 3; display: flex; flex-direction: column; padding: 6px 6px 4px;
     background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.12); transition: opacity var(--slide) var(--ease); }
-  #canvas:fullscreen :is(#lane, #rangeBtn, #zout, #zin, #laneBtn, #rangeBar, #pillFull) { display: none; }
+  #canvas:fullscreen :is(#lane, #rangeBtn, #zout, #zin, #laneBtn, #rangeBar, #pillFull, #fullBar) { display: none; }
   #canvas:fullscreen #scrubWrap { display: block; position: relative; }
   #scrub { display: block; width: 100%; height: 34px; cursor: pointer; touch-action: none; }
   #scrubTip { position: absolute; bottom: calc(100% + 2px); translate: -50% 0; padding: 4px 6px; border-radius: 6px; background: var(--text); color: #fff; font-size: 12px; white-space: nowrap; pointer-events: none; }
@@ -182,7 +182,7 @@
   .toast { position: absolute; top: 56px; left: 50%; transform: translate(-50%, 0); transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease), display var(--fast) allow-discrete; z-index: 5; max-width: calc(100% - 24px); padding: 8px 12px; border-radius: 8px; background: var(--text); color: #fff; font-size: 13px; }
 
   /* menus */
-  .menu { position: absolute; top: calc(100% + 6px); z-index: 10; min-width: 220px; padding: 6px; background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.12); font-weight: 400; }
+  .menu { position: absolute; top: calc(100% + 6px); z-index: 10; max-height: calc(100dvh - 56px); overflow-y: auto; min-width: 220px; padding: 6px; background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.12); font-weight: 400; }
   .menu { transform-origin: top right; transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease), display var(--fast) allow-discrete; }
   .menu[hidden], .toast[hidden] { display: none; opacity: 0; }
   .menu[hidden] { transform: translateY(-4px) scale(.98); }
@@ -240,18 +240,48 @@
     *, *::before { transition-duration: 0s !important; transition-delay: 0s !important; }
     .spin { animation: none; border-color: var(--text); }
   }
-  /* narrow windows: the panel floats over the canvas instead of squeezing it */
-  @media (max-width: 719px) {
+  /* short windows, as a phone held sideways: the panel floats over the canvas instead of squeezing it, and starts
+     closed; the preview takes the room the full-screen pill and the timeline leave */
+  @media (min-width: 720px) and (max-height: 499px) {
     body, body.closed { grid-template-columns: 0 minmax(0, 1fr); }
     aside { position: fixed; top: 44px; left: 0; bottom: 0; z-index: 30; width: min(320px, 85vw); box-shadow: 0 8px 28px rgba(0,0,0,.16); transition: visibility 0s, transform var(--slide) var(--ease); }
     aside > * { width: auto; }
     body.closed aside { opacity: 1; transform: translateX(-100%); transition: visibility 0s var(--slide), transform var(--slide) var(--ease); }
+    #stage { min-height: 0; padding: 8px 64px 6px; }
+    #lane { max-height: 28vh; }
+  }
+  /* phones held upright: one column that scrolls, in the order a review on a phone needs, as in Frame.io's app: the
+     preview at the top across the width, the play toolbar with full screen in it, the timeline, then the notes, the
+     scenes and the audio. The header keeps the project and its version, and Export shows its icon only. Menus open
+     across the width under the header, and the open note's card sits at the bottom of what is visible, above the
+     on-screen keyboard */
+  @media (max-width: 719px) {
+    html, body { height: auto; }
+    body { display: flex; flex-direction: column; min-height: 100%; }
+    header { position: sticky; top: 0; z-index: 25; min-height: 44px; background: #fff; }
+    main { order: 1; }
+    aside, body.closed aside { order: 2; visibility: visible; opacity: 1; overflow: visible; box-shadow: none; border-top: .5px solid #ececeb; }
+    aside > * { width: auto; }
+    #lists { display: flex; flex-direction: column; overflow: visible; }
+    #lists > h2:nth-of-type(3), #notes { order: -1; }   /* the notes first */
+    #panel, #pillFull, #crumb, .sep:has(+ #crumb) { display: none; }
+    #canvas { overflow: visible; }
+    #stage { min-height: 0; padding: 8px 8px 0; }
+    #view { max-height: 62vh; }
+    #bar { margin: 10px 0; }
+    #fullBar { display: flex; }
+    #exportLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+    #export { padding: 0 8px; }
+    .menu, #projMenu, #verMenu, #exportMenu { position: fixed; top: 50px; left: 8px; right: 8px; width: auto; min-width: 0; max-width: none; translate: none; transform-origin: top center; }
+    .pop { width: auto; max-width: none; }
   }
   @media (pointer: coarse) {
     .icon, .btn, .pick, .pill button, .row, .menu .opt, #go, #stop, #verGo, #verName, #popDel, #popDone, #popOk { min-height: 44px; }
     .icon, .pill .sq { min-width: 44px; }
     .pill { height: auto; }
   }
+  /* the smallest phones (360 px): the toolbar's buttons give up 6 px each so it fits, still 38 by 44 px */
+  @media (max-width: 379px) { #tools .sq { min-width: 38px; } #tools { gap: 0; } #time { padding: 0 6px; } }
 </style></head>
 <body class="still">
 <header>
@@ -311,6 +341,7 @@
       <button class="sq" id="zout" data-i="zout" data-label="zoomOut" data-key="−"></button>
       <button class="sq" id="zin" data-i="zin" data-label="zoomIn" data-key="+"></button>
       <button class="sq" id="laneBtn" data-i="lane" data-label="hideTimeline" aria-expanded="true" aria-controls="lane"></button>
+      <button class="sq" id="fullBar" data-i="full" data-label="full" data-key="F"></button>
       <button class="sq" id="fullExit" data-i="unfull" data-label="fullExit" data-key="F"></button>
     </div>
     <div class="pill" id="rangeBar" role="group" data-t="aria-label=range" hidden>
@@ -575,11 +606,12 @@ const setPanel = open => {
   label($('panel'), L(open ? 'hidePanel' : 'showPanel'));
 };
 $('panel').onclick = () => setPanel(document.body.classList.contains('closed'));
-const narrow = matchMedia('(max-width: 719px)');   // a narrow window hides the panel, also when the window is made narrow later
+const narrow = matchMedia('(max-width: 719px), (max-height: 499px)');   // a narrow or short window hides the panel, also when it becomes one later
 if (narrow.matches) setPanel(false);
 narrow.addEventListener('change', e => { if (e.matches) setPanel(false); });
 requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('still')));   // animate from here on
-if (!document.fullscreenEnabled) { $('full').disabled = true; label($('full'), L('fullNone')); }
+if (!document.fullscreenEnabled) { $('full').disabled = true; label($('full'), L('fullNone')); $('fullBar').hidden = true; }   // an iPhone has full screen for <video> only
+$('fullBar').onclick = () => $('full').click();   // the toolbar's full-screen button on a phone
 $('full').onclick = () => {   // some embedded browsers neither open full screen nor reject, so a silent wait also gets a message
   if (document.fullscreenElement) return document.exitFullscreen();
   let settled = false;
@@ -964,7 +996,8 @@ try {
     $('scrub').setPointerCapture(e.pointerId); scrubbing = true; seek(scrubTime(e.offsetX));
   };
   $('scrub').onpointermove = e => { if (scrubbing) seek(scrubTime(e.offsetX)); scrubTip(e.offsetX); };
-  $('scrub').onpointerup = $('scrub').onpointercancel = () => { scrubbing = false; };
+  $('scrub').onpointerup = $('scrub').onpointercancel = e => { scrubbing = false; if (e.pointerType === 'touch') flashBar(); };
+  $('dock').addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && document.fullscreenElement) flashBar(); });   // a tap on the bar keeps it up
   $('scrub').onpointerleave = () => { if (!scrubbing) $('scrubTip').hidden = true; };
   new ResizeObserver(() => drawScrub()).observe($('scrub'));
   addEventListener('keydown', e => {
@@ -1083,8 +1116,16 @@ try {
   const pop = $('pop'), popText = $('popText');
   const where = m => m.range ? `${L('range')} ${fmt(m.range.start)} ${L('to')} ${fmt(m.range.end)}` : L('sceneSecond', m.sceneIndex, m.sceneTime.toFixed(2));   // read out
   const whereHTML = m => m.range ? `${L('range')} ${spanOf(m.range)}` : where(m);   // shown
+  const phone = matchMedia('(max-width: 719px)');
   function place() {   // under the box or point, or above the range's tag on the timeline; kept inside the window
     const el = $('marks').querySelector('.mk.on'), M = 12;
+    if (phone.matches && !document.fullscreenElement) {   // a phone: across the bottom of what is visible, above the keyboard
+      const vv = visualViewport || { offsetLeft: 0, offsetTop: 0, width: innerWidth, height: innerHeight };
+      pop.style.left = vv.offsetLeft + 8 + 'px'; pop.style.width = vv.width - 16 + 'px';
+      pop.style.top = vv.offsetTop + vv.height - pop.offsetHeight - 8 + 'px';
+      return;
+    }
+    pop.style.width = '';
     let r;
     if (el) r = el.getBoundingClientRect();
     else if (active?.range && !lane.hidden && lane.clientWidth) {
@@ -1097,6 +1138,7 @@ try {
     // a range note sits above the timeline, so the range stays in view
     pop.style.top = (el ? (below + h <= innerHeight - M ? below : Math.max(M, above)) : (above >= M ? above : below)) + 'px';
   }
+  for (const ev of ['resize', 'scroll']) visualViewport?.addEventListener(ev, () => { if (!pop.hidden) place(); });   // the keyboard opening or closing
   const grow = () => { popText.style.height = 'auto'; popText.style.height = Math.min(160, popText.scrollHeight + 2) + 'px'; };
   function openNote(m) {
     active = m; opening = null;
@@ -1310,15 +1352,19 @@ try {
   // on a note opens it, and a click while a note is open only closes it.
   view.onpointerdown = e => {
     if (e.button !== 0 || !cur) return;
-    if (playing) pause();
-    if (document.fullscreenElement) { clearTimeout(barTimer); setBar(false); inZone = false; }   // out of the way of a note near the bottom
+    // A finger has no pointer to rest near the bottom, so in full screen a tap there brings the player bar up instead of
+    // marking a point; a drag from there still draws a box.
+    const tapBar = !!document.fullscreenElement && e.pointerType === 'touch' && e.clientY >= innerHeight - ZONE;
+    if (playing && !tapBar) pause();
+    if (document.fullscreenElement && !tapBar) { clearTimeout(barTimer); setBar(false); inZone = false; }   // out of the way of a note near the bottom
     view.setPointerCapture(e.pointerId);
     const edit = grab(e);
-    drag = { a: onView(e), x: e.clientX, y: e.clientY, moved: false, open: !!active, ...(edit && { edit, m: active, from: { ...(active.box || active.point) } }) };
+    drag = { a: onView(e), x: e.clientX, y: e.clientY, moved: false, open: !!active, tapBar, ...(edit && { edit, m: active, from: { ...(active.box || active.point) } }) };
   };
   view.onpointermove = e => {
     if (!drag) { view.style.cursor = CURSOR[grab(e)] || ''; return; }   // over the open note: a move or resize cursor
     if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
+    if (drag.tapBar && !drag.moved) { if (playing) pause(); clearTimeout(barTimer); setBar(false); }   // a drag after all: a note
     if (drag.edit) { drag.moved = true; reshape(drag, onView(e)); return paint(); }
     if (!drag.moved) closeNote();
     const a = drag.a, b = onView(e); drag.moved = true;
@@ -1328,6 +1374,7 @@ try {
   view.onpointerup = () => {
     if (!drag) return;
     const d = drag; drag = null;
+    if (d.tapBar && !d.moved) return flashBar();
     if (d.edit && d.moved) {   // the note keeps its number and frame; its picture is drawn again
       images.set(d.m.n, snapshot(d.m)); save(); place();
       return popText.focus({ preventScroll: true });
