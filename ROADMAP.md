@@ -10,8 +10,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - The viewer on a VPS with a domain. That needs security in front of it, or access only through Tailscale, which is also worth considering. From there, work could be run remotely on the personal laptop (when it is on) or on the VPS (when there is one).
 - Custom GLSL transitions from a file in the project. A transition as a layer over the cut (a swish of shapes) already exists as the asset skill's `transition.js`, but each of the two scene pages has to draw its half by hand; `project.json` has no option for it.
 - A cut list that splits one recording over several scenes by section, with captions placed from a transcript. `cuts.js` has the time map (`toOut`), but each section page still picks its part of the list by hand.
-- Moving or resizing a note's box after it is drawn. Today the note has to be deleted and drawn again.
-- Clearing done notes in one go. They fold under Done, but `selection.json` keeps every one until it is deleted by hand.
+- A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
 
 ## Not tested yet
 
@@ -29,7 +28,8 @@ What is not built, what has not been tested, and ideas that came up while using 
 - MPFB, which was not installed on the test laptop.
 - The asset skill's FBX and OBJ files in programs other than Blender (Unity, Unreal, Maya, Cinema 4D).
 - `svgparts.js` and `transition.js` in the viewer. They were checked with stills and a video render.
-- Notes on a real touch screen. Touch was emulated in Chrome over the DevTools protocol.
+- Notes on a real touch screen. Touch was emulated in Chrome over the DevTools protocol. Moving and resizing a box was tried with the mouse only.
+- The viewer's full screen outside Chrome on Windows, and with a touch screen, where there is no pointer to rest.
 - The skills in agents other than Claude Code. The installer was run with `--dry-run` for every target, and the folders come from each agent's docs, but no other agent has loaded the skills or made a video with them yet. That includes Muse Code and Hermes Agent, added from their docs in November 2026.
 
 ## Questions about speed

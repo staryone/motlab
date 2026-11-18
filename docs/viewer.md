@@ -44,12 +44,14 @@ The name after the project in the header is the version menu. It lists every pro
 | A note on a range | mark the range, then Note in the range bar |
 | Save and close a note | Enter, Save, Escape, or a click on the empty grey space around the preview (Shift+Enter is a new line) |
 | Open a note | its row under Notes, its number on the timeline, or a click on its box |
+| Move or resize a note's box | open the note, then drag inside its box to move it, or a corner or an edge to resize it; a point moves the same way |
 | Delete a note | Delete in the open note |
 | Mark a note done | Mark done in the open note; Reopen opens it again |
 | See the done notes | Done at the end of the Notes list |
+| Delete all done notes | Delete all done notes, under the unfolded done notes, then click it again within 4 s |
 | Hide the timeline | the last button in the play toolbar |
 | Hide the side panel | the button in the top left |
-| Full screen | the button in the top right of the preview |
+| Full screen | the button in the top right of the preview, or `F`; Escape, `F` or the button on the right of the player bar to leave |
 
 Every button in the toolbars has a tooltip with its shortcut, and resting the pointer on the timeline for a second lists the timeline's keys.
 
@@ -120,6 +122,12 @@ Notes stay until they are deleted. They are numbered in the order they were made
 A note that has been dealt with can be marked done, by the user with Mark done in the open note or by the agent with `"done": true` in `selection.json`. A done note leaves the preview and the timeline and moves under Done at the end of the list, folded, so the list holds what is left for the next round. The number next to Notes counts the open notes only. A done note opened from the list shows on its frame again, says Done in its head, and Reopen makes it an open note again when the fix was not right.
 
 The agent writes `done` into the file while the page is open. So the viewer keeps the file's `done` for every note it did not change itself, and the server sends back which notes are done after each save. The page also reads the file again when it gets focus back, so a note the agent marked done moves under Done without a reload. A note the agent deletes from the file is gone from the page then too.
+
+An open note's box has a small square on each corner. Dragging inside the box moves it, and dragging a corner or an edge resizes it; the cursor shows which. An open point can be dragged too. The box stays inside the frame, keeps its number, text and frame, and its picture in `selection/` is drawn again. A drag on the preview with no note open still draws a new box, even over an old one, so a box has to be opened before it can be moved.
+
+The done notes can be deleted in one go with Delete all done notes, the last row under the unfolded done notes. The first click turns the row into "Click again to delete 2 notes" for 4 seconds, and a second click deletes them and their pictures, as Delete does one by one. It deletes the done notes of the open version only.
+
+Full screen shows the preview on the whole screen with a player bar along its bottom edge. The bar has a scrub bar across its width, split into the scenes and dark up to the playhead: click or drag it to move in time, and rest the pointer on it to see the time there. The open notes' numbers sit above it, and a click on one opens that note; a range shows as a light blue band. Under it, the time and the scene's name are on the left, previous, play and next in the middle of the screen, and a button on the right leaves full screen. The Left and Right arrows step one frame anywhere in full screen (one second with Shift), and Home and End jump to the start and the end. The timeline, the range bar and the range, zoom and timeline buttons stay out of full screen; `R` does nothing there, while `I`, `O` and `X` still mark a range at the playhead. While the video plays and the pointer rests for 2.5 seconds, the bar fades out with the cursor; moving the pointer, clicking or pressing a key brings it back. It stays while the video is paused, while a note is open, and while the pointer is on it.
 
 Notes work in full screen too: the card opens over the full-screen preview and takes typing, and Save writes the note. On a touch screen a finger drag draws a box like the mouse does, and a tap on Save saves it (tried in a windowed Chrome over the DevTools protocol, with touch emulated).
 

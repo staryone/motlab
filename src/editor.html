@@ -74,13 +74,39 @@
   #stage { flex: 1; min-height: 150px; display: grid; grid-template: minmax(0, 1fr) / minmax(0, 1fr); place-items: center; padding: 60px 24px 14px; font-size: 13px; color: var(--muted); }
   #msg { max-width: 46ch; text-align: center; user-select: text; }
   #stage { position: relative; }
-  #stage:fullscreen { padding: 0; background: #111; }
+  /* full screen: the preview fills the screen and a player bar floats along its bottom edge, as #dock: a white card like
+     the timeline's, with a scrub bar split into scenes (note numbers above it, a range as a light blue band), then the
+     play buttons, the time, the scene and the button that leaves full screen. The timeline, the range, zoom and timeline
+     buttons, the range bar and the full-screen pill are left out. While it plays and the pointer rests, the bar fades out
+     with the cursor; a move or a key brings it back */
+  #dock { display: contents; }
+  #scrubWrap, #fsScene, #fullExit { display: none; }
+  #canvas:fullscreen { overflow: hidden; background: #111; }
+  #canvas:fullscreen #stage { position: absolute; inset: 0; padding: 0; }
+  #canvas:fullscreen #dock { position: absolute; left: 12px; right: 12px; bottom: 12px; z-index: 3; display: flex; flex-direction: column; padding: 6px 6px 4px;
+    background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.12); transition: opacity var(--slide) var(--ease); }
+  #canvas:fullscreen :is(#lane, #rangeBtn, #zout, #zin, #laneBtn, #rangeBar, #pillFull) { display: none; }
+  #canvas:fullscreen #scrubWrap { display: block; position: relative; }
+  #scrub { display: block; width: 100%; height: 34px; cursor: pointer; touch-action: none; }
+  #scrubTip { position: absolute; bottom: calc(100% + 2px); translate: -50% 0; padding: 4px 6px; border-radius: 6px; background: var(--text); color: #fff; font-size: 12px; white-space: nowrap; pointer-events: none; }
+  #canvas:fullscreen #bar { justify-content: flex-start; padding: 0; margin: 0; }
+  /* three columns as in the header: the time and the scene on the left, previous, play and next in the middle of the
+     screen, the exit button on the right */
+  #canvas:fullscreen #tools { flex: 1; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto minmax(0, 1fr); padding: 0; border: 0; background: none; box-shadow: none; }
+  #canvas:fullscreen #time { grid-area: 1 / 1; justify-self: start; min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }   /* a long scene name ends in an ellipsis */
+  #canvas:fullscreen #prev { grid-area: 1 / 2; } #canvas:fullscreen #play { grid-area: 1 / 3; } #canvas:fullscreen #next { grid-area: 1 / 4; }
+  #canvas:fullscreen #fsScene { display: inline; margin-left: 10px; }
+  #canvas:fullscreen #fullExit { grid-area: 1 / 5; justify-self: end; display: flex; }
+  #canvas.idle:fullscreen, #canvas.idle:fullscreen #view { cursor: none; }
+  #canvas.idle:fullscreen #dock { opacity: 0; pointer-events: none; }
   /* notes on the preview, after the Claude canvas selection box: a 1 px blue line and a light blue fill, square
      corners, and the note's number in a small blue tag above the top left corner */
   #marks { position: absolute; inset: 0; pointer-events: none; }
   .mk { position: absolute; border: 1px solid var(--blue); background: rgba(44,111,224,.14); }
   .mk.on { background: rgba(44,111,224,.22); }
   .mk.point { border-radius: 50%; }
+  /* the open note's box has a small white square on each corner: drag a corner or an edge to resize it, the inside to move it */
+  .mk .hd { position: absolute; width: 7px; height: 7px; margin: -4px; background: #fff; border: 1px solid var(--blue); }
   .mk.point::after { content: ""; position: absolute; inset: 0; margin: auto; width: 5px; height: 5px; border-radius: 50%; background: var(--blue); }
   .mk i, .tag { min-width: 16px; height: 16px; padding: 0 5px; border-radius: 4px; background: var(--blue); color: #fff; font: 600 11px/16px var(--font); font-style: normal; text-align: center; font-variant-numeric: tabular-nums; }
   .mk i { position: absolute; left: -1px; bottom: calc(100% + 2px); }
@@ -102,7 +128,8 @@
   /* done notes: folded under "Selesai" (Done) at the end of the list, muted and struck through, and off the preview and the
      timeline unless one is open */
   #doneBtn { color: var(--muted); font-size: 13px; }
-  #doneBtn .ic { background: none; box-shadow: none; }
+  #doneBtn .ic, #clearDone .ic { background: none; box-shadow: none; }
+  #clearDone { color: var(--muted); font-size: 13px; }
   #doneBtn svg { transition: rotate var(--fast) var(--ease); }
   #doneBtn[aria-expanded="true"] svg { rotate: 180deg; }
   .row.done .ic.n, .row.done .name > span { color: var(--muted); }
@@ -118,7 +145,7 @@
   #view { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23fff' stroke-opacity='.4' stroke-width='3.5'/%3E%3Cpath d='M12 3v18M3 12h18' stroke='%231f1f1e' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair; }
   #view.on-dark { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23000' stroke-opacity='.4' stroke-width='3.5'/%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair; }
   #view { max-width: 100%; max-height: 100%; touch-action: none; background: #fff; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 2px 10px rgba(0,0,0,.06); }
-  #stage:fullscreen #view { border-radius: 0; box-shadow: none; }
+  #canvas:fullscreen #view { border-radius: 0; box-shadow: none; }
   #bar { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 0 12px; margin-bottom: 10px; }
   #tools, #rangeBar { height: 40px; padding: 0 6px; border-radius: 12px; }
   /* with a range: what it covers and what can be done with it, next to the play toolbar */
@@ -264,7 +291,7 @@
 </aside>
 <main>
   <div id="canvas">
-    <div class="pill" id="pillFull"><button class="sq" id="full" data-i="full" data-label="full"></button></div>
+    <div class="pill" id="pillFull"><button class="sq" id="full" data-i="full" data-label="full" data-key="F"></button></div>
     <div class="toast" id="note" role="status" hidden></div>
     <div id="stage"><span id="msg" data-t="loadingProject"></span><canvas id="view" hidden></canvas><div id="marks"></div>
       <div class="pop" id="pop" role="dialog" aria-labelledby="popWhere" hidden>
@@ -272,16 +299,19 @@
         <textarea id="popText" rows="2" data-t="placeholder=noteHint aria-label=note"></textarea>
         <div class="foot2"><button id="popDel" data-t="del"></button><span><button id="popDone"></button><button id="popOk" data-t="save"></button></span></div>
       </div></div>
+    <div id="dock">
+    <div id="scrubWrap"><canvas id="scrub" aria-hidden="true"></canvas><div id="scrubTip" hidden></div></div>
     <div id="bar">
     <div class="pill" id="tools">
       <button class="sq" id="prev" data-i="prev" data-label="prevScene"></button>
       <button class="sq" id="play" data-i="play" data-label="play" data-key="Space"></button>
       <button class="sq" id="next" data-i="next" data-label="nextScene"></button>
-      <span id="time" class="num"><span id="now">00:00.00</span> <span class="muted">/ <span id="len">00:00.00</span></span></span>
+      <span id="time" class="num"><span id="now">00:00.00</span> <span class="muted">/ <span id="len">00:00.00</span></span><span id="fsScene" class="muted"></span></span>
       <button class="sq" id="rangeBtn" data-i="range" data-label="markRange" data-key="R" aria-pressed="false"></button>
       <button class="sq" id="zout" data-i="zout" data-label="zoomOut" data-key="−"></button>
       <button class="sq" id="zin" data-i="zin" data-label="zoomIn" data-key="+"></button>
       <button class="sq" id="laneBtn" data-i="lane" data-label="hideTimeline" aria-expanded="true" aria-controls="lane"></button>
+      <button class="sq" id="fullExit" data-i="unfull" data-label="fullExit" data-key="F"></button>
     </div>
     <div class="pill" id="rangeBar" role="group" data-t="aria-label=range" hidden>
       <span class="ri" data-i="range"></span><span id="rangeText" class="num"></span>
@@ -293,6 +323,7 @@
       <canvas id="tl" data-tip="#tlKeys" tabindex="0" role="slider" aria-label="Timeline" aria-valuemin="0" aria-valuenow="0"></canvas>
       <div class="mark" id="pick" hidden></div><div class="mark" id="head"></div>
     </div></div>
+    </div>
   </div>
 </main>
 <div id="frames"></div>
@@ -390,6 +421,8 @@ const TEXT = {
   noteLabel: [(n, done, text, where) => `Catatan ${n}${done ? ', selesai' : ''}: ${text || 'tanpa catatan'}, ${where}`, (n, done, text, where) => `Note ${n}${done ? ', done' : ''}: ${text || 'empty note'}, ${where}`],
   noNotes: ['Belum ada catatan. Tarik kotak atau klik di preview.', 'No notes yet. Drag a box or click on the preview.'],
   allDone: ['Semua catatan sudah selesai.', 'All notes are done.'],
+  clearDone: ['Hapus semua yang selesai', 'Delete all done notes'],
+  clearSure: [n => `Klik lagi untuk menghapus ${n} catatan`, n => `Click again to delete ${n} note${n > 1 ? 's' : ''}`],
   rangeHow: ['Tarik di timeline dari awal sampai akhir. Esc untuk batal.', 'Drag on the timeline from start to end. Esc to cancel.'],
   open: ['Buka', 'Open'],
   cancelling: ['Membatalkan…', 'Cancelling…'],
@@ -425,6 +458,7 @@ const ICON = {
   panel: svg('<rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6.5 3v10"/>'),
   export: svg('<path d="M8 2.5v7.5m0 0L5 7m3 3 3-3M3 11v1a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 13 12v-1"/>'),
   full: svg('<path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9.5 6.5M2.5 13.5l4-4"/>'),
+  unfull: svg('<path d="M9.5 2.5v4h4M6.5 13.5v-4h-4M13.5 2.5l-4 4M2.5 13.5l4-4"/>'),   // the same arrows, pointing in
   prev: svg('<path d="M4 3.5v9"/><path d="M12 4v8L6.5 8z" fill="currentColor"/>'),
   next: svg('<path d="M12 3.5v9"/><path d="M4 4v8l5.5-4z" fill="currentColor"/>'),
   play: svg('<path d="M5 3.5v9L12.5 8z"/>', true),
@@ -549,10 +583,20 @@ if (!document.fullscreenEnabled) { $('full').disabled = true; label($('full'), L
 $('full').onclick = () => {   // some embedded browsers neither open full screen nor reject, so a silent wait also gets a message
   if (document.fullscreenElement) return document.exitFullscreen();
   let settled = false;
-  $('stage').requestFullscreen().then(() => settled = true, e => { settled = true; note(L('fullRefused')); });
+  $('canvas').requestFullscreen().then(() => settled = true, e => { settled = true; note(L('fullRefused')); });
   setTimeout(() => { if (!settled) note(L('fullStuck')); }, 1500);
 };
-document.onfullscreenchange = () => label($('full'), L(document.fullscreenElement ? 'fullExit' : 'full'));
+addEventListener('keydown', e => {   // F for full screen, as in video players
+  if (e.key.toLowerCase() !== 'f' || e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea') || $('full').disabled) return;
+  e.preventDefault(); $('full').click();
+});
+$('fullExit').onclick = () => document.exitFullscreen();
+// Only the full-screen element is drawn in full screen, so the tooltip moves into it and back out again. The button
+// gives up focus, so Space plays instead of pressing it again.
+document.addEventListener('fullscreenchange', () => {
+  (document.fullscreenElement || document.body).append($('tip'));
+  if (document.activeElement === $('full')) $('full').blur();
+});
 
 try {
   const project = await (await fetch(encodeURIComponent('{{project}}'))).json(), fps = project.fps, files = project.audio || [];
@@ -652,7 +696,7 @@ try {
   // lane scrolls natively, and the canvas (sticky) draws only the part in view.
   const fitPps = () => (lane.clientWidth - PAD * 2) / total, maxZoom = () => Math.max(1, 24 * fps / fitPps());   // up to 24 px per frame
   function layout() {   // hidden, the timeline has no width, so it keeps its zoom and is laid out again when it is shown
-    if (lane.hidden) return;
+    if (lane.hidden || !lane.clientWidth) return;   // hidden, or left out in full screen
     zoom = Math.min(zoom, maxZoom()); pps = fitPps() * zoom;
     $('laneIn').style.width = zoom > 1 ? total * pps + PAD * 2 + 'px' : '';
     $('zout').disabled = zoom <= 1; $('zin').disabled = zoom >= maxZoom();
@@ -661,7 +705,8 @@ try {
     zoom = Math.max(1, z); layout(); lane.scrollLeft = PAD + at * pps - x; drawTimeline();
   }
   function drawTimeline() {
-    if (lane.hidden) return;
+    drawScrub();   // notes and the range show on the full-screen scrub bar too
+    if (lane.hidden || !lane.clientWidth) return;   // hidden, or left out in full screen
     const w = lane.clientWidth, h = laneHeight(tracks.length), dpr = devicePixelRatio, sx = lane.scrollLeft;
     tl.style.width = w + 'px'; tl.width = w * dpr; tl.height = h * dpr; tl.style.height = h + 'px'; g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const X = time => PAD + time * pps - sx, from = Math.max(0, (sx - PAD) / pps), to = (sx + w) / pps;   // visible seconds
@@ -752,9 +797,10 @@ try {
     $('head').style.left = PAD + t * pps + 'px';
     $('pick').hidden = !sel; if (sel) $('pick').style.left = PAD + sel.time * pps + 'px';
     tl.setAttribute('aria-valuenow', t.toFixed(2)); tl.setAttribute('aria-valuetext', `${fmt(t)}, ${name(sceneAt(t).file)}`);
+    drawScrub();
   }
   function reveal() {   // zoomed in, playing or stepping brings the playhead back into view, near the left edge
-    if (lane.hidden) return;
+    if (lane.hidden || !lane.clientWidth) return;   // hidden, or left out in full screen
     const x = PAD + t * pps - lane.scrollLeft;
     if (x < PAD || x > lane.clientWidth - PAD) lane.scrollLeft = t * pps;
   }
@@ -793,6 +839,8 @@ try {
       d.className = 'mk' + (m.point ? ' point' : '') + (m === active ? ' on' : '');
       Object.assign(d.style, { left: vr.left - sr.left + b.x * k + 'px', top: vr.top - sr.top + b.y * k + 'px', width: b.w * k + 'px', height: b.h * k + 'px' });
       if (m.n) d.append(Object.assign(document.createElement('i'), { textContent: m.n }));
+      if (m === active && m.box) for (const [x, y] of [[0, 0], [1, 0], [0, 1], [1, 1]])
+        d.append(Object.assign(document.createElement('b'), { className: 'hd', style: `left: ${x * 100}%; top: ${y * 100}%` }));
       return d;
     }));
     if (active?.box || active?.point) place();
@@ -819,7 +867,7 @@ try {
   async function show() {
     marks(); $('now').textContent = fmt(t);
     const s = sceneAt(t);
-    if (s !== shown) { if (shown) shown.warm = null; shown = s; $('crumb').textContent = name(s.file); }   // played, it needs warming again
+    if (s !== shown) { if (shown) shown.warm = null; shown = s; $('crumb').textContent = $('fsScene').textContent = name(s.file); }   // played, it needs warming again
     if (busy) return;
     const at = t, frame = frameIn(s, at);
     // The display refreshes at 60 to 240 Hz and the video has 24 or 30 frames a second, so most ticks land on the frame
@@ -850,8 +898,63 @@ try {
     if (at !== t) show();
   }
 
+  // ---- full screen: while it plays and the pointer rests for 2.5 s, the player bar fades out with the cursor. A move, a
+  // click or a key brings it back; paused, with a note open, or with the pointer on the bar, it stays.
+  let idleTimer = 0;
+  function wake() {
+    $('canvas').classList.remove('idle'); clearTimeout(idleTimer);
+    if (document.fullscreenElement && playing && !active) idleTimer = setTimeout(() => $('dock').matches(':hover') ? wake() : $('canvas').classList.add('idle'), 2500);
+  }
+  for (const ev of ['pointermove', 'pointerdown', 'keydown']) addEventListener(ev, wake, { passive: true });
+  document.addEventListener('fullscreenchange', () => { wake(); requestAnimationFrame(() => drawScrub()); });
+  // The scrub bar in the full-screen player bar: the video's length across the bar, split into its scenes, dark up to
+  // the playhead. Click or drag it to move in time; a note's number above it opens the note. Arrows step a frame (a
+  // second with Shift) anywhere in full screen, as on the focused timeline.
+  const SX = 8, SY = 25, scrubHits = [];   // side room for the knob; the track's middle
+  const scrubX = time => SX + time / total * ($('scrub').clientWidth - 2 * SX);
+  const scrubTime = x => Math.min(total, Math.max(0, (x - SX) / ($('scrub').clientWidth - 2 * SX) * total));
+  function drawScrub() {
+    const c = $('scrub'), w = c.clientWidth, h = c.clientHeight;
+    if (!document.fullscreenElement || !w) return;
+    const s = c.getContext('2d'), dpr = devicePixelRatio, X = scrubX;
+    c.width = w * dpr; c.height = h * dpr; s.setTransform(dpr, 0, 0, dpr, 0, 0);
+    const fill = (x, y, cw, ch, r) => { if (cw <= 0) return; s.beginPath(); s.roundRect(x, y, cw, ch, r); s.fill(); };
+    if (range) { s.fillStyle = 'rgba(44,111,224,.16)'; fill(X(range.start), SY - 6, X(range.end) - X(range.start), 12, 3); }
+    scenes.forEach((sc, i) => {   // 2 px apart at each cut; a transition's overlap belongs to the scene it leads into
+      const a = X(sc.start) + (i ? 1 : 0), b = scenes[i + 1] ? X(scenes[i + 1].start) - 1 : X(total);
+      s.fillStyle = '#dcdcda'; fill(a, SY - 2, b - a, 4, 2);
+      s.fillStyle = '#1f1f1e'; fill(a, SY - 2, Math.min(b, X(t)) - a, 4, 2);
+    });
+    s.font = `600 11px ${FONT}`; s.textAlign = 'center'; s.textBaseline = 'middle'; scrubHits.length = 0;
+    for (const m of openNotes()) {   // tags as on the timeline: light blue, solid blue for the open note
+      const tw = Math.max(16, s.measureText(m.n).width + 10), x0 = Math.min(w - tw, Math.max(0, X(m.range ? m.range.start : m.time) - tw / 2));
+      s.fillStyle = m === active ? BLUE : '#dfe9fb'; fill(x0, 1, tw, 16, 4);
+      s.fillStyle = m === active ? '#fff' : BLUE; s.fillText(m.n, x0 + tw / 2, 9.5);
+      scrubHits.push({ m, x0, x1: x0 + tw });
+    }
+    s.fillStyle = '#1f1f1e'; s.beginPath(); s.arc(X(t), SY, 6, 0, Math.PI * 2); s.fill();
+  }
+  let scrubbing = false;
+  const scrubTip = x => { const tip = $('scrubTip'), w = $('scrub').clientWidth; tip.textContent = fmt(scrubTime(x)); tip.hidden = false; tip.style.left = Math.min(w - 30, Math.max(30, x)) + 'px'; };
+  $('scrub').onpointerdown = e => {
+    if (e.button !== 0) return;
+    const tag = e.offsetY < 19 && scrubHits.findLast(h => e.offsetX >= h.x0 && e.offsetX <= h.x1);
+    if (tag) return goTo(tag.m);
+    $('scrub').setPointerCapture(e.pointerId); scrubbing = true; seek(scrubTime(e.offsetX));
+  };
+  $('scrub').onpointermove = e => { if (scrubbing) seek(scrubTime(e.offsetX)); scrubTip(e.offsetX); };
+  $('scrub').onpointerup = $('scrub').onpointercancel = () => { scrubbing = false; };
+  $('scrub').onpointerleave = () => { if (!scrubbing) $('scrubTip').hidden = true; };
+  new ResizeObserver(() => drawScrub()).observe($('scrub'));
+  addEventListener('keydown', e => {
+    if (!document.fullscreenElement || e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea')) return;
+    const step = e.shiftKey ? 1 : 1 / fps, to = { ArrowLeft: t - step, ArrowRight: t + step, Home: 0, End: total }[e.key];
+    if (to === undefined) return;
+    e.preventDefault(); seek(to);
+  });
+
   // ---- playback: the audio clock drives the playhead; the button is blue only while it plays
-  const setPlay = on => { $('play').innerHTML = on ? ICON.pause : ICON.play; $('play').classList.toggle('hot', on); label($('play'), L(on ? 'pause' : 'play')); };
+  const setPlay = on => { $('play').innerHTML = on ? ICON.pause : ICON.play; $('play').classList.toggle('hot', on); label($('play'), L(on ? 'pause' : 'play')); wake(); };
   function play(jump = true) {   // with a range, Play starts at its start and goes round inside it
     const inside = range && t >= range.start && t < range.end - 1e-6;
     looping = !!range && (jump || inside);   // a click elsewhere while playing plays on from there
@@ -963,10 +1066,11 @@ try {
     const el = $('marks').querySelector('.mk.on'), M = 12;
     let r;
     if (el) r = el.getBoundingClientRect();
-    else if (active?.range && !lane.hidden) {
+    else if (active?.range && !lane.hidden && lane.clientWidth) {
       const lr = tl.getBoundingClientRect(), x = lr.left + PAD + active.range.start * pps - lane.scrollLeft;
       r = { left: x, top: lr.top + MK_Y - 8, bottom: lr.top + MK_Y + 8 };
-    } else { const sr = $('stage').getBoundingClientRect(); r = { left: sr.left + sr.width / 2 - 144, top: sr.bottom - 24, bottom: sr.bottom - 24 }; }
+    } else if (document.fullscreenElement) { const dr = $('dock').getBoundingClientRect(); r = { left: dr.left + dr.width / 2 - 144, top: dr.top, bottom: dr.top }; }   // above the player bar
+    else { const sr = $('stage').getBoundingClientRect(); r = { left: sr.left + sr.width / 2 - 144, top: sr.bottom - 24, bottom: sr.bottom - 24 }; }
     const w = pop.offsetWidth, h = pop.offsetHeight, below = r.bottom + 8, above = r.top - 8 - h;
     pop.style.left = Math.min(innerWidth - w - M, Math.max(M, r.left)) + 'px';
     // a range note sits above the timeline, so the range stays in view
@@ -1035,9 +1139,26 @@ try {
       b.querySelector('.num').textContent = done.length;
       b.onclick = () => { doneOpen = !doneOpen; try { localStorage.motlabDone = doneOpen ? '1' : '0'; } catch {} listNotes(); $('doneBtn').focus(); };
       li.append(b); items.push(li);
-      if (doneOpen) items.push(...done.map(row));
+      if (doneOpen) items.push(...done.map(row), clearRow(done.length));
     }
     $('notes').replaceChildren(...items);
+  }
+  // Under the unfolded done notes: delete them all. The first click asks, by changing the row's text for 4 s, and a
+  // second click deletes them, as Hapus does one by one.
+  let clearAsked = 0;
+  function clearRow(n) {
+    const li = document.createElement('li'), b = document.createElement('button');
+    b.className = 'row'; b.id = 'clearDone';
+    b.innerHTML = `<span class="ic" aria-hidden="true">${ICON.x}</span><span class="name"></span>`;
+    b.lastChild.textContent = clearAsked ? L('clearSure', n) : L('clearDone');
+    b.onclick = () => {
+      if (!clearAsked) { clearAsked = setTimeout(() => { clearAsked = 0; listNotes(); }, 4000); listNotes(); return $('clearDone').focus(); }
+      clearTimeout(clearAsked); clearAsked = 0;
+      for (const m of notes.filter(x => x.done)) { images.delete(m.n); deleted.add(key(m)); if (m === active) { active = null; pop.hidden = true; } }
+      notes = notes.filter(x => !x.done);
+      paint(); listNotes(); drawTimeline(); save();
+    };
+    li.append(b); return li;
   }
   popText.oninput = () => { active.note = popText.value; grow(); place(); listNotes(); save(); };
   popText.onkeydown = e => {
@@ -1103,7 +1224,7 @@ try {
   addEventListener('keydown', e => {   // I and O mark the start and the end of the range at the playhead
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea')) return;
     const k = e.key.toLowerCase(), at = snap(t);
-    if (k === 'r') setRangeMode(!rangeMode);   // R picks the range tool, as in Final Cut Pro
+    if (k === 'r' && !document.fullscreenElement) setRangeMode(!rangeMode);   // R picks the range tool, as in Final Cut Pro; full screen has no timeline to drag on
     if (k === 'x') { const s = sceneAt(t); setRange(snap(s.start), snap(s.start + s.dur), true); }   // X: the scene under the playhead, as Mark Clip
     if (k === 'i') setRange(at, range && range.end > at ? range.end : total, true);
     else if (k === 'o') setRange(range && range.start < at ? range.start : 0, at, true);
@@ -1140,16 +1261,43 @@ try {
     return openNotes().filter(onFrame).findLast(m => m.box ? p.x >= m.box.x && p.x <= m.box.x + m.box.w && p.y >= m.box.y && p.y <= m.box.y + m.box.h
       : Math.hypot(p.x - m.point.x, p.y - m.point.y) <= (PT / 2 + 2) / k);
   };
+  // The open note's box can be moved (drag inside it) and resized (drag a corner or an edge), and its point moved. What a
+  // drag there would change: 'move', or the edges as compass letters ('n', 'se', ...), or null.
+  const EDGE = 6;   // CSS px either side of an edge
+  const grab = e => {
+    if (!active || !onFrame(active)) return null;
+    const r = view.getBoundingClientRect(), k = r.width / view.width, x = e.clientX - r.left, y = e.clientY - r.top;
+    if (active.point) return Math.hypot(x - active.point.x * k, y - active.point.y * k) <= PT / 2 + 2 ? 'move' : null;
+    const { box: b } = active, l = b.x * k, t = b.y * k, rt = (b.x + b.w) * k, bt = (b.y + b.h) * k;
+    if (x < l - EDGE || x > rt + EDGE || y < t - EDGE || y > bt + EDGE) return null;
+    const v = Math.abs(y - t) <= EDGE ? 'n' : Math.abs(y - bt) <= EDGE ? 's' : '', h = Math.abs(x - l) <= EDGE ? 'w' : Math.abs(x - rt) <= EDGE ? 'e' : '';
+    return v + h || (x > l && x < rt && y > t && y < bt ? 'move' : null);
+  };
+  const CURSOR = { move: 'move', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize', ne: 'nesw-resize', sw: 'nesw-resize', nw: 'nwse-resize', se: 'nwse-resize' };
+  function reshape(d, p) {   // the open note's box or point after dragging from d.a to p, kept inside the frame
+    const dx = p.x - d.a.x, dy = p.y - d.a.y, W = view.width, H = view.height, f = d.from;
+    if (d.m.point) return void (d.m.point = { x: Math.round(Math.min(W, Math.max(0, f.x + dx))), y: Math.round(Math.min(H, Math.max(0, f.y + dy))) });
+    if (d.edit === 'move') return void (d.m.box = { ...f, x: Math.round(Math.min(W - f.w, Math.max(0, f.x + dx))), y: Math.round(Math.min(H - f.h, Math.max(0, f.y + dy))) });
+    let l = f.x, t = f.y, r = f.x + f.w, b = f.y + f.h;
+    if (d.edit.includes('w')) l += dx; if (d.edit.includes('e')) r += dx;
+    if (d.edit.includes('n')) t += dy; if (d.edit.includes('s')) b += dy;
+    const c = (v, max) => Math.min(max, Math.max(0, v));   // dragged past the other edge, the box flips over
+    [l, r] = [c(Math.min(l, r), W), c(Math.max(l, r), W)]; [t, b] = [c(Math.min(t, b), H), c(Math.max(t, b), H)];
+    d.m.box = { x: Math.round(l), y: Math.round(t), w: Math.max(2, Math.round(r - l)), h: Math.max(2, Math.round(b - t)) };
+  }
   // A drag on the preview draws a box and a click marks a point; either one is a new note, opened for typing. A click
   // on a note opens it, and a click while a note is open only closes it.
   view.onpointerdown = e => {
     if (e.button !== 0 || !cur) return;
     if (playing) pause();
     view.setPointerCapture(e.pointerId);
-    drag = { a: onView(e), x: e.clientX, y: e.clientY, moved: false, open: !!active };
+    const edit = grab(e);
+    drag = { a: onView(e), x: e.clientX, y: e.clientY, moved: false, open: !!active, ...(edit && { edit, m: active, from: { ...(active.box || active.point) } }) };
   };
   view.onpointermove = e => {
-    if (!drag || (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4)) return;
+    if (!drag) { view.style.cursor = CURSOR[grab(e)] || ''; return; }   // over the open note: a move or resize cursor
+    if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
+    if (drag.edit) { drag.moved = true; reshape(drag, onView(e)); return paint(); }
     if (!drag.moved) closeNote();
     const a = drag.a, b = onView(e); drag.moved = true;
     draft = { box: { x: Math.round(Math.min(a.x, b.x)), y: Math.round(Math.min(a.y, b.y)), w: Math.round(Math.abs(b.x - a.x)), h: Math.round(Math.abs(b.y - a.y)) } };
@@ -1158,6 +1306,10 @@ try {
   view.onpointerup = () => {
     if (!drag) return;
     const d = drag; drag = null;
+    if (d.edit && d.moved) {   // the note keeps its number and frame; its picture is drawn again
+      images.set(d.m.n, snapshot(d.m)); save(); place();
+      return popText.focus({ preventScroll: true });
+    }
     if (d.moved) {
       const { box } = draft; draft = null;
       if (box.w < 2 || box.h < 2) return paint();
@@ -1168,7 +1320,7 @@ try {
     if (d.open) return closeNote();
     select(t, null); addNote({ point: { x: Math.round(d.a.x), y: Math.round(d.a.y) } }); showSelection();
   };
-  view.onpointercancel = () => { drag = draft = null; paint(); };
+  view.onpointercancel = () => { if (drag?.edit) Object.assign(drag.m, drag.m.box ? { box: drag.from } : { point: drag.from }); drag = draft = null; paint(); };
   // Escape (unless it just closed a menu) closes the open note, else leaves range marking, else takes the range off. A click on the empty grey
   // space around the preview closes the note. Notes are only deleted with Hapus.
   const unrange = () => { if (!range) return; range = null; save(); showSelection(); };
