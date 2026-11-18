@@ -90,13 +90,14 @@ Skill targets. Each one is the agent's user skill folder, as its docs gave it in
 | Target | Folder | Read by |
 |---|---|---|
 | `claude` | `~/.claude/skills/` | Claude Code. Cursor, OpenCode and Amp read it too |
-| `agents` (or `codex`) | `~/.agents/skills/` | Codex, Cursor, OpenCode, GitHub Copilot, Gemini CLI, Amp, Windsurf |
+| `agents` (or `codex`, `muse`) | `~/.agents/skills/` | Codex, Cursor, OpenCode, GitHub Copilot, Gemini CLI, Amp, Windsurf, Muse Code |
 | `antigravity` | `~/.gemini/config/skills/` | Antigravity, the App and the CLI |
+| `hermes` | `skills/` in Hermes's home: `HERMES_HOME` if set, else `~/.hermes/` (`%LOCALAPPDATA%\hermes\` on Windows) | Hermes Agent |
 | `opencode` | `~/.config/opencode/skills/` | OpenCode |
 | `cursor` | `~/.cursor/skills/` | Cursor |
 | `copilot` | `~/.copilot/skills/` | GitHub Copilot |
 
-`claude,agents,antigravity` covers every agent in the table. An agent that reads two of these folders finds the skill in both; OpenCode and Amp keep one, and the others may list it twice. For any other agent, find its user skill folder in its docs and pass it with `--skill-dir`, for example Windsurf's own `~/.config/devin/skills`. The Antigravity CLI also reads `~/.gemini/antigravity-cli/skills/` and `~/.gemini/skills/`, and the App reads neither, so the installer uses the folder they share. A copy in one of the CLI's own folders wins over it in the CLI, so delete an old one there. Codex used `~/.codex/skills/` before; a copy left there by an older installer can be deleted.
+`claude,agents,antigravity,hermes` covers every agent in the table. An agent that reads two of these folders finds the skill in both; OpenCode and Amp keep one, and the others may list it twice. Muse Code also reads `~/.claude/skills/`, so after `claude,agents` it may list motlab twice. Hermes reads `~/.agents/skills/` only when it is listed under `skills.external_dirs` in its `config.yaml`; `--skill hermes` copies the skills into its own folder instead. A Hermes profile has its own home, so run setup with that profile's `HERMES_HOME` set to put the skills there. For any other agent, find its user skill folder in its docs and pass it with `--skill-dir`, for example Windsurf's own `~/.config/devin/skills`. The Antigravity CLI also reads `~/.gemini/antigravity-cli/skills/` and `~/.gemini/skills/`, and the App reads neither, so the installer uses the folder they share. A copy in one of the CLI's own folders wins over it in the CLI, so delete an old one there. Codex used `~/.codex/skills/` before; a copy left there by an older installer can be deleted.
 
 The installer never installs Chrome, ffmpeg or Python. An existing link at a skill path is removed as a link, so the folder it pointed at is not touched. A folder there that has no `SKILL.md` is left alone unless you pass `--force`.
 

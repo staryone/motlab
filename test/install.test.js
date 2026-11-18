@@ -65,6 +65,23 @@ test('motlab setup copies the skills and nothing else', () => {
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
+// Muse Code reads ~/.agents/skills. Hermes reads only the skills folder in its home: HERMES_HOME when it is set, else
+// ~/.hermes, or %LOCALAPPDATA%\hermes on Windows.
+test('setup --skill muse,hermes puts the skills where Muse Code and Hermes read them', () => {
+  const home = mkdtempSync(join(tmpdir(), 'motlab-home-'));
+  try {
+    const run = extra => spawnSync(process.execPath, ['bin/motlab.js', 'setup', '--skill', 'muse,hermes', '--dry-run'],
+      { encoding: 'utf8', env: { ...process.env, HOME: home, USERPROFILE: home, LOCALAPPDATA: join(home, 'local'), HERMES_HOME: '', ...extra } });
+    const hermes = process.platform === 'win32' ? join(home, 'local', 'hermes') : join(home, '.hermes');
+    for (const [extra, dir] of [[{}, hermes], [{ HERMES_HOME: join(home, 'profile') }, join(home, 'profile')]]) {
+      const r = run(extra);
+      assert.equal(r.status, 0, r.stdout + r.stderr);
+      for (const want of [join(home, '.agents', 'skills', 'motlab'), join(dir, 'skills', 'motlab'), join(dir, 'skills', 'motlab-assets')])
+        assert.ok(r.stdout.includes(`-> ${want}`), `${want} missing from:\n${r.stdout}`);
+    }
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
 // After `npm install -g`, setup writes its own launcher only when npm's command folder is not on PATH (nvm for
 // Windows 2.0 keeps it off). The package is laid out as npm lays out a global install: <prefix>\node_modules\@motlab\cli
 // on Windows, <prefix>/lib/node_modules/@motlab/cli with the command in <prefix>/bin elsewhere.

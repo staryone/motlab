@@ -38,7 +38,7 @@ If they already have a clone and only want the newest version, run `motlab updat
 
 ## 3. Run the installer
 
-Pick the skill target for the agent you are, from the table in [install.md](install.md#with-the-installer): `claude` for Claude Code, `agents` for Codex, Cursor, OpenCode, GitHub Copilot, Gemini CLI, Amp and Windsurf, `antigravity` for the Antigravity App and CLI. If the user also works in other agents, ask which, and join the targets with commas. For an agent not in the table, look up its user skill folder in its own docs and pass `--skill-dir <folder>` instead. Run a dry run first and show the user where files will go:
+Pick the skill target for the agent you are, from the table in [install.md](install.md#with-the-installer): `claude` for Claude Code, `agents` for Codex, Cursor, OpenCode, GitHub Copilot, Gemini CLI, Amp, Windsurf and Muse Code, `antigravity` for the Antigravity App and CLI, `hermes` for Hermes Agent. If the user also works in other agents, ask which, and join the targets with commas. For an agent not in the table, look up its user skill folder in its own docs and pass `--skill-dir <folder>` instead. Run a dry run first and show the user where files will go:
 
 ```bash
 node install.js --skill <target> --dry-run

@@ -56,8 +56,9 @@ Setup installs the skills for Claude Code unless you name another agent:
 | Your agent | Setup command |
 |---|---|
 | Claude Code | `npx @motlab/cli setup` |
-| Codex, Cursor, OpenCode, GitHub Copilot, Gemini CLI, Amp, Windsurf | `npx @motlab/cli setup --skill agents` |
+| Codex, Cursor, OpenCode, GitHub Copilot, Gemini CLI, Amp, Windsurf, Muse Code | `npx @motlab/cli setup --skill agents` |
 | Antigravity (App and CLI) | `npx @motlab/cli setup --skill antigravity` |
+| Hermes Agent | `npx @motlab/cli setup --skill hermes` |
 | Several of them | `npx @motlab/cli setup --skill claude,agents,antigravity` |
 | Any other agent | `npx @motlab/cli setup --skill-dir <its skill folder>` |
 
@@ -161,7 +162,7 @@ Footage is decoded inside the page with Mediabunny, so a scene can cut and trim 
 
 <br>
 
-> `motlab setup` and the installer copy it for Claude Code by default. `--skill agents` covers Codex, Cursor, OpenCode, GitHub Copilot, Gemini CLI, Amp and Windsurf, and `--skill antigravity` the Antigravity App and CLI. `--skill-dir` takes any other agent's skill folder.
+> `motlab setup` and the installer copy it for Claude Code by default. `--skill agents` covers Codex, Cursor, OpenCode, GitHub Copilot, Gemini CLI, Amp, Windsurf and Muse Code, `--skill antigravity` the Antigravity App and CLI, and `--skill hermes` Hermes Agent. `--skill-dir` takes any other agent's skill folder.
 
 </details>
 

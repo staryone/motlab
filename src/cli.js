@@ -22,7 +22,7 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
   motlab video  <page.html> <out.mp4> [--fps 24] [--scale 2] [--audio file] [--encoder auto|hw|sw] [--workers N]
   motlab events <page.html> <out.json>
   motlab doctor                                      check Node, Chrome, ffmpeg and the skill's Python packages
-  motlab setup  [--skill claude|agents|antigravity|...] [--skill-dir <dir>] [--link] [--update] [--dry-run]
+  motlab setup  [--skill claude|agents|antigravity|hermes|...] [--skill-dir <dir>] [--link] [--update] [--dry-run]
                                                      copy the skills to agent folders (after npm install -g; default
                                                      Claude Code), and add the command when npm's folder is not on
                                                      PATH. --update copies them again where they went before

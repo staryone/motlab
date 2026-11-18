@@ -30,7 +30,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - The asset skill's FBX and OBJ files in programs other than Blender (Unity, Unreal, Maya, Cinema 4D).
 - `svgparts.js` and `transition.js` in the viewer. They were checked with stills and a video render.
 - Notes on a real touch screen. Touch was emulated in Chrome over the DevTools protocol.
-- The skills in agents other than Claude Code. The installer was run with `--dry-run` for every target, and the folders come from each agent's docs, but no other agent has loaded the skills or made a video with them yet.
+- The skills in agents other than Claude Code. The installer was run with `--dry-run` for every target, and the folders come from each agent's docs, but no other agent has loaded the skills or made a video with them yet. That includes Muse Code and Hermes Agent, added from their docs in November 2026.
 
 ## Questions about speed
 

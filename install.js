@@ -2,7 +2,9 @@
 // Installs motlab from this folder: npm packages, a `motlab` command on PATH and the agent skills (motlab, motlab-assets).
 //
 //   node install.js                       engine, command and the skills for Claude Code
-//   node install.js --skill agents        the skills in ~/.agents/skills (Codex, Cursor, OpenCode, Copilot, Gemini CLI, Amp, Windsurf)
+//   node install.js --skill agents        the skills in ~/.agents/skills (Codex, Cursor, OpenCode, Copilot, Gemini CLI, Amp,
+//                                         Windsurf, Muse Code)
+//   node install.js --skill hermes        the skills in Hermes Agent's own folder
 //   node install.js --skill claude,antigravity   several agents at once (see SKILL_DIRS; none for no skills)
 //   node install.js --skill-dir <dir>     the skills in any other agent's skill folder
 //   node install.js --link                link the skills to this folder instead of copying them (for working on a skill)
@@ -24,12 +26,17 @@ import { onUserPath } from './src/userpath.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), WIN = process.platform === 'win32', HOME = homedir();
 // Each agent's user skill folder, from its docs (November 2026). ~/.agents/skills is the shared one: Codex reads only that,
-// and Cursor, OpenCode, Copilot, Gemini CLI, Amp and Windsurf read it too. Claude Code and Antigravity do not.
+// and Cursor, OpenCode, Copilot, Gemini CLI, Amp, Windsurf and Muse Code read it too. Claude Code, Antigravity and
+// Hermes do not. Hermes reads the skills folder in its home: HERMES_HOME, else ~/.hermes, or %LOCALAPPDATA%\hermes on Windows.
 const AGENTS = join(HOME, '.agents', 'skills');
+const HERMES = process.env.HERMES_HOME ? resolve(process.env.HERMES_HOME.replace(/^~(?=$|[\\/])/, HOME))
+  : WIN ? join(process.env.LOCALAPPDATA || join(HOME, 'AppData', 'Local'), 'hermes') : join(HOME, '.hermes');
 const SKILL_DIRS = {
   claude: join(HOME, '.claude', 'skills'),
   agents: AGENTS,
   codex: AGENTS,
+  muse: AGENTS,
+  hermes: join(HERMES, 'skills'),
   antigravity: join(HOME, '.gemini', 'config', 'skills'),   // the one folder both the Antigravity App and the CLI (agy) read
   opencode: join(HOME, '.config', 'opencode', 'skills'),
   cursor: join(HOME, '.cursor', 'skills'),
@@ -50,7 +57,7 @@ const found = o.update ? Object.values(SKILL_DIRS).filter(d => existsSync(join(d
 const targets = (o.skill ?? (o.update ? 'none' : 'claude')).split(',').map(t => t.trim()).filter(t => t && t !== 'none');
 const bad = targets.filter(t => !SKILL_DIRS[t]);
 if (bad.length) { console.error(`unknown --skill ${bad.join(', ')}; use ${Object.keys(SKILL_DIRS).join(', ')}, none, or --skill-dir <dir>`); process.exit(1); }
-const skillDirs = [...new Set([...targets.map(t => SKILL_DIRS[t]),   // codex and agents are one folder
+const skillDirs = [...new Set([...targets.map(t => SKILL_DIRS[t]),   // codex, muse and agents are one folder
   ...(o['skill-dir'] || []).map(d => resolve(d.replace(/^~(?=$|[\\/])/, HOME))), ...(last.skillDirs || []), ...found])];
 const link = o.link ?? !!last.link;
 const dry = o['dry-run'], say = s => console.log(dry ? `[dry run] ${s}` : s);
