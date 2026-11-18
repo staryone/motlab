@@ -115,6 +115,7 @@ Tested: a 60 fps clip trimmed from 1.5 s into a 30 fps scene renders the exact s
 - A 20-minute 1280x720 recording (1.1 GB, a keyframe every second): stills at 0.5, 600.2, 1199.9, 30, 1100.1, 2 and 2.03 s, in that order, all showed the right frame, in 1.7 s for the whole command. Ten seconds from 19:40 rendered at 94 fps, every frame right.
 - Variable frame rate (portrait 1080x1920, 30 fps with uneven gaps for 5 s, then 60 fps): 435 frames at 30 fps, every one the frame shown at that time.
 - HEVC 8-bit (Main) and 10-bit (Main 10) at 1080p: 300 frames each, every one right, at 53 fps. Colour matched an H.264 source of the same picture.
+- VP9 in WebM and MP4, and H.264 in MKV, MP4 and MOV, at 24, 25, 29.97, 30 and 60 fps, rendered at 30 fps and at the clip's own rate: every frame right, in 64x64 test clips where each frame is a different grey. WebM and MKV store timestamps in whole milliseconds, so for them `clip.frame(t)` rounds `t` to the millisecond.
 
 These were made with ffmpeg, not filmed on a phone, and played by a Chrome that could decode HEVC on this laptop. Chrome on a machine without HEVC decoding stops at `openFootage` with "this browser cannot decode".
 

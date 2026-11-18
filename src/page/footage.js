@@ -17,6 +17,9 @@ export async function openFootage(path) {
   if (!track) throw new Error(`${path} has no video track`);
   if (!(await track.canDecode())) throw new Error(`${path}: this browser cannot decode ${track.codec}`);
   const sink = new MB.VideoSampleSink(track), first = await track.getFirstTimestamp(), duration = await track.computeDuration() - first;
+  // WebM and MKV store timestamps in whole milliseconds, so a 30 fps frame due at 0.0667 s is stored at 0.067 s. The time
+  // asked for is rounded the same way; without it every third frame of a 30 fps WebM came a frame late.
+  const ms = (await input.getFormat()) instanceof MB.MatroskaInputFormat;
 
   let it = null, cur = null, next = null;
   const pull = async () => { const r = await it.next(); return r.done ? null : r.value; };
@@ -27,7 +30,8 @@ export async function openFootage(path) {
   return {
     width: track.displayWidth, height: track.displayHeight, duration,
     async frame(t) {
-      const at = first + Math.min(Math.max(0, t), Math.max(0, duration - 1e-6));
+      let at = first + Math.min(Math.max(0, t), Math.max(0, duration - 1e-6));
+      if (ms) at = Math.round(at * 1000) / 1000;
       if (!cur || at < cur.timestamp || (next && at > next.timestamp + 1)) await seek(at);
       while (next && next.timestamp <= at + 1e-6) { cur.close(); cur = next; next = await pull(); }
       if (!cur) throw new Error(`${path}: no frame at ${t.toFixed(3)} s`);

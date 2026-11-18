@@ -105,8 +105,8 @@ entries around the speech.
 
 ## Limits
 
-- Decoding uses WebCodecs, so the codec must be one Chrome decodes (H.264, HEVC, VP9, AV1, ProRes is not). Convert
-  anything else first: `ffmpeg -i in.mov -c:v libx264 -crf 16 -c:a aac out.mp4`.
+- Decoding uses WebCodecs, so the codec must be one Chrome decodes: H.264, HEVC, VP9 or AV1, in MP4, MOV, WebM or MKV.
+  ProRes is not. Convert anything else first: `ffmpeg -i in.mov -c:v libx264 -crf 16 -c:a aac out.mp4`.
 - The viewer decodes the whole audio of a video file to draw its waveform, so very long recordings load slowly there.
   Trim long recordings to the parts you use before listing them.
 - No alpha output yet, so the result is always a flat MP4.

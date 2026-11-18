@@ -76,6 +76,26 @@ test('a page without the contract fails with a clear message', async () => {
   await assert.rejects(renderVideo({ page: fileURLToPath(new URL('../package.json', import.meta.url)), out: join(dir, 'x.mp4'), ...quiet }), /renderAt/);
 });
 
+test('footage: a WebM clip shows the right frame at every time, though Matroska rounds timestamps to the millisecond', async () => {
+  const proj = join(dir, 'footage'), clip = join(proj, 'clip.webm');
+  mkdirSync(proj);
+  // VP9 at 30 fps, each frame a flat grey 6 levels lighter than the one before, so a frame tells which one it is
+  spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'nullsrc=s=64x64:r=30:d=1,geq=lum=16+N*6:cb=128:cr=128', '-c:v', 'libvpx-vp9', '-b:v', '2M', '-pix_fmt', 'yuv420p', clip]);
+  writeFileSync(join(proj, 'scene.html'), `<!doctype html><canvas id="c" width="64" height="64"></canvas><script>
+    const ctx = document.getElementById('c').getContext('2d'); let clip; window.TOTAL = 1;
+    window.ready = (async () => { clip = await (await import('/__motlab/footage.js')).openFootage('clip.webm'); return true; })();
+    window.renderAt = async t => { await window.ready; (await clip.frame(t)).draw(ctx, 0, 0, 64, 64); };</script>`);
+  const out = join(dir, 'footage.mp4');
+  await renderVideo({ page: join(proj, 'scene.html'), out, fps: 30, scale: 1, encoder: 'sw', ...quiet });
+  const grey = (file, f) => meanRgb(file, '32:32:16:16', f)[1];
+  const src = Array.from({ length: 30 }, (_, f) => grey(clip, f)), wrong = [];
+  for (let f = 0; f < 30; f++) {
+    const g = grey(out, f), shown = src.reduce((b, v, i) => Math.abs(v - g) < Math.abs(src[b] - g) ? i : b, 0);
+    if (shown !== f) wrong.push(`frame ${f} showed source frame ${shown}`);
+  }
+  assert.deepEqual(wrong, [], `source greys ${src}`);
+});
+
 test('project: a transition overlaps two scenes and mixes them on the frame grid', async () => {
   const proj = join(dir, 'proj'), flat = (name, colour) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
     const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);
