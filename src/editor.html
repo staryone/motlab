@@ -77,8 +77,8 @@
   /* full screen: the preview fills the screen and a player bar floats along its bottom edge, as #dock: a white card like
      the timeline's, with a scrub bar split into scenes (note numbers above it, a range as a light blue band), then the
      play buttons, the time, the scene and the button that leaves full screen. The timeline, the range, zoom and timeline
-     buttons, the range bar and the full-screen pill are left out. While it plays and the pointer rests, the bar fades out
-     with the cursor; a move or a key brings it back */
+     buttons, the range bar and the full-screen pill are left out. The bar is hidden ('bar-off') unless the pointer is near
+     the bottom edge, so it covers nothing while the frame is looked at */
   #dock { display: contents; }
   #scrubWrap, #fsScene, #fullExit { display: none; }
   #canvas:fullscreen { overflow: hidden; background: #111; }
@@ -98,7 +98,7 @@
   #canvas:fullscreen #fsScene { display: inline; margin-left: 10px; }
   #canvas:fullscreen #fullExit { grid-area: 1 / 5; justify-self: end; display: flex; }
   #canvas.idle:fullscreen, #canvas.idle:fullscreen #view { cursor: none; }
-  #canvas.idle:fullscreen #dock { opacity: 0; pointer-events: none; }
+  #canvas.bar-off:fullscreen #dock { opacity: 0; pointer-events: none; }
   /* notes on the preview, after the Claude canvas selection box: a 1 px blue line and a light blue fill, square
      corners, and the note's number in a small blue tag above the top left corner */
   #marks { position: absolute; inset: 0; pointer-events: none; }
@@ -898,15 +898,36 @@ try {
     if (at !== t) show();
   }
 
-  // ---- full screen: while it plays and the pointer rests for 2.5 s, the player bar fades out with the cursor. A move, a
-  // click or a key brings it back; paused, with a note open, or with the pointer on the bar, it stays.
-  let idleTimer = 0;
-  function wake() {
-    $('canvas').classList.remove('idle'); clearTimeout(idleTimer);
-    if (document.fullscreenElement && playing && !active) idleTimer = setTimeout(() => $('dock').matches(':hover') ? wake() : $('canvas').classList.add('idle'), 2500);
+  // ---- full screen: the player bar stays hidden, paused too, so the whole frame shows, and comes up like an auto-hidden
+  // taskbar while the pointer is in the bottom ZONE px of the screen. It also shows for 2.5 s on entering full screen
+  // and after Space, the arrows, Home or End. A pointer moving with a button down (drawing or moving a note) never
+  // brings it up, except while scrubbing. While it plays and the pointer rests for 2.5 s with the bar hidden, the
+  // cursor hides too ('idle').
+  const ZONE = 120;
+  let barTimer = 0, cursorTimer = 0, inZone = false;
+  const setBar = on => $('canvas').classList.toggle('bar-off', !on);
+  function flashBar() { clearTimeout(barTimer); setBar(true); barTimer = setTimeout(() => { if (!inZone && !scrubbing) setBar(false); }, 2500); }
+  function wake() {   // the cursor
+    $('canvas').classList.remove('idle'); clearTimeout(cursorTimer);
+    if (document.fullscreenElement && playing) cursorTimer = setTimeout(() => { if ($('canvas').classList.contains('bar-off')) $('canvas').classList.add('idle'); }, 2500);
   }
-  for (const ev of ['pointermove', 'pointerdown', 'keydown']) addEventListener(ev, wake, { passive: true });
-  document.addEventListener('fullscreenchange', () => { wake(); requestAnimationFrame(() => drawScrub()); });
+  addEventListener('pointermove', e => {
+    if (!document.fullscreenElement) return;
+    wake();
+    const was = inZone;
+    inZone = e.clientY >= innerHeight - ZONE && (!e.buttons || scrubbing);
+    if (inZone) { clearTimeout(barTimer); setBar(true); }
+    else if (was && !scrubbing) { clearTimeout(barTimer); barTimer = setTimeout(() => { if (!inZone && !scrubbing) setBar(false); }, 400); }
+  }, { passive: true });
+  addEventListener('keydown', e => {
+    wake();
+    if (document.fullscreenElement && !e.target.closest?.('input, textarea') && [' ', 'ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(e.key)) flashBar();
+  }, { passive: true });
+  document.addEventListener('fullscreenchange', () => {
+    inZone = false; wake();
+    if (document.fullscreenElement) flashBar(); else { clearTimeout(barTimer); setBar(true); }
+    requestAnimationFrame(() => drawScrub());
+  });
   // The scrub bar in the full-screen player bar: the video's length across the bar, split into its scenes, dark up to
   // the playhead. Click or drag it to move in time; a note's number above it opens the note. Arrows step a frame (a
   // second with Shift) anywhere in full screen, as on the focused timeline.
@@ -1290,6 +1311,7 @@ try {
   view.onpointerdown = e => {
     if (e.button !== 0 || !cur) return;
     if (playing) pause();
+    if (document.fullscreenElement) { clearTimeout(barTimer); setBar(false); inZone = false; }   // out of the way of a note near the bottom
     view.setPointerCapture(e.pointerId);
     const edit = grab(e);
     drag = { a: onView(e), x: e.clientX, y: e.clientY, moved: false, open: !!active, ...(edit && { edit, m: active, from: { ...(active.box || active.point) } }) };
