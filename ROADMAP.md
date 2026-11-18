@@ -10,12 +10,13 @@ What is not built, what has not been tested, and ideas that came up while using 
 - The viewer on a VPS with a domain. That needs security in front of it, or access only through Tailscale, which is also worth considering. From there, work could be run remotely on the personal laptop (when it is on) or on the VPS (when there is one).
 - Custom GLSL transitions from a file in the project. A transition as a layer over the cut (a swish of shapes) already exists as the asset skill's `transition.js`, but each of the two scene pages has to draw its half by hand; `project.json` has no option for it.
 - A cut list that splits one recording over several scenes by section, with captions placed from a transcript. `cuts.js` has the time map (`toOut`), but each section page still picks its part of the list by hand.
+- Bringing up the viewer's full-screen player bar on a touch screen. The bar comes up when the pointer is near the bottom edge, and a finger has no pointer to rest there, so on a touch screen only the keys (Space, the arrows, Home and End) show it. A tap in the bottom strip could, as long as it still leaves a note drawn there alone.
 - A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
 
 ## Not tested yet
 
 - The benchmark against Remotion and HyperFrames on macOS and Linux, with their own downloaded browsers, and on scenes heavy on text, images or footage. It was one scene on Windows, at 1080p and 4K.
-- The npm package on macOS and Linux. On Windows it was installed from the registry, and with nvm for Windows 2.0 it needs npm's prefix moved to a folder on PATH (docs/install.md).
+- The npm package on macOS. It was installed on Windows, from the registry and with nvm for Windows 2.0 (where setup writes its own launcher), and on a Linux VPS from a packed tarball (docs/install.md).
 - macOS, and Linux beyond the tests, including `motlab update` there. On Linux, CI renders the end-to-end tests on an Ubuntu runner; no real video has been made there. On macOS the Chrome paths and the Metal flag are in the code, but nothing has run.
 - Renders longer than 10 minutes, and a 10-minute render on a machine that is doing nothing else.
 - A machine without a GPU beyond the tests. CI runs the end-to-end tests on Linux and Windows runners without a GPU, and the benchmark ran with Chrome drawing on SwiftShader on the test laptop (1080p and 4K, in `docs/rendering.md`), but no real video has been rendered on such a machine, and no 3D (WebGL) scene.
@@ -29,7 +30,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - The asset skill's FBX and OBJ files in programs other than Blender (Unity, Unreal, Maya, Cinema 4D).
 - `svgparts.js` and `transition.js` in the viewer. They were checked with stills and a video render.
 - Notes on a real touch screen. Touch was emulated in Chrome over the DevTools protocol. Moving and resizing a box was tried with the mouse only.
-- The viewer's full screen outside Chrome on Windows, and with a touch screen, where there is no pointer to rest.
+- The viewer's full screen outside Chrome on Windows.
 - The skills in agents other than Claude Code. The installer was run with `--dry-run` for every target, and the folders come from each agent's docs, but no other agent has loaded the skills or made a video with them yet. That includes Muse Code and Hermes Agent, added from their docs in November 2026.
 
 ## Questions about speed
