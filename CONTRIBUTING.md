@@ -47,13 +47,15 @@ The code is plain JavaScript ESM with JSDoc, no TypeScript and no build step, be
 npm test
 ```
 
-`test/codecs.test.js` checks the frame maths. `test/render.test.js` renders `test/fixtures/basic.html` through every path (default encoder, software, raw mux, three workers, audio, stills, events) and checks the frame count, duration, colour tags and decoded colour values, and renders a project with a transition. It needs Chrome and ffmpeg. The others need neither: `motion.test.js` checks the easings, springs, keyframes and transition names, `server.test.js` that a file stream closes when its request is aborted, `install.test.js` that `install.js --update --dry-run` finds where the skills went, `skills.test.js` the skills' frontmatter, and `editor-text.test.js` the viewer's `TEXT` table.
+`test/codecs.test.js` checks the frame maths. `test/render.test.js` renders `test/fixtures/basic.html` through every path (default encoder, software, raw mux, three workers, audio, stills, events) and checks the frame count, duration, colour tags and decoded colour values. It also renders a WebM footage clip, projects with a transition and with scenes of different sizes, and a project again with `--only`. It needs Chrome and ffmpeg. The others need neither: `motion.test.js` checks the easings, springs, keyframes and transition names, `chrome.test.js` the `--no-sandbox` flag and the lookup of Playwright's Chromium, `server.test.js` that a file stream closes when its request is aborted, `install.test.js` what setup, `--update` and uninstall write and remove, `notes.test.js` how the viewer's notes merge into `selection.json`, `skills.test.js` the skills' frontmatter, and `editor-text.test.js` the viewer's `TEXT` table.
 
 If you touch the renderer, include the render time of the sample project before and after: `motlab render example --scale 1`.
 
 For viewer changes, run `motlab edit example`, check the change in a browser, and look at the console for errors.
 
 ## Pull requests
+
+Before you start on something bigger than a fix, such as an item from the roadmap, open an issue or comment on one to say you're taking it. That way two people don't build the same thing, and we can agree on the approach first.
 
 One concern per pull request. Describe what changed, what you measured, and what you could not check. Commit subjects are short and imperative, for example `Viewer: keep the box when the time changes`.
 
