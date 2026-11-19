@@ -1,7 +1,8 @@
 // End to end: needs Chrome, ffmpeg and ffprobe. Renders the fixture page and checks what came out.
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { after, test } from 'node:test';
@@ -111,6 +112,43 @@ test('project: a transition overlaps two scenes and mixes them on the frame grid
   assert.ok(grey(14) < 8, `frame 14 is ${grey(14)}`);
   assert.ok(Math.abs(grey(22) - 128) < 8, `frame 22 is ${grey(22)}`);       // k = 7 of 15: progress 0.5
   assert.ok(grey(30) > 248, `frame 30 is ${grey(30)}`);
+});
+
+test('project: --only re-renders one scene and the transition touching it, reuses the cached rest and prunes the parts it did not use', async () => {
+  const proj = join(dir, 'only'), flat = (name, colour) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);
+    window.renderAt = () => { c.fillStyle = '${colour}'; c.fillRect(0, 0, 320, 180); };</script>`);
+  mkdirSync(proj); flat('a.html', '#000'); flat('b.html', '#fff');
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes: ['a.html', { file: 'b.html', transition: { type: 'fade', duration: 0.5, ease: 'linear' } }] }));
+  await renderProject({ dir: proj, out: join(dir, 'only1.mp4'), scale: 1, ...quiet });
+  flat('b.html', '#f00');
+  const logs = [];
+  await renderProject({ dir: proj, out: join(dir, 'only2.mp4'), scale: 1, only: [2], log: m => logs.push(m) });
+  const v = await probeVideo(join(dir, 'only2.mp4'));
+  assert.equal(v.frames, 45);   // 30 + 30 frames, 15 of them shared
+  const seen = logs.join('\n');
+  assert.ok(seen.includes('Scene 1/2: a.html (cached)'), seen);
+  assert.ok(!seen.includes('Transition 1 to 2: fade, 15 frames (cached)'), seen);   // scene 2 changed, so the transition is rendered again
+  const red = f => meanRgb(join(dir, 'only2.mp4'), '100:100:110:40', f)[0];
+  assert.ok(red(0) < 8, `frame 0 is ${red(0)}`);                     // scene a, from the cache
+  assert.ok(Math.abs(red(22) - 128) < 8, `frame 22 is ${red(22)}`);  // the transition, black to red at progress 0.5
+  assert.ok(red(40) > 200, `frame 40 is ${red(40)}`);                // scene b, re-rendered red
+  // the old scene b and transition parts are gone, not left behind
+  const partsDir = join(dir, 'cache', 'parts', createHash('sha256').update(join(proj, 'project.json')).digest('hex').slice(0, 16));
+  assert.equal(readdirSync(partsDir).filter(f => f.endsWith('.mp4')).length, 3);   // scene a, scene b, the transition
+  // --only on a project with no cached parts renders everything, and a scene number outside the project stops it
+  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'only3.mp4'), scale: 1, only: [3], ...quiet }), /--only takes scene numbers from 1 to 2/);
+  const cold = join(dir, 'only-cold');
+  mkdirSync(cold);
+  const cflat = (name, colour) => writeFileSync(join(cold, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);
+    window.renderAt = () => { c.fillStyle = '${colour}'; c.fillRect(0, 0, 320, 180); };</script>`);
+  cflat('a.html', '#000'); cflat('b.html', '#fff');
+  writeFileSync(join(cold, 'project.json'), JSON.stringify({ fps: 30, scenes: ['a.html', 'b.html'] }));
+  const coldLogs = [];
+  await renderProject({ dir: cold, out: join(dir, 'only-cold.mp4'), scale: 1, only: [2], log: m => coldLogs.push(m) });
+  assert.ok(coldLogs.join('\n').includes('Scene 1/2: a.html (no cached part, rendering it)'), coldLogs.join('\n'));
+  assert.equal((await probeVideo(join(dir, 'only-cold.mp4'))).frames, 60);
 });
 
 test('project: scenes of different sizes stop the render, and a mono file plays at full level on both channels', async () => {

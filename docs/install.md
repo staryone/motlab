@@ -158,7 +158,7 @@ With `--link`, the skills update with `git pull` alone, but run the installer an
 motlab uninstall
 ```
 
-It stops the viewer and removes the launcher (`~/.local/bin/motlab`, and `motlab.cmd` on Windows), the two skill folders in every agent folder they were installed in, `~/.motlab/` (where the installer put things, the viewer's recent projects and its log) and the encoder timings (`%LOCALAPPDATA%\motlab` on Windows, `~/.cache/motlab` elsewhere; with `MOTLAB_CACHE_DIR` only the timings file). It lists everything and asks first; `--yes` skips the question and `--dry-run` only lists. A skill installed with `--link` is removed as a link, and what it points to stays. It leaves the clone, because it runs from there: delete that folder afterwards. From npm there is no launcher to remove, and `npm uninstall -g @motlab/cli` removes the engine and the command afterwards.
+It stops the viewer and removes the launcher (`~/.local/bin/motlab`, and `motlab.cmd` on Windows), the two skill folders in every agent folder they were installed in, `~/.motlab/` (where the installer put things, the viewer's recent projects and its log) and the encoder timings and cached scene parts (`%LOCALAPPDATA%\motlab` on Windows, `~/.cache/motlab` elsewhere; with `MOTLAB_CACHE_DIR` only the timings file). It lists everything and asks first; `--yes` skips the question and `--dry-run` only lists. A skill installed with `--link` is removed as a link, and what it points to stays. It leaves the clone, because it runs from there: delete that folder afterwards. From npm there is no launcher to remove, and `npm uninstall -g @motlab/cli` removes the engine and the command afterwards.
 
 ## Check the machine
 

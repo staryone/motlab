@@ -1,7 +1,7 @@
 # Command line
 
 ```text
-motlab render <project> [out.mp4] [--scale 2]     all scenes and audio in project.json, as one MP4
+motlab render <project> [out.mp4] [--scale 2] [--only 3]  all scenes and audio in project.json, as one MP4
 motlab start                                      the viewer in the background at http://127.0.0.1:4173, one for all projects
 motlab edit   [project]                           open a project in the viewer, starting it first if needed
 motlab stop | restart                             end the viewer, or start it again from the same folder
@@ -34,7 +34,7 @@ When the page throws while loading, the error names the file, line and column, f
 
 ## Options
 
-`render` takes only `--scale`; the rest are for `video` (and `--root`, `--chrome`, `--scale` and `--format` for `stills`, and `--root` and `--chrome` for `events`).
+`render` takes `--scale` and `--only`; the rest are for `video` (and `--root`, `--chrome`, `--scale` and `--format` for `stills`, and `--root` and `--chrome` for `events`).
 
 | Option | Meaning |
 |---|---|
@@ -48,6 +48,7 @@ When the page throws while loading, the error names the file, line and column, f
 | `--bitrate` | Use variable bitrate at this many Mbit/s instead of constant QP |
 | `--mux` | `auto`, `mediabunny` or `raw`. Auto tries the in-page MP4 muxer, then a raw bitstream wrapped by ffmpeg |
 | `--reprobe` | Time the encoders again instead of using the saved timings |
+| `--only` | Re-render only these scenes (1-based, comma separated), for example `--only 3` or `--only 3,5`, and reuse the cached parts of the rest. The transitions touching a re-rendered scene are re-rendered too. Only for `render`, see [Rendering a project](projects.md#rendering-a-project) |
 | `--root` | Folder to serve. Default is the nearest folder above the page with a `project.json`, else the page's folder |
 | `--chrome` | Path to Chrome. Default: found automatically, or the `CHROME` environment variable |
 | `--format` | `png` or `jpg`, for `stills` |
@@ -59,7 +60,7 @@ When the page throws while loading, the error names the file, line and column, f
 | Variable | Meaning |
 |---|---|
 | `CHROME` | Path to Chrome or Chromium |
-| `MOTLAB_CACHE_DIR` | Where the encoder timings are saved. Default `%LOCALAPPDATA%\motlab` on Windows, `~/.cache/motlab` elsewhere |
+| `MOTLAB_CACHE_DIR` | Where the encoder timings and the cached scene parts are saved. Default `%LOCALAPPDATA%\motlab` on Windows, `~/.cache/motlab` elsewhere |
 
 ## Page contract
 

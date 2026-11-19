@@ -5,7 +5,6 @@ What is not built, what has not been tested, and ideas that came up while using 
 ## Not built yet
 
 - Alpha output (ProRes 4444).
-- Rendering only the scenes that changed. Scenes are already separate MP4 parts joined with `-c copy`, so re-rendering one scene and joining again would be cheap. It needs an explicit option such as `--only 7`.
 - Rendering several scenes at once in an export. Scenes render one after another today, and Export uses one Chrome. Parallel workers need a safe default for machines with less memory or a hardware encoder session limit, and a fallback to fewer workers when one fails. A project of many short scenes pays a Chrome start per scene: 12 two-second scenes with 11 transitions took 57 s at 1080p.
 - The viewer on a VPS with a domain. That needs security in front of it, or access only through Tailscale, which is also worth considering. From there, work could be run remotely on the personal laptop (when it is on) or on the VPS (when there is one).
 - Custom GLSL transitions from a file in the project. A transition as a layer over the cut (a swish of shapes) already exists as the asset skill's `transition.js`, but each of the two scene pages has to draw its half by hand; `project.json` has no option for it.

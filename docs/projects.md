@@ -64,9 +64,11 @@ motlab render example out/promo.mp4 --scale 1
 
 This renders every scene, joins them and adds the audio. The result is `example/out/example.mp4` unless you give a path. The default `--scale 2` turns 1920x1080 pages into 4K; `--scale 1` gives 1080p. The viewer's Export button does the same thing at a resolution you pick.
 
+To change one scene without rendering the rest again, pass `--only` with its number: `motlab render example --only 3`. The scenes you name are rendered again, the transitions touching them too, and every other scene comes from the cache in `~/.cache/motlab/parts` (`%LOCALAPPDATA%\motlab\parts` on Windows, or `MOTLAB_CACHE_DIR`), where a full render leaves each scene's part. A finished render removes the cached parts it did not use. A scene with no cached part is rendered, so `--only` on a project that was never rendered works like a full render. The cache key holds the motlab version and the scene page itself, so if a file the scene loads changes (a shared script, a font, a picture), render the whole project again, or delete the cache folder.
+
 How it works:
 
-- Each scene is rendered to its own MP4, and ffmpeg joins them with `-c copy`.
+- Each scene is rendered to its own MP4, and ffmpeg joins them with `-c copy`. A full render also leaves each part in the cache, so `--only` can reuse it later.
 - The first scene picks the encoder, and every later scene is forced to the same encoder and codec, because a stream copy join is only safe when codec, encoder and resolution match.
 - Scenes are joined with hard cuts, unless a scene has a transition. A transition is rendered as a part of its own between the two scenes, and their own parts leave out those frames.
 - ffmpeg mixes the audio into one WAV first (`adelay`, `volume`, `amix`), and the final pass muxes it in as AAC.

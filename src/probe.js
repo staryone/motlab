@@ -12,9 +12,12 @@ const DEFAULT_QP = { h264: 18, hevc: 20 };
 export const label = c => `${c.codec === 'hevc' ? 'HEVC' : 'H.264'} ${c.hw ? 'hardware' : 'software'}`;
 export const rate = c => c.rc === 'quantizer' ? `constant QP ${c.qp}` : `${(c.bitrate / 1e6).toFixed(1)} Mbit/s VBR`;
 
+export function cacheDir() {
+  return process.env.MOTLAB_CACHE_DIR || (process.platform === 'win32' && process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'motlab') : join(homedir(), '.cache', 'motlab'));
+}
+
 export function cacheFile() {
-  const dir = process.env.MOTLAB_CACHE_DIR || (process.platform === 'win32' && process.env.LOCALAPPDATA ? join(process.env.LOCALAPPDATA, 'motlab') : join(homedir(), '.cache', 'motlab'));
-  return join(dir, 'encoder-probe.json');
+  return join(cacheDir(), 'encoder-probe.json');
 }
 const load = () => { try { return JSON.parse(readFileSync(cacheFile(), 'utf8')); } catch { return {}; } };
 

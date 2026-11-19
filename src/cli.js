@@ -11,7 +11,7 @@ import { openInViewer, restartViewer, startViewer, stopViewer } from './viewer.j
 
 const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, ready, EVENTS) with headless Chrome and WebCodecs.
 
-  motlab render <project> [out.mp4] [--scale 2]      all scenes and audio in project.json, as one MP4
+  motlab render <project> [out.mp4] [--scale 2] [--only 3]  all scenes and audio in project.json, as one MP4
   motlab start                                       the viewer in the background at http://127.0.0.1:4173, for every
                                                      project; the menu lists the projects in this folder
   motlab edit   [project]                            open a project in the viewer (starting it if needed) and print its
@@ -44,6 +44,7 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
   --bitrate   use variable bitrate at this many Mbit/s instead of constant QP
   --mux       auto | mediabunny | raw (auto tries Mediabunny, then raw bitstream + ffmpeg -c copy)
   --reprobe   time the encoders again instead of using the saved probe
+  --only      re-render only these scenes (1-based, comma separated) and reuse the cached parts of the rest (render only)
   --root      folder to serve (default: the nearest folder above the page with a project.json, else the page's folder)
   --chrome    path to Chrome (default: autodetect, or the CHROME environment variable)
 
@@ -53,6 +54,14 @@ that pass it keep working). Needs ffmpeg and ffprobe on PATH.
 Engine folder: ${fileURLToPath(new URL('..', import.meta.url))}  (README.md, example/, src/page/footage.js)`;
 
 const oneOf = (name, v, list) => { if (v !== undefined && !list.includes(v)) throw new Error(`--${name} must be one of: ${list.join(', ')}`); return v; };
+const only = v => {
+  if (v === undefined) return undefined;
+  return v.split(',').map(s => {
+    const n = Number(s.trim());
+    if (!Number.isInteger(n) || n < 1) throw new Error(`--only: "${s.trim()}" is not a scene number`);
+    return n;
+  });
+};
 const num = (name, v, { min = 0, int = false } = {}) => {
   if (v === undefined) return undefined;
   const n = Number(v);
@@ -69,6 +78,7 @@ export async function main(argv) {
   const { values: v, positionals } = parseArgs({ args: argv, allowPositionals: true, options: {
     fps: { type: 'string' }, scale: { type: 'string' }, audio: { type: 'string' }, encoder: { type: 'string' }, codec: { type: 'string' },
     workers: { type: 'string' }, bitrate: { type: 'string' }, qp: { type: 'string' }, mux: { type: 'string' }, root: { type: 'string' }, chrome: { type: 'string' },
+    only: { type: 'string' },
     format: { type: 'string' }, reprobe: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
   } });
   const [mode, page, out, ...rest] = positionals;
@@ -83,7 +93,7 @@ export async function main(argv) {
   if (mode === 'restart') { await restartViewer(); return 0; }
   if (mode === 'render') {
     if (!page) throw new Error('render needs a project folder or project file');
-    await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }) });
+    await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only) });
     return 0;
   }
   if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, stills, video, events, doctor, setup, update or uninstall)`);
