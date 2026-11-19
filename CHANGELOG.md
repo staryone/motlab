@@ -4,6 +4,10 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
+### Added
+
+- With no system Chrome, motlab uses the newest Chromium that Playwright downloaded, from Playwright's folder (`~/.cache/ms-playwright` on Linux, `~/Library/Caches/ms-playwright` on macOS, `%LOCALAPPDATA%\ms-playwright` on Windows, or `PLAYWRIGHT_BROWSERS_PATH`), so `motlab doctor` passes without `CHROME` on a machine set up for Playwright (issue #8). The folder names come from Playwright's own code, and a test checks the lookup on folders made for it. Not tried: a real Playwright download found this way. The render in issue #8 used that Chromium with `CHROME` set.
+
 ### Changed
 
 - The install docs now say a Chromium you already have works: set `CHROME` to it, for example the Chromium Playwright downloads, instead of installing Google Chrome. The README, the install docs and the roadmap also record that a real video has now been rendered on Linux: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU in about 82 s (issue #8). An install from the npm registry on Linux and anything on macOS are still untested.

@@ -1,7 +1,7 @@
 // Launches headless Chrome on the real GPU and talks to it over the DevTools protocol (no dependency: Node's WebSocket).
 import { spawn } from 'node:child_process';
-import { existsSync, mkdtempSync, rmSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 const CANDIDATES = [
@@ -12,9 +12,40 @@ const CANDIDATES = [
   '/usr/bin/google-chrome', '/usr/bin/chromium', '/usr/bin/chromium-browser',
 ];
 
+// Playwright downloads Chrome for Testing into chromium-<revision> folders in its own cache (or PLAYWRIGHT_BROWSERS_PATH),
+// so a machine set up for Playwright has a Chrome without a system install. Folder and file names are the ones in
+// Playwright's registry (packages/playwright-core/src/server/registry/index.ts). Its chromium_headless_shell folders are
+// left out: that is the old headless mode, and motlab runs --headless=new.
+const PLAYWRIGHT_EXE = {
+  'linux-x64': ['chrome-linux64', 'chrome'],
+  'linux-arm64': ['chrome-linux-arm64', 'chrome'],
+  'darwin-x64': ['chrome-mac-x64', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'],
+  'darwin-arm64': ['chrome-mac-arm64', 'Google Chrome for Testing.app', 'Contents', 'MacOS', 'Google Chrome for Testing'],
+  'win32-x64': ['chrome-win64', 'chrome.exe'],
+};
+
+function playwrightDir() {
+  const env = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (env === '0') return null;   // the browsers sit inside one project's node_modules
+  if (env) return env;
+  const home = homedir();
+  if (process.platform === 'win32') return join(process.env.LOCALAPPDATA || join(home, 'AppData', 'Local'), 'ms-playwright');
+  if (process.platform === 'darwin') return join(home, 'Library', 'Caches', 'ms-playwright');
+  return join(process.env.XDG_CACHE_HOME || join(home, '.cache'), 'ms-playwright');
+}
+
+// The newest Playwright Chromium in dir that has its executable, or null.
+export function playwrightChrome(dir = playwrightDir(), platform = `${process.platform}-${process.arch}`) {
+  const exe = PLAYWRIGHT_EXE[platform];
+  if (!dir || !exe) return null;
+  let names; try { names = readdirSync(dir); } catch { return null; }
+  return names.map(n => /^chromium-(\d+)$/.exec(n)).filter(Boolean).sort((a, b) => b[1] - a[1])
+    .map(m => join(dir, m[0], ...exe)).find(p => existsSync(p)) ?? null;
+}
+
 export function findChrome(explicit) {
-  const path = explicit || process.env.CHROME || CANDIDATES.find(p => existsSync(p));
-  if (!path || !existsSync(path)) throw new Error('Chrome not found. Pass --chrome <path> or set CHROME=/path/to/chrome');
+  const path = explicit || process.env.CHROME || CANDIDATES.find(p => existsSync(p)) || playwrightChrome();
+  if (!path || !existsSync(path)) throw new Error("Chrome not found (also looked for Playwright's Chromium). Pass --chrome <path> or set CHROME=/path/to/chrome");
   return path;
 }
 

@@ -7,7 +7,7 @@ motlab has two parts: the engine (the `motlab` command, the viewer and the rende
 | Tool | Why | Check |
 |---|---|---|
 | Node.js 24 or newer | runs the engine | `node --version` |
-| Google Chrome or Chromium | draws and encodes the frames | found on its default path, or set `CHROME` to a binary you already have, for example the Chromium Playwright downloads |
+| Google Chrome or Chromium | draws and encodes the frames | found on its default path or in Playwright's browser folder, or set `CHROME` to it |
 | ffmpeg and ffprobe | join the parts, add audio, check the output | `ffmpeg -version` |
 | Python 3, optional | the skills' helper scripts | `python --version` |
 | Blender 4.2 or newer, optional | the main 3D path of `motlab-assets` (FBX, baked textures, Cycles stills) | `blender --version` |
@@ -27,7 +27,7 @@ Google Chrome on Debian or Ubuntu (x64), the command `motlab doctor` prints when
 wget https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb && sudo apt install -y ./google-chrome-stable_current_amd64.deb
 ```
 
-If Chrome is already on the machine another way, for example the Chromium Playwright downloads to `~/.cache/ms-playwright/`, set `CHROME` to that binary instead of installing Google's.
+A machine set up for Playwright needs no other Chrome. When no system Chrome is found, motlab uses the newest Chromium that `npx playwright install chromium` put in Playwright's folder: `~/.cache/ms-playwright` on Linux, `~/Library/Caches/ms-playwright` on macOS, `%LOCALAPPDATA%\ms-playwright` on Windows, or `PLAYWRIGHT_BROWSERS_PATH` when it is set. For a Chrome anywhere else, set `CHROME` to it.
 
 The skill's scripts need numpy, scipy and Pillow. From the engine folder (`motlab --help` prints it; `motlab doctor` prints this command with the full path when they are missing):
 
@@ -172,7 +172,7 @@ It checks Node, Chrome, ffmpeg, ffprobe, the npm packages, and (as warnings) Pyt
 
 Windows
 
-- Chrome is found in `Program Files` and `Program Files (x86)`. Set `CHROME` for any other path.
+- Chrome is found in `Program Files` and `Program Files (x86)`, then in Playwright's folder. Set `CHROME` for any other path.
 - On a laptop with two GPUs, headless Chrome draws on the integrated one unless told otherwise. motlab always passes `--force_high_performance_gpu`, and each render prints the GPU it got.
 - Python is usually `python`, not `python3`.
 

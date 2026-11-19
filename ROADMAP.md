@@ -31,7 +31,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - Notes on a real touch screen. Touch was emulated in Chrome over the DevTools protocol. Moving and resizing a box was tried with the mouse only.
 - The viewer on a real phone. The phone layout, its menus and notes drawn with touch were checked in Chrome with a phone emulated over the DevTools protocol, at 390 and 360 px upright and 844 and 740 px sideways. On an iPhone, Safari allows full screen for video elements only, so the viewer has no full screen there.
 - The viewer's full screen outside Chrome on Windows.
-- The skills in agents other than Claude Code. The installer was run with `--dry-run` for every target, and the folders come from each agent's docs. Muse has loaded the skills and made a real video with them (a 42 s project on Ubuntu 24.04 with no GPU, issue #8); no other agent has yet. That includes Muse Code and Hermes Agent, added from their docs in November 2026.
+- The skills in agents other than Claude Code. The installer was run with `--dry-run` for every target, and the folders come from each agent's docs. A Muse agent followed `skills/motlab/SKILL.md` from a clone and made a real video (a 42 s project on Ubuntu 24.04 with no GPU, issue #8). The skills installed with `--skill muse`, Hermes Agent (both added from their docs in November 2026) and the other agents have not been tried yet.
 
 ## Questions about speed
 
