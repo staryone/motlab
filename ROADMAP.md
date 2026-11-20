@@ -9,13 +9,21 @@ What is not built, what has not been tested, and ideas that came up while using 
 - Less setup to open the viewer from a phone. Today it is a domain behind Caddy, or `tailscale serve` with `--domain` (docs/viewer.md). Two ideas: `motlab start --tailscale`, which would run `tailscale serve` and start the viewer on the tailnet name, where the password could be optional since only your own devices reach it; and `motlab start --tunnel` through Cloudflare Tunnel, either a free `trycloudflare.com` address for a quick review or a domain whose DNS is on Cloudflare, with no Caddy and no open ports. The free address does not carry server-sent events, so the page would have to ask for changes every few seconds instead; it also changes on every start, and Cloudflare offers it for testing only.
 - A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
 
+## Known problems
+
+Found on a real phone, with the viewer on a VPS over Tailscale:
+
+- Dragging the playhead on the timeline with a finger is not smooth: a held finger that moves often leaves the playhead behind, and a range dragged on the timeline sticks the same way.
+- Held upright, the page is one long scroll: the preview and toolbars, the timeline, then the notes, the scenes, the audio and the selection box. A bottom navigation, fixed or floating, that opens Notes, Scenes, Audio and the selection would keep the preview in view.
+- In full screen, once the player bar has hidden, nothing shows how to bring it back. A tap in the bottom 120 px of the screen does, but it is not visible.
+
 ## Not tested yet
 
 - The benchmark against Remotion and HyperFrames on macOS and Linux, with their own downloaded browsers, and on scenes heavy on text, images or footage. It was one scene on Windows, at 1080p and 4K.
 - The npm package on macOS. It was installed on Windows, from the registry and with nvm for Windows 2.0 (where setup writes its own launcher), and on a Linux VPS from a packed tarball (docs/install.md).
 - macOS, and Linux beyond the tests, including `motlab update` there. On Linux, CI renders the end-to-end tests on an Ubuntu runner, and a real video has been made there now: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, in about 82 s (issue #8). On macOS the Chrome paths and the Metal flag are in the code, but nothing has run.
 - `render --parallel` and Export on a machine with fewer than 16 CPU threads or little memory, and on a GPU whose hardware encoder runs out of sessions, where the fallback to one part at a time should take over. The parallel render was measured on the test laptop only (docs/projects.md).
-- The viewer on a real VPS behind Caddy with a real certificate, its systemd user service, the agent's setup steps in docs/install-for-agents.md, and Tailscale Serve. The login was tested on the Windows laptop with curl and Chrome on localhost (docs/viewer.md).
+- The viewer on a real VPS behind Caddy with a real certificate, its systemd user service, and the agent's setup steps in docs/install-for-agents.md. The login was tested on the Windows laptop with curl and Chrome on localhost (docs/viewer.md). With `tailscale serve` and `--domain` set to the tailnet name, the viewer on a Linux VPS opened from a laptop and from a phone on the same tailnet.
 - Renders longer than 10 minutes, and a 10-minute render on a machine that is doing nothing else.
 - A machine without a GPU beyond the tests. CI runs the end-to-end tests on Linux and Windows runners without a GPU, and the benchmark ran with Chrome drawing on SwiftShader on the test laptop (1080p and 4K, in `docs/rendering.md`). A real video has been rendered on such a machine now: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, in about 82 s (issue #8). No 3D (WebGL) scene has been rendered on one yet.
 - Footage filmed on a phone (variable frame rate and HEVC were tested with files made by ffmpeg), and HEVC on a Chrome that cannot decode it.
