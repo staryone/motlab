@@ -108,7 +108,7 @@ kits/<name>/
 Copy (never move) the kit into the video's project: `<video>/assets/kits/<name>/`, because the viewer and the renderer
 only serve the project folder. Read its `style.md` and `tokens.json` before building scenes, and load assets from
 there: PNGs and SVGs as images, a character through `svgparts.js`, a GLB in the motlab skill's `template-three.html`,
-a transition by importing its `transition.js`. When the kit changes later, copy it again.
+a transition as `"layer"` in `project.json`, pointing at its `transition.js`. When the kit changes later, copy it again.
 
 ## Keep it above board
 

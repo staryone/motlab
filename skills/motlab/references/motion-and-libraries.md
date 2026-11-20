@@ -55,6 +55,14 @@ transitions in `craft.md` that carry a shape across the cut; these are for edits
 a designed morph is not worth building for every cut. A shader transition between two scenes that already morph into
 each other only blurs the morph.
 
+### A layer over the cut
+
+A designed transition (bands of brand colour sweeping across, a logo wipe) is a layer over a hard cut, not a shader:
+`"transition": { "layer": "assets/kits/<kit>/transitions/swish/transition.js", "duration": 0.6 }`. The module exports
+`draw(ctx, p, W, H)` in page pixels, `p` runs 0 to 1 and the frame must be fully covered at 0.5, where the cut is.
+The scenes keep their full length (nothing overlaps), so audio times do not move. Make it with the asset skill
+(`templates/transition.js`), and do not draw it by hand in the two scene pages.
+
 ### A transition of your own, or one from a reference
 
 When none of the 11 fits, write the shader into the project, for example `transitions/swipe.glsl`, and set

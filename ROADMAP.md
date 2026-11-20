@@ -6,7 +6,6 @@ What is not built, what has not been tested, and ideas that came up while using 
 
 - Alpha output (ProRes 4444).
 - From the viewer on a VPS, sending a render to the personal laptop when it is on. The viewer itself runs on a domain behind a password now (`motlab start --domain`), and its Export renders on the server it runs on.
-- A transition as a layer over the cut (a swish of shapes) in `project.json`. It exists as the asset skill's `transition.js`, but each of the two scene pages has to draw its half by hand. Shader transitions from a `.glsl` file in the project are built.
 - A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
 
 ## Not tested yet

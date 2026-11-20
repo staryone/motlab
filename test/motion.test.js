@@ -4,7 +4,7 @@ import { cubicBezier, ease, spring, stagger, tween } from '../src/page/motion.js
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { findTransition, isTransitionFile, parseTransition, transitionNames, transitionProgress } from '../src/page/transitions.js';
+import { findTransition, isTransitionFile, layerFrames, layerProgress, parseTransition, transitionHead, transitionNames, transitionOverlap, transitionProgress, transitionTail } from '../src/page/transitions.js';
 import { projectScenes } from '../src/project.js';
 
 const near = (a, b, d = 1e-3) => assert.ok(Math.abs(a - b) <= d, `${a} is not within ${d} of ${b}`);
@@ -90,4 +90,18 @@ vec4 transition(vec2 uv) { return mix(getFromColor(uv), getToColor(uv), progress
     p.scenes[1].transition.type = 't/gone.glsl';
     assert.throws(() => projectScenes(p, dir), /scene 2 .*t\/gone\.glsl does not exist/);
   } finally { rmSync(dir, { recursive: true, force: true }); }
+});
+
+test('a layer transition splits its frames around the cut and takes no time from the video', () => {
+  assert.deepEqual(layerFrames(15), { before: 7, after: 8 });
+  assert.deepEqual(layerFrames(1), { before: 0, after: 1 });
+  const layer = { layer: 'swish.js', n: 15 }, shader = { type: 'fade', n: 15 };
+  assert.deepEqual([transitionHead(layer), transitionTail(layer), transitionOverlap(layer)], [8, 7, 0]);
+  assert.deepEqual([transitionHead(shader), transitionTail(shader), transitionOverlap(shader)], [15, 15, 15]);
+  assert.equal(layerProgress(7, 14), 0.5357142857142857);   // the first frame after the cut is just past 0.5
+  const p = { fps: 30, scenes: ['a.html', { file: 'b.html', transition: { layer: 'swish.js', duration: 0.5 } }] };
+  assert.equal(projectScenes(p)[1].transition.n, 15);
+  p.scenes[1].transition.type = 'fade';
+  assert.throws(() => projectScenes(p), /"type" .* or "layer" .*, not both/);
+  assert.throws(() => projectScenes({ fps: 30, scenes: ['a.html', { file: 'b.html', transition: { layer: 'swish.glsl', duration: 0.5 } }] }), /must be a \.js module/);
 });

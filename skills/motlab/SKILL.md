@@ -136,7 +136,8 @@ promo/
   scene before turns into it through a shader, and the two overlap for that long, so it starts that much earlier and
   the video is that much shorter. Use these for edits, explainers and talking heads; in an ad, a shape that carries
   across the cut (`craft.md`) is still better. The types and options are in `references/motion-and-libraries.md`,
-  with how to write a `.glsl` transition of your own into the project and how to match one from a reference video.
+  with how to write a `.glsl` transition of your own into the project, how to match one from a reference video, and
+  `"layer"` for a designed layer of shapes over a hard cut (the asset skill's `transition.js`).
 - When the user wants a smaller file, set `"qp": 22` in `project.json` (about 30% smaller than the default 18, at
   nearly the same quality); their Export then uses it. Higher saves more and shows more. Details in the engine's
   docs/rendering.md, File size.
@@ -167,7 +168,8 @@ promo/
   (`floor(sceneTime * fps)`, the same grid as the render), so pass `frame / fps` to `motlab stills` to see exactly that
   picture. Older selections have no `frame`; compute it the same way. Inside a scene transition, `transition` is
   `{ type, from, frame, frames }` and the note is about the transition (`from` is the scene it comes from); `scene` is
-  the one it leads into, and stills of either page alone will not show the mix, so check it in the viewer.
+  the one it leads into, and stills of either page alone will not show the mix, so check it in the viewer. Inside a
+  layer over the cut it is `{ layer, from, frame, frames }`, and `scene` is the one on screen under the layer.
 - `range` is `{ start, end, scenes }` when the user marked a stretch of time on the timeline (the range button or `R`, Shift+drag, `X` for a scene, or `I` and
   `O`): video seconds on the frame grid and the scene numbers it covers. A note like "ini terlalu lambat" with a range
   is about that whole stretch, not the single `time`.
