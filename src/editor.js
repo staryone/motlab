@@ -9,6 +9,7 @@ import { createServer } from 'node:http';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
+import { createAccess } from './access.js';
 import { projectPaths, renderProject } from './project.js';
 import { pageLib, sendFile } from './server.js';
 
@@ -60,7 +61,13 @@ export function mergeNotes(old, { marks = [], toggled = [], deleted = [] }, v) {
 const json = (res, data, code = 200) => res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(data));
 const readBody = req => new Promise((ok, no) => { let body = ''; req.on('data', d => body += d).on('end', () => ok(body)).on('error', no); });
 
-export function startEditor(target, port = 4173) {
+// domain: serve the viewer to that host name through a reverse proxy, behind a login (src/access.js).
+export function startEditor(target, port = 4173, { domain, password = process.env.MOTLAB_VIEWER_PASSWORD } = {}) {
+  const access = createAccess({ domain, password });   // null without a domain
+  if (access) {   // the token file goes with the viewer, also on Ctrl+C or a service manager's stop
+    process.on('exit', () => access.close());
+    for (const s of ['SIGINT', 'SIGTERM']) process.once(s, () => process.exit(0));
+  }
   const workspace = process.cwd(), projects = new Map();   // slug -> { root, file }
   const show = dir => {   // a folder as the menu shows it: inside the workspace relative to it, else from ~
     const r = relative(workspace, dir), h = relative(homedir(), dir), slash = p => p.split(sep).join('/');
@@ -85,14 +92,15 @@ export function startEditor(target, port = 4173) {
   let exporting = false;
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x'), path = decodeURIComponent(url.pathname);
+    if (access && await access.guard(req, res, path, readBody)) return;   // the login, when served on a domain
     // Only the viewer's own page may write: another site open in the browser (or a DNS-rebound name) gets a 403,
     // so it cannot write selection.json, add a project or start an export. `motlab edit` sends no Origin.
     if (req.method === 'POST') {
       const host = req.headers.host || '', origin = req.headers.origin;
       const local = /^(127\.0\.0\.1|localhost|\[::1\]):\d+$/.test(host);
-      if (!local || (origin && origin !== `http://${host}`)) return res.writeHead(403).end('forbidden');
+      if (access ? !access.writeAllowed(req) : !local || (origin && origin !== `http://${host}`)) return res.writeHead(403).end('forbidden');
     }
-    if (path === '/__motlab/editor') return json(res, { motlab: 'editor', pid: process.pid, workspace });   // how motlab edit/stop find this viewer
+    if (path === '/__motlab/editor') return json(res, { motlab: 'editor', pid: process.pid, workspace, domain: access?.domain });   // how motlab edit/stop find this viewer
     if (req.method === 'POST' && path === '/__motlab/stop') {   // motlab stop: end a running export (its Chrome closes), then exit
       res.writeHead(204).end();
       if (exporting) exporting.abort();
@@ -206,6 +214,7 @@ export function startEditor(target, port = 4173) {
     server.on('listening', () => {
       const n = list().length;
       console.log(`Editor: http://127.0.0.1:${port}${opened ? `/p/${opened}/  (${projects.get(opened).file})` : ''}`);
+      if (access) console.log(`  also on https://${access.domain}/ through the reverse proxy, behind the password in MOTLAB_VIEWER_PASSWORD`);
       console.log(`  ${n} project${n === 1 ? '' : 's'} in the menu: ${workspace}, and the ones opened before`);
     });
     server.listen(port, '127.0.0.1');
