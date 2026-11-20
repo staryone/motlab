@@ -95,7 +95,8 @@ export async function renderVideo(o) {
     const done = ranges.map(() => 0); let lastLine = 0;
     pages.forEach((p, i) => p.onEmit(m => {
       if (m.type !== 'progress') return; done[i] = m.done;
-      if (process.stdout.isTTY && Date.now() - lastLine > 200) { lastLine = Date.now(); process.stdout.write(`\r${done.reduce((a, b) => a + b, 0)}/${frames} frames`); }
+      // o.progress is false when project parts render in parallel, whose frame counts would overwrite each other
+      if (o.progress !== false && process.stdout.isTTY && Date.now() - lastLine > 200) { lastLine = Date.now(); process.stdout.write(`\r${done.reduce((a, b) => a + b, 0)}/${frames} frames`); }
     }));
 
     const ext = enc.codec === 'hevc' ? 'h265' : 'h264';
@@ -134,7 +135,7 @@ export async function renderVideo(o) {
       log(`\nMediabunny path failed (${why}). Retrying with raw bitstream and ffmpeg.`);
       res = await attempt('raw');
     }
-    if (process.stdout.isTTY) process.stdout.write('\r');
+    if (o.progress !== false && process.stdout.isTTY) process.stdout.write('\r');
     rmSync(out, { force: true }); renameSync(part, out);
 
     const v = await probeVideo(out), wantDur = frames / fps;

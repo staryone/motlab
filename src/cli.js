@@ -11,7 +11,8 @@ import { openInViewer, restartViewer, startViewer, stopViewer } from './viewer.j
 
 const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, ready, EVENTS) with headless Chrome and WebCodecs.
 
-  motlab render <project> [out.mp4] [--scale 2] [--only 3]  all scenes and audio in project.json, as one MP4
+  motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3]
+                                                     all scenes and audio in project.json, as one MP4
   motlab start                                       the viewer in the background at http://127.0.0.1:4173, for every
                                                      project; the menu lists the projects in this folder
   motlab edit   [project]                            open a project in the viewer (starting it if needed) and print its
@@ -45,6 +46,8 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
   --mux       auto | mediabunny | raw (auto tries Mediabunny, then raw bitstream + ffmpeg -c copy)
   --reprobe   time the encoders again instead of using the saved probe
   --only      re-render only these scenes (1-based, comma separated) and reuse the cached parts of the rest (render only)
+  --parallel  render this many scenes and transitions at once, each in its own Chrome (render only; default 3, or
+              fewer with under 12 CPU threads or 3 GB of free memory)
   --root      folder to serve (default: the nearest folder above the page with a project.json, else the page's folder)
   --chrome    path to Chrome (default: autodetect, or the CHROME environment variable)
 
@@ -78,7 +81,7 @@ export async function main(argv) {
   const { values: v, positionals } = parseArgs({ args: argv, allowPositionals: true, options: {
     fps: { type: 'string' }, scale: { type: 'string' }, audio: { type: 'string' }, encoder: { type: 'string' }, codec: { type: 'string' },
     workers: { type: 'string' }, bitrate: { type: 'string' }, qp: { type: 'string' }, mux: { type: 'string' }, root: { type: 'string' }, chrome: { type: 'string' },
-    only: { type: 'string' },
+    only: { type: 'string' }, parallel: { type: 'string' },
     format: { type: 'string' }, reprobe: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
   } });
   const [mode, page, out, ...rest] = positionals;
@@ -93,7 +96,7 @@ export async function main(argv) {
   if (mode === 'restart') { await restartViewer(); return 0; }
   if (mode === 'render') {
     if (!page) throw new Error('render needs a project folder or project file');
-    await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only) });
+    await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only), parallel: num('parallel', v.parallel, { min: 1, int: true }) });
     return 0;
   }
   if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, stills, video, events, doctor, setup, update or uninstall)`);
