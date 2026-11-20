@@ -251,11 +251,18 @@
   .ink .line { stroke: var(--blue); stroke-width: 2px; }
   .mk.stroke { border-color: transparent; background: none; }
   .mk.stroke.on { border-color: var(--blue); background: rgba(44,111,224,.06); }
-  /* what the agent is working on, or a scene that did not load again: a pill at the top of the canvas, between the
-     corners; a scene row shows a spinner instead of its length meanwhile */
-  #work { gap: 8px; padding: 0 12px; font-size: 13px; }
-  #work > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #workIcon { display: flex; }
+  /* the part of the frame the agent is fixing, or a scene loading again, while paused: a light veil with a sheen moving
+     across it (a skeleton loader's), and a short label at its top left. The notes the agent named on this frame get it,
+     else the whole frame. A scene that did not load gets the label only, with the alert icon. A scene row shows a
+     spinner instead of its length meanwhile */
+  .fix { position: absolute; overflow: hidden; background: rgba(255,255,255,.3); }
+  .fix.part { background: rgba(255,255,255,.4); }
+  .fix::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%); translate: -100% 0; animation: sheen 1.6s var(--ease) infinite; animation-delay: inherit; }
+  @keyframes sheen { to { translate: 100% 0; } }
+  .fixtag { position: absolute; display: flex; align-items: center; gap: 6px; height: 26px; padding: 0 9px; border-radius: 7px; background: rgba(255,255,255,.95); box-shadow: 0 1px 4px rgba(0,0,0,.14); color: var(--text); font-size: 12px; font-weight: 500; white-space: nowrap; pointer-events: auto; }
+  .fixtag > span:last-child { overflow: hidden; text-overflow: ellipsis; }
+  .fixtag .spin { width: 12px; height: 12px; }
+  .fixtag svg { width: 14px; height: 14px; }
   .row .d .spin { vertical-align: -2px; }
   .row .d svg { display: inline-block; vertical-align: -3px; }
 
@@ -270,6 +277,7 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before { transition-duration: 0s !important; transition-delay: 0s !important; }
     .spin { animation: none; border-color: var(--text); }
+    .fix::after { display: none; }
   }
   /* short windows, as a phone held sideways: the panel floats over the canvas instead of squeezing it, and starts
      closed; the preview takes the room the full-screen pill and the timeline leave */
@@ -280,11 +288,7 @@
     body.closed aside { opacity: 1; transform: translateX(-100%); transition: visibility 0s var(--slide), transform var(--slide) var(--ease); }
     #stage { min-height: 0; padding: 8px 64px 6px; }
     #lane { max-height: 28vh; }
-    /* the agent's work as a spinner in the free top left corner (its text in the tooltip, the timeline names the scenes),
-       and a message at the bottom of the screen, so neither covers the small preview */
-    #notices { left: 12px; translate: none; align-items: flex-start; }
-    #work { width: 36px; padding: 0; justify-content: center; }
-    #work > span:last-child { display: none; }
+    /* a message at the bottom of the screen, so it does not cover the small preview */
     #notices .toast { position: fixed; left: 50%; translate: -50% 0; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: calc(100vw - 24px); }
   }
   /* phones held upright: one column that scrolls, in the order a review on a phone needs, as in Frame.io's app: the
@@ -315,7 +319,6 @@
     .menu, #projMenu, #verMenu, #exportMenu { position: fixed; top: 50px; left: 8px; right: 8px; width: auto; min-width: 0; max-width: none; translate: none; transform-origin: top center; }
     .pop { width: auto; max-width: none; }
     #notices { position: static; translate: none; width: auto; max-width: none; align-items: stretch; }
-    #work { margin: 8px 8px 0; }
     #notices .toast { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 30; }
   }
   @media (pointer: coarse) {
@@ -365,7 +368,7 @@
 <main>
   <div id="canvas">
     <div class="pill" id="pillFull"><button class="sq" id="full" data-i="full" data-label="full" data-key="F"></button></div>
-    <div id="notices"><div class="pill" id="work" role="status" hidden><span id="workIcon"></span><span id="workText"></span></div><div class="toast" id="note" role="status" hidden></div></div>
+    <div id="notices"><div class="toast" id="note" role="status" hidden></div></div><div class="sr" id="workSr" role="status"></div>
     <div id="stage"><span id="msg" data-t="loadingProject"></span><canvas id="view" hidden></canvas><div id="marks"></div>
       <div class="pop" id="pop" role="dialog" aria-labelledby="popWhere" hidden>
         <div class="head"><span class="tag" id="popN"></span><span id="popWhere" class="num"></span><span class="end"><span id="popState" hidden></span><button class="icon" id="popUndo" data-i="undo2" data-label="undoStroke" data-key="Ctrl+Z" hidden></button></span></div>
@@ -507,6 +510,8 @@ const TEXT = {
   working: [(list, n, text) => `Agent sedang memperbaiki scene ${list}${text ? `: ${text}` : ''}`, (list, n, text) => `The agent is working on scene${n > 1 ? 's' : ''} ${list}${text ? `: ${text}` : ''}`],
   workingAny: [text => `Agent sedang bekerja${text ? `: ${text}` : ''}`, text => `The agent is working${text ? `: ${text}` : ''}`],
   sceneWorking: ['sedang diperbaiki', 'being fixed'],
+  fixing: [text => text ? `Diperbaiki: ${text}` : 'Sedang diperbaiki', text => text ? `Being fixed: ${text}` : 'Being fixed'],
+  fixLoading: ['Memuat versi baru…', 'Loading the new version…'],
   sceneReloading: ['memuat ulang', 'loading again'],
   sceneError: ['gagal dimuat', 'did not load'],
   noteWorking: ['sedang dikerjakan', 'being worked on'],
@@ -551,6 +556,7 @@ const PAD = 20, RULER = 44, MK_Y = 30, VH = 54, AH = 40, GAP = 8, AY = RULER + V
 const BLUE = '#2c6fe0', MUTED = '#666561', WAVE = '#85847f';   // waveform is 3.3:1 on its clip, 3.9:1 in blue when selected
 const FONT = getComputedStyle(document.documentElement).getPropertyValue('--font').trim();   // the timeline canvas uses the page font too
 const laneHeight = n => AY + n * (AH + GAP) + 6;
+const calm = matchMedia('(prefers-reduced-motion: reduce)');   // no sheen then, only the veil
 const svg = (d, fill) => `<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ICON = {
   panel: svg('<rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6.5 3v10"/>'),
@@ -889,7 +895,14 @@ try {
       const ow = transitionOverlap(s.transition) / fps * pps;   // the overlap with the scene before, which holds the bowtie
       const bx = Math.min(Math.max(x + ow, 0), x + cw - 24);   // the scene number stays in view while the scene is
       const badge = s.state === 'error' ? L('tlError') : s.state === 'loading' ? L('tlLoading') : s.work ? L('tlWorking') : '';
-      if (badge) { g.fillStyle = 'rgba(255,255,255,.5)'; g.fillRect(x, RULER, cw, VH); }   // a scene being fixed or loaded again is faded
+      if (badge) {   // faded; one being fixed or loading again also has a sheen moving across it, as on the preview
+        g.fillStyle = 'rgba(255,255,255,.4)'; g.fillRect(x, RULER, cw, VH);
+        if (s.state !== 'error' && !calm.matches) {
+          const p = (performance.now() % 1600) / 1600, sx = x - 80 + p * (cw + 160), gr = g.createLinearGradient(sx - 60, 0, sx + 60, 0);
+          gr.addColorStop(0, 'rgba(255,255,255,0)'); gr.addColorStop(0.5, 'rgba(255,255,255,.55)'); gr.addColorStop(1, 'rgba(255,255,255,0)');
+          g.fillStyle = gr; g.fillRect(x, RULER, cw, VH);
+        }
+      }
       g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.roundRect(bx + 6, RULER + 6, 18, 16, 5); g.fill();
       g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(i + 1, bx + 15, RULER + 14.5); g.textAlign = 'left';
       if (badge) {   // and says so next to its number
@@ -1006,8 +1019,31 @@ try {
     });
     const lines = [...vis.flatMap(m => m.stroke || []), ...(ink ? [ink.pts] : [])];
     if (lines.length) els.unshift(inkLayer(lines, vr, sr));
-    $('marks').replaceChildren(...els);
+    const fx = fixLayer(vr, sr, k);
+    $('marks').replaceChildren(...fx.under, ...els, ...(fx.label ? [fx.label] : []));
     if (active?.box || active?.point) place();
+  }
+  // The scene on screen being fixed by the agent or loading again, while paused (playing shows the video clean). The
+  // notes the agent named that sit on this frame are veiled, else the whole frame; the label sits inside the first area's
+  // top left, or under it when the area is too small. The sheen keeps its phase when the preview is drawn again.
+  function fixLayer(vr, sr, k) {
+    const s = cur?.s;
+    if (!s || playing || !(s.work || s.state)) return { under: [], label: null };
+    const err = s.state === 'error', loading = s.state === 'loading', ox = vr.left - sr.left, oy = vr.top - sr.top, M = 12 / k;
+    const named = err || loading ? [] : openNotes().filter(m => onFrame(m) && work?.notes?.includes(m.n));
+    const area = m => m.point ? { x: m.point.x - M, y: m.point.y - M, w: 2 * M, h: 2 * M } : m.stroke ? { x: m.box.x - INK / k, y: m.box.y - INK / k, w: m.box.w + 2 * INK / k, h: m.box.h + 2 * INK / k } : m.box;
+    const rects = err ? [] : named.length ? named.map(area) : [{ x: 0, y: 0, w: view.width, h: view.height }], delay = -(performance.now() % 1600) + 'ms';
+    const under = rects.map(b => {
+      const d = document.createElement('div'); d.className = 'fix' + (named.length ? ' part' : '');
+      Object.assign(d.style, { left: ox + b.x * k + 'px', top: oy + b.y * k + 'px', width: b.w * k + 'px', height: b.h * k + 'px', animationDelay: delay });
+      return d;
+    });
+    const text = err ? L('reloadError', scenes.indexOf(s) + 1, s.err) : loading ? L('fixLoading') : L('fixing', work?.text || ''), label = document.createElement('div');
+    label.className = 'fixtag'; label.dataset.tip = text;
+    label.innerHTML = (err ? ICON.alert : '<span class="spin" aria-hidden="true"></span>') + '<span></span>'; label.lastChild.textContent = text;
+    const a = rects[0] || { x: 0, y: 0, w: view.width, h: view.height }, inside = a.w * k >= 140 && a.h * k >= 44, left = Math.max(0, a.x * k) + (inside ? 8 : 0);
+    Object.assign(label.style, { left: ox + left + 'px', top: oy + Math.min(vr.height - 32, inside ? a.y * k + 8 : (a.y + a.h) * k + 6) + 'px', maxWidth: Math.max(120, vr.width - left - 8) + 'px' });
+    return { under, label };
   }
   // Pencil strokes: one SVG over the preview in the scene's own pixels, all halos under all lines. A stroke is a list of
   // [x, y] points; a single point is drawn as a dot.
@@ -1176,7 +1212,7 @@ try {
   });
 
   // ---- playback: the audio clock drives the playhead; the button is blue only while it plays
-  const setPlay = on => { $('play').innerHTML = on ? ICON.pause : ICON.play; $('play').classList.toggle('hot', on); label($('play'), L(on ? 'pause' : 'play')); wake(); };
+  const setPlay = on => { $('play').innerHTML = on ? ICON.pause : ICON.play; $('play').classList.toggle('hot', on); label($('play'), L(on ? 'pause' : 'play')); wake(); paint(); };
   function play(jump = true) {   // with a range, Play starts at its start and goes round inside it
     const inside = range && t >= range.start && t < range.end - 1e-6;
     looping = !!range && (jump || inside);   // a click elsewhere while playing plays on from there
@@ -1746,7 +1782,7 @@ try {
           if (s.win) { s.frame.remove(); live.splice(live.indexOf(s), 1); }
           Object.assign(s, page, { dur, w: page.canvas.width, h: page.canvas.height, thumbs, warm: null, state: null, err: null, deps: new Set([rel(s.file)]) });
           live.push(s); usedBy(s); trim(s); if (!done.includes(s)) done.push(s);
-        } catch (e) { if (!queued.has(s)) Object.assign(s, { state: 'error', err: String(e.message).replace(/\.$/, '') }); }
+        } catch (e) { if (!queued.has(s)) { Object.assign(s, { state: 'error', err: String(e.message).replace(/\.$/, '') }); note(L('reloadError', scenes.indexOf(s) + 1, s.err)); } }
       }
       const bad = lay();
       if (bad) Object.assign(bad.s, { state: 'error', err: bad.text.replace(/\.$/, '') });
@@ -1763,18 +1799,31 @@ try {
     for (const n of work.notes || []) { const m = notes.find(x => x.n === n && !x.done); if (m) for (const i of m.range ? m.range.scenes : [m.sceneIndex]) set.add(i); }
     return set;
   }
-  function stateUI() {   // the scene list, the timeline, the notes and the pill over the preview
-    const fixing = workScenes(), list = [...fixing].sort((a, b) => a - b), broken = scenes.find(s => s.state === 'error');
+  function stateUI() {   // the scene list, the timeline, the notes and the preview; a screen reader hears the whole sentence
+    const fixing = workScenes(), list = [...fixing].sort((a, b) => a - b);
     scenes.forEach((s, i) => { s.work = fixing.has(i + 1); sceneRow(s); });
-    const text = broken ? L('reloadError', scenes.indexOf(broken) + 1, broken.err) : list.length ? L('working', and(list), list.length, work.text)
-      : work?.project === PROJECT ? L('workingAny', work.text) : '';
-    $('work').hidden = !text; $('workText').textContent = text; $('work').dataset.tip = text;
-    $('workIcon').innerHTML = broken ? ICON.alert : '<span class="spin" aria-hidden="true"></span>';
-    listNotes(); drawTimeline();
+    const text = list.length ? L('working', and(list), list.length, work.text) : work?.project === PROJECT ? L('workingAny', work.text) : '';
+    if ($('workSr').textContent !== text) $('workSr').textContent = text;
+    listNotes(); drawTimeline(); paint(); shimmer();
+  }
+  let sheen = 0;
+  function shimmer() {   // the timeline is drawn again about 30 times a second while a scene there is being fixed or loading
+    const any = () => scenes.some(s => s.work || s.state === 'loading');
+    if (sheen || calm.matches || !any()) return;
+    let last = 0;
+    const step = now => {
+      if (!any()) { sheen = 0; return drawTimeline(); }
+      if (now - last > 33) { last = now; drawTimeline(); }
+      sheen = requestAnimationFrame(step);
+    };
+    sheen = requestAnimationFrame(step);
   }
   const events = new EventSource('__events');
   events.addEventListener('change', e => changed(JSON.parse(e.data).files));
-  events.addEventListener('work', e => { work = JSON.parse(e.data); stateUI(); });
+  events.addEventListener('work', e => {   // work on no scene of this version shows as a message, as there is nothing to veil
+    work = JSON.parse(e.data); stateUI();
+    if (work?.project === PROJECT && !workScenes().size) note(L('workingAny', work.text));
+  });
 } catch (e) {
   $('view').hidden = $('lane').hidden = $('bar').hidden = true; $('msg').hidden = false;
   $('msg').textContent = e.hint ? e.message : L('loadFailed', e.message);
