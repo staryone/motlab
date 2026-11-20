@@ -151,6 +151,33 @@ test('project: --only re-renders one scene and the transition touching it, reuse
   assert.equal((await probeVideo(join(dir, 'only-cold.mp4'))).frames, 60);
 });
 
+test('project: parts render several at a time in order, and a failing part is tried again one at a time', async () => {
+  const proj = join(dir, 'parallel'), flat = (name, colour) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);
+    window.renderAt = () => { c.fillStyle = '${colour}'; c.fillRect(0, 0, 320, 180); };</script>`);
+  mkdirSync(proj); flat('a.html', '#000'); flat('b.html', '#fff'); flat('c.html', '#f00'); flat('d.html', '#00f');
+  const fade = { type: 'fade', duration: 0.5, ease: 'linear' };
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes: ['a.html', { file: 'b.html', transition: fade }, 'c.html', { file: 'd.html', transition: fade }] }));
+  const out = join(dir, 'parallel.mp4'), logs = [];
+  await renderProject({ dir: proj, out, scale: 1, parallel: 3, log: m => logs.push(m) });
+  assert.ok(logs.includes('\nRendering 5 more parts, 3 at a time'), logs.join('\n'));
+  const v = await probeVideo(out);
+  assert.equal(v.frames, 90);   // four scenes of 30 frames, two transitions of 15 shared frames
+  const rgb = f => meanRgb(out, '100:100:110:40', f);
+  assert.ok(near(rgb(5), [0, 0, 0], 8), `frame 5 is ${rgb(5)}`);
+  assert.ok(near(rgb(22), [128, 128, 128], 10), `frame 22 is ${rgb(22)}`);   // a to b at progress 0.5
+  assert.ok(near(rgb(40), [255, 255, 255], 8), `frame 40 is ${rgb(40)}`);
+  assert.ok(near(rgb(52), [255, 0, 0], 12), `frame 52 is ${rgb(52)}`);
+  assert.ok(near(rgb(67), [128, 0, 128], 12), `frame 67 is ${rgb(67)}`);   // c to d at progress 0.5
+  assert.ok(near(rgb(85), [0, 0, 255], 12), `frame 85 is ${rgb(85)}`);
+  // A scene that fails fails again on its own, and that error is the one reported.
+  writeFileSync(join(proj, 'c.html'), '<!doctype html><canvas id="c" width="320" height="180"></canvas><script>window.TOTAL = 1; window.renderAt = () => {}; window.ready = Promise.reject(new Error("c is broken"));</script>');
+  const failLogs = [];
+  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'parallel2.mp4'), scale: 1, parallel: 3, log: m => failLogs.push(m) }), /c is broken/);
+  assert.ok(failLogs.some(l => l.includes('Rendering the remaining parts one at a time')), failLogs.join('\n'));
+  assert.ok(!existsSync(join(dir, 'parallel2.mp4')));
+});
+
 test('project: scenes of different sizes stop the render, and a mono file plays at full level on both channels', async () => {
   const proj = join(dir, 'proj2'), flat = (name, w, h) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="${w}" height="${h}"></canvas><script>
     const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);

@@ -7,12 +7,17 @@
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { freemem, availableParallelism, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { finalize, probeVideo, run } from './ffmpeg.js';
 import { findTransition, transitionProgress } from './page/transitions.js';
 import { cacheDir } from './probe.js';
 import { renderVideo } from './render.js';
+
+// How many parts render at once without --parallel: 3, fewer on a smaller machine. On the test laptop (16 threads) a
+// project of 12 short scenes got faster up to 3 at once and no faster at 4, and 3 Chrome processes rendering 4K used
+// about 2.5 GB together, so each part gets 4 threads and 1 GB of free memory. Each part is its own Chrome and encoder.
+export const defaultParallel = () => Math.max(1, Math.min(3, Math.floor(availableParallelism() / 4), Math.floor(freemem() / 1e9)));
 
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
@@ -49,7 +54,7 @@ export function projectPaths(target) {
 // version are rendered again after an update, and a finished render removes the cached parts it did not use.
 // The key is the scene page itself, so a file the scene loads (a shared script, a font, a picture) changing is
 // not noticed: render the whole project again then, or delete the cache folder.
-export async function renderProject({ dir, out, scale, only, log = console.log, signal }) {   // signal: an AbortSignal that stops the render
+export async function renderProject({ dir, out, scale, only, parallel, log = console.log, signal }) {   // signal: an AbortSignal that stops the render
   const { root, file, name } = projectPaths(dir);
   dir = root; out = resolve(out || join(dir, 'out', name + '.mp4'));
   const p = JSON.parse(readFileSync(file, 'utf8')), tmp = mkdtempSync(join(tmpdir(), 'motlab-project-')), partial = out + '.part';
@@ -68,7 +73,7 @@ export async function renderProject({ dir, out, scale, only, log = console.log, 
     const key = o => createHash('sha256').update(JSON.stringify(o)).digest('hex');
     // A part is reused only when its cached file still probes as the manifest says, and its encoder and colour range
     // match the first part, because a stream copy join is only safe when codec, encoder and resolution match.
-    const getPart = async (k, forced, label, render) => {
+    const getPart = async (k, forced, label, log, render) => {
       used.add(k);
       let suffix = '';
       if (!forced) {
@@ -93,24 +98,68 @@ export async function renderProject({ dir, out, scale, only, log = console.log, 
       } catch (e) { log(`(could not save the cached part: ${e.message})`); }
       return summary;
     };
-    for (const [i, scene] of scenes.entries()) {
-      const into = scene.transition, next = scenes[i + 1]?.transition;
-      signal?.throwIfAborted();
-      const k = key({ kind: 'scene', file: scene.file, hash: hashes[i], fps: p.fps, scale, version: VERSION, head: into?.n || 0, tail: next?.n || 0 });
-      const part = await getPart(k, !only || only.includes(i + 1), `\nScene ${i + 1}/${scenes.length}: ${scene.file}`, () => renderVideo({ page: join(dir, scene.file), root: dir,
-        out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, log, signal, head: into?.n, tail: next?.n, ...same() }));
-      // a stream copy join of parts with different sizes makes an MP4 that changes resolution partway through
-      if (parts[0] && (part.width !== parts[0].width || part.height !== parts[0].height))
-        throw new Error(`${scene.file} is ${part.width}x${part.height} but ${scenes[0].file} is ${parts[0].width}x${parts[0].height}. All scenes in a project must have the same canvas size`);
-      parts.push(part);
-      if (!next) continue;
+    // The parts in order: each scene, and after it the transition into the next one. Scene 1 renders first and
+    // alone, because it picks the encoder (and times the encoders on a new machine). The rest render `parallel` at a
+    // time, each in its own Chrome; a transition waits for the scene before it, which tells it where that scene ends.
+    const jobs = scenes.flatMap((scene, i) => [{ kind: 'scene', i }, ...(scenes[i + 1]?.transition ? [{ kind: 'transition', i }] : [])]);
+    let progress = true;   // the frame counter on the terminal, off while parts render in parallel
+    const renderJob = async (j, log, signal) => {
+      const { i } = jobs[j], scene = scenes[i], into = scene.transition, next = scenes[i + 1]?.transition;
+      signal.throwIfAborted();
+      if (jobs[j].kind === 'scene') {
+        const k = key({ kind: 'scene', file: scene.file, hash: hashes[i], fps: p.fps, scale, version: VERSION, head: into?.n || 0, tail: next?.n || 0 });
+        const part = await getPart(k, !only || only.includes(i + 1), `\nScene ${i + 1}/${scenes.length}: ${scene.file}`, log, () => renderVideo({ page: join(dir, scene.file), root: dir,
+          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, log, signal, progress, head: into?.n, tail: next?.n, ...same() }));
+        // a stream copy join of parts with different sizes makes an MP4 that changes resolution partway through
+        if (parts[0] && (part.width !== parts[0].width || part.height !== parts[0].height))
+          throw Object.assign(new Error(`${scene.file} is ${part.width}x${part.height} but ${scenes[0].file} is ${parts[0].width}x${parts[0].height}. All scenes in a project must have the same canvas size`), { final: true });
+        return part;
+      }
+      const from = parts[j - 1];
       const tk = key({ kind: 'transition', from: scene.file, to: scenes[i + 1].file, fromHash: hashes[i], toHash: hashes[i + 1],
         type: next.type, n: next.n, ease: next.ease, params: next.params, fps: p.fps, scale, version: VERSION });
-      const query = new URLSearchParams({ from: scene.file, to: scenes[i + 1].file, offset: (part.pageFrames - next.n) / p.fps, frames: next.n,
+      const query = new URLSearchParams({ from: scene.file, to: scenes[i + 1].file, offset: (from.pageFrames - next.n) / p.fps, frames: next.n,
         fps: p.fps, type: next.type, ease: next.ease, params: JSON.stringify(next.params) });
-      parts.push(await getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.type}, ${next.n} frames`,
+      return getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.type}, ${next.n} frames`, log,
         () => renderVideo({ url: '__motlab/transition.html', query: String(query), root: dir, out: join(cacheRoot, tk + '.mp4'),
-          fps: p.fps, scale, log, signal, ...same() })));
+          fps: p.fps, scale, log, signal, progress, ...same() }));
+    };
+    // Runs the parts that have no result yet, `width` at a time. When one fails the others are stopped, and the parts
+    // that finished are kept. A part's log is printed in one piece when it ends, so parallel logs do not interleave.
+    const runAll = async width => {
+      const ctrl = new AbortController(), stop = () => ctrl.abort(signal.reason);
+      signal?.addEventListener('abort', stop);
+      let free = width; const waiting = [];
+      const slot = () => free > 0 ? (free--, Promise.resolve()) : new Promise(r => waiting.push(r));
+      const release = () => waiting.length ? waiting.shift()() : free++;
+      const promises = [];
+      try {
+        for (let j = 0; j < jobs.length; j++) {
+          if (parts[j]) { promises.push(Promise.resolve(parts[j])); continue; }
+          const before = jobs[j].kind === 'transition' ? promises[j - 1] : null;
+          promises.push((async () => {
+            if (before) await before;
+            await slot();
+            const lines = [], out = width > 1 ? l => lines.push(l) : log;
+            try { return parts[j] = await renderJob(j, out, ctrl.signal); }
+            catch (e) { if (!ctrl.signal.aborted) ctrl.abort(e); throw e; }
+            finally { lines.forEach(l => log(l)); release(); }
+          })());
+        }
+        const failed = (await Promise.allSettled(promises)).find(r => r.status === 'rejected');
+        if (failed) throw ctrl.signal.reason ?? failed.reason;   // the first failure, not the ones it caused by stopping the rest
+      } finally { signal?.removeEventListener('abort', stop); }
+    };
+    parts[0] = await renderJob(0, log, signal ?? new AbortController().signal);
+    const width = Math.max(1, Math.min(parallel ?? defaultParallel(), jobs.length - 1));
+    if (width > 1) { progress = false; log(`\nRendering ${jobs.length - 1} more parts, ${width} at a time`); }
+    try { await runAll(width); }
+    catch (e) {
+      // Too many Chrome processes for the memory, or more hardware encoder sessions than the GPU allows, show up as a
+      // failed part. The parts still missing are rendered one at a time; a part that fails then fails for real.
+      if (width === 1 || e.final || signal?.aborted) throw e;
+      log(`\nA part failed with ${width} at a time (${String(e?.message || e).split('\n')[0]}). Rendering the remaining parts one at a time.`);
+      progress = true; await runAll(1);
     }
     const duration = parts.reduce((sum, s) => sum + s.duration, 0);
 

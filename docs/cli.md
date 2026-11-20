@@ -1,7 +1,7 @@
 # Command line
 
 ```text
-motlab render <project> [out.mp4] [--scale 2] [--only 3]  all scenes and audio in project.json, as one MP4
+motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3]  all scenes and audio in project.json, as one MP4
 motlab start                                      the viewer in the background at http://127.0.0.1:4173, one for all projects
 motlab edit   [project]                           open a project in the viewer, starting it first if needed
 motlab stop | restart                             end the viewer, or start it again from the same folder
@@ -34,7 +34,7 @@ When the page throws while loading, the error names the file, line and column, f
 
 ## Options
 
-`render` takes `--scale` and `--only`; the rest are for `video` (and `--root`, `--chrome`, `--scale` and `--format` for `stills`, and `--root` and `--chrome` for `events`).
+`render` takes `--scale`, `--only` and `--parallel`; the rest are for `video` (and `--root`, `--chrome`, `--scale` and `--format` for `stills`, and `--root` and `--chrome` for `events`).
 
 | Option | Meaning |
 |---|---|
@@ -49,6 +49,7 @@ When the page throws while loading, the error names the file, line and column, f
 | `--mux` | `auto`, `mediabunny` or `raw`. Auto tries the in-page MP4 muxer, then a raw bitstream wrapped by ffmpeg |
 | `--reprobe` | Time the encoders again instead of using the saved timings |
 | `--only` | Re-render only these scenes (1-based, comma separated), for example `--only 3` or `--only 3,5`, and reuse the cached parts of the rest. The transitions touching a re-rendered scene are re-rendered too. The cache holds the last render's parts, so pass the same `--scale` as that render. Only for `render`, see [Rendering a project](projects.md#rendering-a-project) |
+| `--parallel` | How many scenes and transitions `render` renders at once, each in its own Chrome. Default 3, or fewer on a machine with under 12 CPU threads or 3 GB of free memory. 1 renders them one after another. See [Rendering a project](projects.md#rendering-a-project) |
 | `--root` | Folder to serve. Default is the nearest folder above the page with a `project.json`, else the page's folder |
 | `--chrome` | Path to Chrome. Default: found automatically, or the `CHROME` environment variable |
 | `--format` | `png` or `jpg`, for `stills` |
