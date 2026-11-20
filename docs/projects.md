@@ -170,4 +170,34 @@ window.renderAt = async t => { await window.ready; await edit.draw(ctx, t, 0, 0,
 
 Tested on the first 40 s of a 1440x1440 talking-head recording: 10 parts, 38.64 s of take to 33.47 s, and the cut voice WAV was the same length as the cut list, with and without a 0.12 s dissolve. A 1080x1920 render of two 12 s scenes from it encoded at 55 to 72 fps on the test laptop (RTX 3060 Laptop). A whole 10-minute take (Windows text to speech with pauses of 0.4 to 2.5 s, over a pink noise room tone) went from 619.4 s to 384.4 s in 240 parts in 60 s. No part starts or ends inside a word: the clean voice is at least 38 dB below its speech level in the first and last 20 ms of every part. None of the 239 joins in the cut voice WAV clicks. Listened to with earshot: no clipping, the same loudness through the take (-20 LUFS), and 0.3 s gaps where sentences meet. A synthetic voice says little about how natural a real person sounds with these settings, so listen to the first real take.
 
+### One take over several scenes, with captions
+
+A long take can be split into scenes by section, so the viewer, notes and `--only` work per section. Name the sections and where each starts, in seconds of the recording:
+
+```bash
+python skills/motlab/scripts/cut_pauses.py footage/talk.mp4 cuts.json --audio-out audio/voice-cut.wav --sections hook=0,demo=41.5,outro=96
+```
+
+That adds `"sections": [{ "name": "hook", "from": 0 }, ...]` to `cuts.json` (it can also be written by hand) and prints where each section lands in the edit. Each scene then plays its own section, and its `TOTAL` is that section's length:
+
+```js
+const edit = cutList(cuts, clip, { section: 'demo', punch: [1, 1.12], glide: 0.25 });
+window.TOTAL = edit.duration;   // set it before window.ready resolves
+```
+
+- A section starts at the cut nearest its `from` and runs to the cut where the next section starts, so a scene never starts in the middle of a part. Scene time 0 is that cut.
+- `edit.offset` is where the section starts in the whole edit. Put the scenes in `project.json` in section order with hard cuts, and the cut voice once at `start: 0`: the scenes' lengths add up to the cut list's, so the voice stays in step. With a dissolve, a section ends where the next one's first part starts, so the dissolve at that cut becomes a hard cut in the picture while the voice keeps its crossfade. A scene transition between sections would shorten the video and move the voice out of step.
+- `punch` alternates over the whole list, as it would in one scene.
+
+`edit.captions(transcript)` places a transcript of the recording on the scene's time and groups it into lines for burned-in captions. The transcript is Whisper's JSON with word times (`{ "segments": [{ "words": [{ "word", "start", "end" }] }] }`, from `whisper talk.mp4 --word_timestamps True --output_format json` with OpenAI's Whisper), or a plain list of `{ "text", "start", "end" }`, in seconds of the recording. motlab does not make the transcript.
+
+```js
+const lines = edit.captions(await (await fetch('../transcript.json')).json(), { maxChars: 32, maxGap: 0.6, hold: 0.3, shift: 0 });
+const line = lines.find(l => t >= l.start && t < l.end);   // { text, start, end, words: [{ text, start, end }] }
+```
+
+Words that start inside a cut pause, or outside the section, are left out. A line ends at a pause longer than `maxGap` seconds, after a word ending in `.`, `?` or `!`, or before it would pass `maxChars` characters, and stays up `hold` seconds after its last word unless the next line starts sooner. `shift` moves every word by that many seconds before it is placed: Whisper's word times were about 0.23 s early in one take, so check by ear. Each word has its own time for a word-by-word highlight.
+
+Tested: `test/cuts.test.js` checks where sections start and that they add up to the whole edit, with and without a dissolve, and how captions are placed and broken into lines; `test/render.test.js` renders two section scenes from one recording whose frames each have their own grey and checks that all 24 output frames show the right source frame. `cut_pauses.py --sections` on a made-up 8 s take printed the same section starts and lengths as `cutList`. Not tried: a real transcript from Whisper (its JSON shape is from its documentation) and a real talking-head take split into sections.
+
 The skill's [footage reference](../skills/motlab/references/footage.md) covers editing footage into a video.

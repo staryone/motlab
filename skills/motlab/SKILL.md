@@ -280,9 +280,10 @@ and how to install it before you start.
 - `get_font.py`: searches the Google Fonts catalog and downloads a family into the project. `templates/font-specimen.html`
   shows the downloaded fonts side by side for `motlab stills`.
 - In every scene page: `/__motlab/motion.js` (easings, `cubicBezier`, `spring`, `tween`, `stagger`, `motionBlur`),
-  `/__motlab/footage.js` (video files) and `/__motlab/cuts.js` (a cut list over one recording).
-- `cut_pauses.py`: cuts the pauses out of a talking-head recording into `cuts.json`, and with `--audio-out` writes the
-  voice with the same cuts.
+  `/__motlab/footage.js` (video files) and `/__motlab/cuts.js` (a cut list over one recording, by section, with
+  captions from a transcript).
+- `cut_pauses.py`: cuts the pauses out of a talking-head recording into `cuts.json`, with `--audio-out` writes the
+  voice with the same cuts, and with `--sections` splits the take into one scene per section.
 - `mix.py`: puts library sounds on the page's events at a level set by their role, lowers them under a voiceover,
   reports how close each landed and which moments to listen to. `synth_sfx.py`: builds a free sound kit. `get_sfx.py`: finds openly licensed sounds on
   Openverse and downloads them with a `CREDITS.md`. If the user has earshot (`earshot --help` runs, or its MCP tools
