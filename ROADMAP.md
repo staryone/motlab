@@ -5,8 +5,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 ## Not built yet
 
 - Alpha output (ProRes 4444).
-- The viewer on a VPS with a domain. That needs security in front of it, or access only through Tailscale, which is also worth considering. From there, work could be run remotely on the personal laptop (when it is on) or on the VPS (when there is one).
-- A transition as a layer over the cut (a swish of shapes) in `project.json`. It exists as the asset skill's `transition.js`, but each of the two scene pages has to draw its half by hand. Shader transitions from a `.glsl` file in the project are built.
+- From the viewer on a VPS, sending a render to the personal laptop when it is on. The viewer itself runs on a domain behind a password now (`motlab start --domain`), and its Export renders on the server it runs on.
 - A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
 
 ## Not tested yet
@@ -15,6 +14,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - The npm package on macOS. It was installed on Windows, from the registry and with nvm for Windows 2.0 (where setup writes its own launcher), and on a Linux VPS from a packed tarball (docs/install.md).
 - macOS, and Linux beyond the tests, including `motlab update` there. On Linux, CI renders the end-to-end tests on an Ubuntu runner, and a real video has been made there now: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, in about 82 s (issue #8). On macOS the Chrome paths and the Metal flag are in the code, but nothing has run.
 - `render --parallel` and Export on a machine with fewer than 16 CPU threads or little memory, and on a GPU whose hardware encoder runs out of sessions, where the fallback to one part at a time should take over. The parallel render was measured on the test laptop only (docs/projects.md).
+- The viewer on a real VPS behind Caddy with a real certificate, its systemd user service, the agent's setup steps in docs/install-for-agents.md, and Tailscale Serve. The login was tested on the Windows laptop with curl and Chrome on localhost (docs/viewer.md).
 - Renders longer than 10 minutes, and a 10-minute render on a machine that is doing nothing else.
 - A machine without a GPU beyond the tests. CI runs the end-to-end tests on Linux and Windows runners without a GPU, and the benchmark ran with Chrome drawing on SwiftShader on the test laptop (1080p and 4K, in `docs/rendering.md`). A real video has been rendered on such a machine now: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, in about 82 s (issue #8). No 3D (WebGL) scene has been rendered on one yet.
 - Footage filmed on a phone (variable frame rate and HEVC were tested with files made by ffmpeg), and HEVC on a Chrome that cannot decode it.
@@ -34,5 +34,4 @@ What is not built, what has not been tested, and ideas that came up while using 
 
 ## Questions about speed
 
-- Whether Chrome can be made to use NVENC on NVIDIA cards. On the test laptop `nvidia-smi` showed no encoder sessions during a hardware encode, so Chrome probably used the integrated GPU's encoder.
 - Why the hardware encoder at 4K switches between about 34 and 17 fps from run to run.

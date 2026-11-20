@@ -35,6 +35,8 @@ The skill's scripts need numpy, scipy and Pillow. From the engine folder (`motla
 python -m pip install -r skills/motlab/requirements.txt
 ```
 
+[earshot](https://github.com/Leonxlnx/earshot) is optional. With it the agent can listen to sound: pick sound effects, find the best moment in a recording and check a mix. It needs Python with torch and about 1.1 GB of models, so motlab never installs it. `motlab doctor` shows it as `ok` with its models downloaded, or as `warn` with what to do, and it never makes the doctor fail. Install it from its own page, then `earshot doctor --fetch` downloads the models.
+
 ## From npm
 
 ```bash

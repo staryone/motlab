@@ -20,6 +20,7 @@ A project is a folder with scene pages, audio files and a `project.json`:
 - A mono file plays at the same level on both channels, in the viewer and in the render.
 - An audio entry can also be a video file, whose sound is used. Any entry can take `from` (seconds into the file) and `duration` to use only part of it.
 - Audio that runs past the end of the video is cut.
+- `qp` and `codec` trade file size against quality, for `motlab render` and the viewer's Export alike: `"qp": 22` makes a file about 30% smaller than the default 18 at nearly the same quality, and `"codec": "hevc"` asks for HEVC. `--qp` and `--codec` on `motlab render` override them. The measurements are in [File size](rendering.md#file-size).
 
 Paths are relative to the folder that holds the project file. [`example/`](../example) is a sample with three scenes, music and three sound effects, all generated with ffmpeg (`sine` and `anoisesrc`).
 
@@ -90,6 +91,18 @@ The transition is set on the scene it leads into. For `duration` (rounded to who
 Frame `k` of an `n`-frame transition shows frame `TOTAL * fps - n + k` of the scene before and frame `k` of the new one, mixed at progress `ease((k + 0.5) / n)`, so neither end of the transition repeats a plain frame. A scene must be longer than its transitions together: a scene with one leading into it and one leading out needs more frames than the two have between them.
 
 `type` is one of 11 shaders from [gl-transitions](https://github.com/gl-transitions/gl-transitions) 1.43.0, all MIT, copied into `src/page/transitions.js` with their authors: `fade`, `fadecolor`, `Directional`, `directionalwipe`, `directionalwarp`, `circleopen`, `CrossZoom`, `crosswarp`, `SimpleZoom`, `LinearBlur` and `cube`. `params` overrides their uniforms (for example `{ "direction": [1, 0] }`), and `ease` is a name from `motion.js`. An unknown type or ease stops the render and the viewer with the list of valid names.
+
+### A layer over the cut
+
+A transition can also be a layer of shapes drawn over a hard cut, such as a swish of brand-coloured bands, instead of a shader that mixes the two scenes. It is an option, not the default: the skill still designs each transition frame by frame in the scene pages, and uses a layer only when the user asks for one. Set `layer` to a JavaScript module in the project in place of `type`:
+
+```json
+{ "file": "scenes/02.html", "transition": { "layer": "assets/kits/acme/transitions/swish/transition.js", "duration": 0.6 } }
+```
+
+The module exports `draw(ctx, p, W, H)`, which draws the layer at progress `p` in the page's own pixels (`W` by `H`, before `?scale=`), and may be async. The asset skill's `templates/transition.js` is one. The scenes do not overlap and the video keeps its length: the layer covers the last half of `duration` of the scene before and the first half of the next, and `p` runs from 0 to 1 over those frames, reaching 0.5 at the cut. Of `n` frames, the scene before gives the last `floor(n / 2)` and the next scene the first `n - floor(n / 2)`, and frame `k` is drawn at `p = (k + 0.5) / n`. At `p = 0.5` the layer must cover the whole frame, or the cut shows through. The render draws it on the transition part like a shader transition, the viewer draws it over the preview, and the module's file is part of the cache key. `ease` and `params` do not apply: the layer eases itself.
+
+Tested: `test/render.test.js` renders two flat scenes with a layer that draws a red bar `p` of the width, at `--scale 2`, and checks the frame count (no frames lost) and where the bar is before and after the cut. The asset skill's swish between the example's first two scenes was fully covering at the cut and showed the same picture 0.2 s after it in the viewer and in a 1080p render, and the project stayed 9 s long. Not tried: a layer that loads its own images or fonts.
 
 ### A transition of your own
 

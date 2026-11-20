@@ -96,7 +96,7 @@ Every click on a scene, an audio clip or a point on the timeline is saved to `se
 | `scene`, `sceneIndex` | the scene page and its number, from 1 |
 | `sceneTime` | seconds into that scene |
 | `frame` | the frame of that scene the preview shows; `frame / fps` is its time on the render's frame grid |
-| `transition` | inside a transition: `{ type, from, frame, frames }`, the scene number it comes from and its frame `frame` of `frames`; else `null`. `scene` is then the scene it leads into |
+| `transition` | inside a transition: `{ type, from, frame, frames }`, the scene number it comes from and its frame `frame` of `frames`; else `null`. `scene` is then the scene it leads into. Inside a layer over a cut it is `{ layer, from, frame, frames }`, and `scene` is the one under the layer |
 | `audio` | `{ file, start, index }` when the click was on an audio clip, else `null` |
 | `range` | `{ start, end, scenes }` when a range is marked, else `null`: seconds from the start of the video, on the frame grid, and the scene numbers it covers |
 | `marks` | the notes, see below |
@@ -147,9 +147,65 @@ Checked in headless Chrome over the DevTools protocol with a phone emulated (tou
 
 ## Export
 
-The Export button in the top right renders the project. Pick 720p, 1080p, 1440p or 4K and press the button under the list, which names the size it will make. The viewer's server runs the same render as `motlab render` and streams the log back to the page; the log also appears in the terminal. The file is written to `out/<folder>-<resolution>.mp4` in the project folder, for example `example/out/example-1080p.mp4`, or `out/<folder>-<version>-<resolution>.mp4` for another version, and the Open link opens it. The resolution in the name is the short side of the frame: 4K is written as `-2160p`. Only one export runs at a time.
+The Export button in the top right renders the project. Pick 720p, 1080p, 1440p or 4K and press the button under the list, which names the size it will make. The viewer's server runs the same render as `motlab render` and streams the log back to the page; the log also appears in the terminal. The file is written to `out/<folder>-<resolution>.mp4` in the project folder, for example `example/out/example-1080p.mp4`, or `out/<folder>-<version>-<resolution>.mp4` for another version, and the Open link opens it. The resolution in the name is the short side of the frame: 4K is written as `-2160p`. Only one export runs at a time. Export renders the scenes three at a time like `motlab render`, and uses `qp` and `codec` from the project file when it has them ([File size](rendering.md#file-size)).
 
 While an export runs, the button is faded with a spinner and a red Cancel button appears under it. Pressing Cancel stops the render: the server closes its headless Chrome and any ffmpeg step, deletes the temp files, and the menu shows "Export cancelled". The file that was being written is never left half done in `out/`, because the render writes it as `.part` and renames it only when it is complete; an earlier export of the same size stays as it was. On the example project at 4K a cancel took 0.3 s. Reloading the page does not cancel an export; it keeps running in the terminal, and Export answers that another export is still running until it ends.
+
+## On a VPS with a domain
+
+The viewer can run on a server and be opened from anywhere at a domain of your own, behind a password. It still listens only on `127.0.0.1`; a reverse proxy on the same server gives it HTTPS and passes requests to it. With [Caddy](https://caddyserver.com), which gets the certificate by itself, the whole proxy is a Caddyfile:
+
+```text
+viewer.example.com {
+    reverse_proxy 127.0.0.1:4173
+}
+```
+
+Point the domain's DNS at the server, then start the viewer with the domain and a password of at least 12 characters in `MOTLAB_VIEWER_PASSWORD`:
+
+```bash
+MOTLAB_VIEWER_PASSWORD='a long password of your own' motlab start --domain viewer.example.com
+```
+
+Open `https://viewer.example.com` and sign in. Then:
+
+- Every request needs the login, whatever address it comes in on, so a proxy that rewrites the Host header to `127.0.0.1` does not skip it. Only the sign-in page answers without it.
+- The session is a cookie that is HttpOnly, Secure and SameSite=Strict, and lasts 30 days or until the viewer stops. A save, a new version or an Export must come from the viewer's own page on `https://viewer.example.com`; a request from another site is refused.
+- After 5 wrong passwords in a minute, the login waits until the minute is over.
+- `motlab edit`, `stop` and `restart` on the server still work: the viewer writes a random token to `~/.motlab/viewer-token` (readable only by you on Linux and macOS) and removes it when it stops, and the commands send it. `restart` keeps the domain.
+- Export renders on the server, so the server needs Chrome and ffmpeg (`motlab doctor`). The finished file opens from the Open link as it does on your own machine.
+
+The password is read from the environment so that it does not show up in the process list. Put it in your service manager's environment file rather than in a command line that the shell history keeps. A proxy other than Caddy works the same way: HTTPS in front, `127.0.0.1:4173` behind it.
+
+### Keep it running
+
+On a Linux server, a systemd user service starts the viewer again after a reboot or a crash. Put the password in `~/.config/motlab/viewer.env` as one line, `MOTLAB_VIEWER_PASSWORD=...`, readable only by you (`chmod 600`), and this in `~/.config/systemd/user/motlab-viewer.service`, with your domain, your projects folder and the path that `command -v motlab` prints:
+
+```ini
+[Unit]
+Description=motlab viewer
+
+[Service]
+EnvironmentFile=%h/.config/motlab/viewer.env
+WorkingDirectory=%h/videos
+ExecStart=/usr/local/bin/motlab start --foreground --domain viewer.example.com
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now motlab-viewer
+loginctl enable-linger "$USER"
+```
+
+The last line keeps it running when you are not logged in. `systemctl --user restart motlab-viewer` picks up a new password; everyone signs in again after a restart. This unit has not been run on a real server yet.
+
+Without a domain of your own, [Tailscale](https://tailscale.com) keeps the viewer private to your own devices: `tailscale serve 4173` on the server gives it an HTTPS name on your tailnet. Start the viewer with `--domain` set to that name and a password, because without `--domain` the viewer refuses saves and Export from any name but `127.0.0.1`.
+
+Tested on the Windows laptop: `test/access.test.js` checks the login, the cookie, refused writes from other sites and other Host headers, the token, the wait after wrong passwords and signing out. The real viewer was started with `--domain` and checked with curl sending the domain's Host header as a proxy does, and in Chrome on `localhost`: the sign-in page came first, a wrong password was refused, the right one opened the project, and a click saved `selection.json`. `motlab edit` and `motlab stop` worked through the token, and the token file was gone after the stop. Not tried yet: a real VPS behind Caddy with a real certificate, and Tailscale Serve.
 
 ## How the preview works
 
@@ -159,7 +215,7 @@ When the viewer opens, it goes through the scenes one at a time for their length
 
 What the viewer plays was recorded off its audio graph on the example project and compared with the render of the same project: the same events at the same times, the same loudness (-19.9 LUFS integrated, -7.2 dBTP) and level within 0.02 dB, with no dropouts or clipping (measured, and listened to with earshot).
 
-Scene transitions from `project.json` play in the preview: in the overlap the viewer draws both scenes and mixes them with `src/page/transitions.js`, the code the render uses. On the timeline the two tiles overlap, and the overlap is lighter with a bowtie on it. A transition frame in the viewer and in the 1080p MP4 differed by 1.37 levels of 255 on average (example project, desktop app's browser). A wrong transition type, or one too long for its scenes, shows a message instead of the project.
+Scene transitions from `project.json` play in the preview: in the overlap the viewer draws both scenes and mixes them with `src/page/transitions.js`, the code the render uses. On the timeline the two tiles overlap, and the overlap is lighter with a bowtie on it. A layer over a cut is drawn over the preview by its own module, and on the timeline the tiles meet at the cut with the bowtie on it and a lighter band over the frames the layer covers. A transition frame in the viewer and in the 1080p MP4 differed by 1.37 levels of 255 on average (example project, desktop app's browser). A wrong transition type, or one too long for its scenes, shows a message instead of the project.
 
 A frame is drawn only when the playhead reaches a new one. The display refreshes many times per video frame, and drawing the same frame again took time from the next one.
 

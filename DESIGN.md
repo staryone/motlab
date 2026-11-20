@@ -54,6 +54,10 @@ This covers `src/editor.html`. The viewer is only for looking at a project and p
 - The playhead is never animated, because it has to sit exactly on a frame. Nothing animates when the page first opens.
 - All motion turns off under `prefers-reduced-motion`, including the export spinner.
 
+## Sign-in page
+
+- Only for a viewer started with `--domain` (src/access.js). One white card like the menus (12 px radius, the menu shadow) in the middle of the grey canvas `#ececec`: the title, the password field with its label above it in muted text, a full-width dark button like Export, and a wrong password in the red `#b8322a` under it as an alert. Indonesian when the browser asks for it first, English otherwise. The system font, because the page loads nothing from outside.
+
 ## Accessibility
 
 - Every scene and audio row is a button, so Tab, Enter and Space reach it. The timeline is a focusable slider.

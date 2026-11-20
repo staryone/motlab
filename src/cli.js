@@ -11,10 +11,12 @@ import { openInViewer, restartViewer, startViewer, stopViewer } from './viewer.j
 
 const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, ready, EVENTS) with headless Chrome and WebCodecs.
 
-  motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3]
+  motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3] [--qp 22] [--codec hevc]
                                                      all scenes and audio in project.json, as one MP4
   motlab start                                       the viewer in the background at http://127.0.0.1:4173, for every
-                                                     project; the menu lists the projects in this folder
+                                                     project; the menu lists the projects in this folder.
+                                                     --domain viewer.example.com serves it behind a reverse proxy,
+                                                     with the login password in MOTLAB_VIEWER_PASSWORD
   motlab edit   [project]                            open a project in the viewer (starting it if needed) and print its
                                                      address. [project] is a folder with project.json, or a project
                                                      file in it (video/storyboard.json). Clicks go to selection.json
@@ -22,7 +24,8 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
   motlab stills <page.html> <outDir> <t1> <t2> ...  [--scale 1] [--format png|jpg]
   motlab video  <page.html> <out.mp4> [--fps 24] [--scale 2] [--audio file] [--encoder auto|hw|sw] [--workers N]
   motlab events <page.html> <out.json>
-  motlab doctor                                      check Node, Chrome, ffmpeg and the skill's Python packages
+  motlab help                                        this list (also motlab --help or -h)
+  motlab doctor                                      check Node, Chrome, ffmpeg, the skill's Python packages and earshot
   motlab setup  [--skill claude|agents|antigravity|hermes|...] [--skill-dir <dir>] [--link] [--update] [--dry-run]
                                                      copy the skills to agent folders (after npm install -g; default
                                                      Claude Code), and add the command when npm's folder is not on
@@ -81,25 +84,26 @@ export async function main(argv) {
   const { values: v, positionals } = parseArgs({ args: argv, allowPositionals: true, options: {
     fps: { type: 'string' }, scale: { type: 'string' }, audio: { type: 'string' }, encoder: { type: 'string' }, codec: { type: 'string' },
     workers: { type: 'string' }, bitrate: { type: 'string' }, qp: { type: 'string' }, mux: { type: 'string' }, root: { type: 'string' }, chrome: { type: 'string' },
-    only: { type: 'string' }, parallel: { type: 'string' },
+    only: { type: 'string' }, domain: { type: 'string' }, parallel: { type: 'string' },
     format: { type: 'string' }, reprobe: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
   } });
   const [mode, page, out, ...rest] = positionals;
-  if (v.help || !mode) { console.log(USAGE); return v.help ? 0 : 1; }
+  if (v.help || mode === 'help' || !mode) { console.log(USAGE); return v.help || mode ? 0 : 1; }   // motlab help, --help or -h
   if (mode === 'doctor') return doctor();
   if (mode === 'update') return update({ dryRun: v['dry-run'] });
   if (mode === 'uninstall') return uninstall({ dryRun: v['dry-run'], yes: v.yes });
   // --foreground is the server itself (what start runs in the background); it runs until it is stopped.
-  if (mode === 'start') return v.foreground ? (await startEditor(page) === 'joined' ? 0 : new Promise(() => {})) : (await startViewer(), 0);
+  if (mode === 'start') return v.foreground ? (await startEditor(page, undefined, { domain: v.domain }) === 'joined' ? 0 : new Promise(() => {})) : (await startViewer({ domain: v.domain }), 0);
   if (mode === 'edit') { await openInViewer(page); return 0; }
   if (mode === 'stop') { await stopViewer(); return 0; }
   if (mode === 'restart') { await restartViewer(); return 0; }
   if (mode === 'render') {
     if (!page) throw new Error('render needs a project folder or project file');
-    await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only), parallel: num('parallel', v.parallel, { min: 1, int: true }) });
+    await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only), parallel: num('parallel', v.parallel, { min: 1, int: true }),
+      qp: num('qp', v.qp, { min: 0, int: true }), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc']) });
     return 0;
   }
-  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, stills, video, events, doctor, setup, update or uninstall)`);
+  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, stills, video, events, doctor, setup, update, uninstall or help)`);
   if (!page || !out) throw new Error(`${mode} needs a page and an output path`);
   const common = { page, root: v.root, chrome: v.chrome };
 

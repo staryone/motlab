@@ -67,6 +67,26 @@ export async function loadTransition(type, readText) {
   return isTransitionFile(type) ? parseTransition(await readText(type), type) : findTransition(type);
 }
 
+// A layer transition is a module drawn over a hard cut: shapes that cover the frame and uncover the next scene, such
+// as the asset skill's transition.js. It is set as { "layer": "path/to/transition.js", "duration": 0.6 } and exports
+// draw(ctx, p, W, H), which draws in the page's own pixels (W x H, before ?scale=). The scenes do not overlap: the layer
+// covers the last `before` frames of the scene before and the first `after` frames of the next, and p runs from 0 to 1
+// over them, reaching 0.5 at the cut. A shader transition overlaps the two scenes for all n frames instead.
+export const layerFrames = n => ({ before: n >> 1, after: n - (n >> 1) });
+export const layerProgress = (k, n) => (k + 0.5) / n;
+// The frames a transition takes from the start of the scene it leads into, and from the end of the scene before it.
+export const transitionHead = tr => !tr ? 0 : tr.layer ? layerFrames(tr.n).after : tr.n;
+export const transitionTail = tr => !tr ? 0 : tr.layer ? layerFrames(tr.n).before : tr.n;
+// The frames the two scenes play at once: the length the video loses.
+export const transitionOverlap = tr => !tr || tr.layer ? 0 : tr.n;
+
+// A layer module, from a page: path is from the served root (the render) or relative to the viewer's page.
+export async function loadLayer(url, name = url) {
+  const m = await import(url);
+  if (typeof m.draw !== 'function') throw new Error(`layer ${name} has no draw(ctx, p, W, H) export`);
+  return m;
+}
+
 // Frame k of a transition that lasts n frames. The middle of each frame, so neither the first nor the last frame is
 // a plain copy of one scene. Easing names are the ones in motion.js (default inOutCubic).
 export function transitionProgress(k, n, easing = 'inOutCubic') {

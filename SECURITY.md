@@ -2,12 +2,13 @@
 
 ## Scope
 
-motlab runs local code: headless Chrome, ffmpeg and small HTTP servers on `127.0.0.1`. Scene pages are trusted code, like any script you run, so a page that does something harmful is not a motlab vulnerability. These are:
+motlab runs local code: headless Chrome, ffmpeg and small HTTP servers on `127.0.0.1`. The viewer can also be served on a domain through a reverse proxy, behind a password (`motlab start --domain`). Scene pages are trusted code, like any script you run, so a page that does something harmful is not a motlab vulnerability. These are:
 
 - a way for a project file (`project.json`, a scene path, an audio entry) to run commands or write files outside the project folder
 - path traversal in the render server or the viewer server, reading files outside the served folder
 - command injection through a file name or option passed to ffmpeg, ffprobe or Chrome
 - a server that listens on anything other than `127.0.0.1`, or accepts requests from other sites in a way that writes files
+- a viewer started with `--domain` that answers without the login or the local token, or lets another site write through a signed-in browser
 - the installer deleting or overwriting files outside the paths it prints
 
 Out of scope: bugs in Chrome or ffmpeg themselves, and someone who already has a shell on the machine.

@@ -643,7 +643,8 @@ try {
   // A scene is a path, or { file, transition } where the transition turns the scene before into this one. Its length
   // in frames (n) follows the renderer's rule in src/project.js.
   // A transition from a .glsl file in the project is read and compiled here, so a mistake in it shows on opening.
-  const { createMixer, isTransitionFile, loadTransition, transitionProgress } = await import('/__motlab/transitions.js');
+  // A layer transition's module is loaded here too, so a missing file or a missing draw() shows on opening.
+  const { createMixer, isTransitionFile, layerFrames, layerProgress, loadLayer, loadTransition, transitionHead, transitionOverlap, transitionProgress, transitionTail } = await import('/__motlab/transitions.js');
   const readText = async path => { const r = await fetch(path); if (!r.ok) throw new Error(`${path} did not load (HTTP ${r.status})`); return r.text(); };
   let mixer = null;
   const scenes = await Promise.all(project.scenes.map(async (x, i) => {
@@ -652,6 +653,12 @@ try {
     if (s.transition) {
       if (!i) throw hint(L('firstTransition'));
       try {
+        if (s.transition.layer !== undefined) {
+          if (s.transition.type !== undefined) throw new Error('a transition has "type" or "layer", not both');
+          const mod = await loadLayer(new URL(s.transition.layer, location.href).href, s.transition.layer);
+          s.transition = { ...s.transition, mod, n: Math.max(1, Math.round((Number(s.transition.duration) || 0) * fps)) };
+          return s;
+        }
         const def = await loadTransition(s.transition.type, readText);
         s.transition = { ease: 'inOutCubic', params: {}, ...s.transition, type: def.name, def, n: Math.max(1, Math.round((Number(s.transition.duration) || 0) * fps)) };
         transitionProgress(0, 1, s.transition.ease);
@@ -685,17 +692,26 @@ try {
     const n = Math.min(12, Math.max(1, Math.round(s.dur / 2)));
     for (let k = 0; k < n; k++) s.thumbs.push(await thumbAt(s, (k + 0.5) / n * s.dur));
   }
-  // With a transition, a scene starts that many frames before the one before it ends: the two overlap.
+  // With a shader transition, a scene starts that many frames before the one before it ends: the two overlap. A layer
+  // transition is drawn over a hard cut, so the scenes do not overlap.
   let total = 0;
   for (const [i, s] of scenes.entries()) {
-    const n = s.transition?.n || 0, out = scenes[i + 1]?.transition?.n || 0;   // the renderer's rule: a scene keeps at least one frame of its own
+    const n = transitionHead(s.transition), out = transitionTail(scenes[i + 1]?.transition);   // the renderer's rule: a scene keeps at least one frame of its own
     if (n + out >= Math.round(s.dur * fps)) throw hint(L('tooShort', i + 1, Math.round(s.dur * fps), n, out));
-    s.start = total - n / fps; total = s.start + s.dur;
+    s.start = total - transitionOverlap(s.transition) / fps; total = s.start + s.dur;
   }
   const sceneAt = time => scenes.findLast(s => s.start <= time + 1e-9);
   const pairAt = time => {   // inside a transition: the scene it comes from, and the frame of the transition
-    const s = sceneAt(time), n = s.transition?.n, k = frameIn(s, time);
+    const s = sceneAt(time), n = transitionOverlap(s.transition), k = frameIn(s, time);
     return n && k < n ? { from: scenes[scenes.indexOf(s) - 1], k, n } : null;
+  };
+  // Inside a layer transition: the layer, its frame k of n and its progress, on either side of the cut.
+  const layerAt = (s, frame) => {
+    const i = scenes.indexOf(s), into = s.transition, out = scenes[i + 1]?.transition;
+    if (into?.layer && frame < layerFrames(into.n).after) { const k = layerFrames(into.n).before + frame; return { tr: into, from: i, k, n: into.n, p: layerProgress(k, into.n) }; }
+    const frames = Math.round(s.dur * fps), before = out?.layer ? layerFrames(out.n).before : 0;
+    if (before && frame >= frames - before) { const k = frame - (frames - before); return { tr: out, from: i + 1, k, n: out.n, p: layerProgress(k, out.n) }; }
+    return null;
   };
   const frameIn = (s, time) => Math.max(0, Math.min(Math.floor((time - s.start) * fps + 1e-6), Math.round(s.dur * fps) - 1));   // same frame grid as the render
 
@@ -771,16 +787,17 @@ try {
         const at = (k + 0.5) * tw / pps, b = s.thumbs[Math.min(s.thumbs.length - 1, Math.floor(at / s.dur * s.thumbs.length))];
         g.drawImage(b, x + k * tw, RULER, tw + 0.5, VH);
       }
-      const ow = s.transition ? s.transition.n / fps * pps : 0;   // the overlap with the scene before, which holds the bowtie
+      const ow = transitionOverlap(s.transition) / fps * pps;   // the overlap with the scene before, which holds the bowtie
       const bx = Math.min(Math.max(x + ow, 0), x + cw - 24);   // the scene number stays in view while the scene is
       g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.roundRect(bx + 6, RULER + 6, 18, 16, 5); g.fill();
       g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(i + 1, bx + 15, RULER + 14.5); g.textAlign = 'left';
       g.restore();
       g.lineWidth = 2; g.strokeStyle = sel && !sel.audio && sel.sceneIndex === i + 1 ? BLUE : 'rgba(0,0,0,.08)';
       g.beginPath(); g.roundRect(x + 1, RULER + 1, cw - 2, VH - 2, 7); g.stroke();
-      if (s.transition) {   // where the scene before turns into this one: a bowtie on the overlap, as in video editors
-        const cx = x + ow / 2, cy = RULER + VH / 2, r = Math.max(5, Math.min(9, ow / 2));
-        g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(x, RULER + 2, ow, VH - 4);
+      if (s.transition) {   // where the scene before turns into this one: a bowtie on the overlap (or on the cut, for a layer), as in video editors
+        const lw = s.transition.layer ? s.transition.n / fps * pps : ow, lx = s.transition.layer ? x - layerFrames(s.transition.n).before / fps * pps : x;
+        const cx = s.transition.layer ? x : x + ow / 2, cy = RULER + VH / 2, r = Math.max(5, Math.min(9, lw / 2));
+        g.fillStyle = 'rgba(255,255,255,.35)'; g.fillRect(lx, RULER + 2, lw, VH - 4);
         g.fillStyle = 'rgba(0,0,0,.6)'; g.beginPath(); g.roundRect(cx - r - 4, cy - 9, 2 * r + 8, 18, 5); g.fill();
         g.fillStyle = '#fff'; g.beginPath(); g.moveTo(cx - r, cy - 5); g.lineTo(cx + r, cy + 5); g.lineTo(cx + r, cy - 5); g.lineTo(cx - r, cy + 5); g.closePath(); g.fill();
       }
@@ -931,6 +948,11 @@ try {
       } else {
         await s.win.renderAt(frame / fps);
         c.drawImage(s.canvas, 0, 0, clean.width, clean.height);
+        const lay = layerAt(s, frame);
+        if (lay) {   // the layer over the cut, in the page's own pixels, as the render draws it
+          c.save(); c.setTransform(clean.width / s.w, 0, 0, clean.height / s.h, 0, 0);
+          try { await lay.tr.mod.draw(c, lay.p, s.w, s.h); } finally { c.restore(); }
+        }
       }
       cur = { s, frame }; luma = null; paint();
     } finally { busy = false; rendering = []; }
@@ -1060,9 +1082,10 @@ try {
     drawTimeline();
   }
   const spot = time => {   // where a time is: its scene, the frame the preview shows there, and the transition it is in
-    const s = sceneAt(time), pair = pairAt(time);
+    const s = sceneAt(time), pair = pairAt(time), lay = pair ? null : layerAt(s, frameIn(s, time));
     return { time: +time.toFixed(3), scene: s.file, sceneIndex: scenes.indexOf(s) + 1, sceneTime: +(time - s.start).toFixed(3), frame: frameIn(s, time),
-      transition: pair ? { type: s.transition.type, from: scenes.indexOf(pair.from) + 1, frame: pair.k, frames: pair.n } : null };
+      transition: pair ? { type: s.transition.type, from: scenes.indexOf(pair.from) + 1, frame: pair.k, frames: pair.n }
+        : lay ? { layer: lay.tr.layer, from: lay.from, frame: lay.k, frames: lay.n } : null };
   };
   function select(time, audio) {   // a new time, scene or clip
     sel = { ...spot(time), audio: audio ? { file: audio.file, start: audio.start, index: tracks.indexOf(audio) } : null };

@@ -29,4 +29,4 @@ For viewer changes, start `motlab edit example`, check the change in a browser a
 
 ## Installing motlab for a user
 
-Follow [docs/install-for-agents.md](docs/install-for-agents.md).
+Follow [docs/install-for-agents.md](docs/install-for-agents.md). Its step 6 puts the viewer on the user's VPS behind a domain and a password, when they ask for that.
