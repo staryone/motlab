@@ -34,5 +34,4 @@ What is not built, what has not been tested, and ideas that came up while using 
 
 ## Questions about speed
 
-- Whether Chrome can be made to use NVENC on NVIDIA cards. On the test laptop `nvidia-smi` showed no encoder sessions during a hardware encode, so Chrome probably used the integrated GPU's encoder.
 - Why the hardware encoder at 4K switches between about 34 and 17 fps from run to run.

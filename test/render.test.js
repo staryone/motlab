@@ -232,6 +232,29 @@ test('project: parts render several at a time in order, and a failing part is tr
   assert.ok(!existsSync(join(dir, 'parallel2.mp4')));
 });
 
+test('project: qp from project.json reaches the encoder, a wrong one is refused, and the cache keeps each qp apart', async () => {
+  const proj = join(dir, 'qp');
+  mkdirSync(proj);
+  writeFileSync(join(proj, 'a.html'), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);
+    window.renderAt = t => { c.fillStyle = '#123'; c.fillRect(0, 0, 320, 180); c.fillStyle = '#fc6'; c.fillRect(20 + t * 200, 40, 80, 80); };</script>`);
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes: ['a.html'], qp: 60 }));
+  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'qp0.mp4'), scale: 1, ...quiet }), /qp must be a whole number from 0 to 51, not 60/);
+  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'qp0.mp4'), scale: 1, qp: 20, codec: 'av1', ...quiet }), /codec must be auto, h264 or hevc/);
+  writeFileSync(join(proj, 'b.html'), readFileSync(join(proj, 'a.html'), 'utf8'));
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes: ['a.html', 'b.html'], qp: 30 }));
+  const logs = [];
+  await renderProject({ dir: proj, out: join(dir, 'qp30.mp4'), scale: 1, log: m => logs.push(m) });
+  const encoder = logs.find(l => l.startsWith('Encoder:'));
+  // only the hardware encoders take a QP; a runner without a GPU encodes in software at a bitrate instead
+  if (/constant QP/.test(encoder)) assert.match(encoder, /constant QP 30/);
+  // the option overrides project.json, and a part made at another qp is not reused
+  const again = [];
+  await renderProject({ dir: proj, out: join(dir, 'qp20.mp4'), scale: 1, qp: 20, only: [2], log: m => again.push(m) });
+  assert.ok(again.some(l => l.includes('Scene 1/2: a.html (no cached part, rendering it)')), again.join('\n'));
+  if (/constant QP/.test(encoder)) assert.ok(again.some(l => /constant QP 20/.test(l)), again.join('\n'));
+});
+
 test('project: scenes of different sizes stop the render, and a mono file plays at full level on both channels', async () => {
   const proj = join(dir, 'proj2'), flat = (name, w, h) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="${w}" height="${h}"></canvas><script>
     const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);

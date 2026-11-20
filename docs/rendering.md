@@ -155,11 +155,44 @@ At 4K:
 
 Not measured: macOS, where HyperFrames turns on a capture through `drawElementImage` that its help calls about twice as fast; Linux; Remotion and HyperFrames with the browsers they download themselves; Remotion with PNG frames; scenes heavy on text layout, images or footage; and Remotion's cloud rendering.
 
+## File size
+
+The size of a render is set almost entirely by its QP: the encoder's step size, constant over the video. motlab's default is 18 for H.264 and 20 for HEVC, chosen so the 2D and 3D templates keep an SSIM near 0.999. A higher QP makes a smaller file. Set `"qp"` in `project.json` (Export uses it too) or pass `--qp` to `render` or `video`.
+
+Measured on the test laptop (Ryzen 7 5800H, RTX 3060 Laptop, Chrome 157): 8 s at 25 fps, against a lossless reference made from `motlab stills` of every frame. The busy page is 160 moving cards with shadows over a gradient, the hardest content here. VMAF stayed at 99.98 for every row on the busy page, so SSIM is the column that tells them apart.
+
+| Busy page, 4K | Size | SSIM | Time of the command |
+|---|---|---|---|
+| H.264 hardware, QP 18 (default) | 12.49 MB | 0.9964 | 8.2 s |
+| H.264 hardware, QP 22 | 8.68 MB | 0.9960 | 5.5 s |
+| HEVC hardware, QP 20 | 10.15 MB | 0.9963 | 7.9 s |
+| HEVC hardware, QP 22 | 8.67 MB | 0.9961 | 8.9 s |
+| HEVC hardware, QP 24 | 6.88 MB | 0.9958 | 8.7 s |
+| H.264 QP 18, then ffmpeg `hevc_nvenc` (CQ 24) | 9.82 MB | 0.9960 | 5.7 s more |
+| H.264 QP 18, then ffmpeg SVT-AV1 (preset 8, CRF 32) | 7.45 MB | 0.9927 | 7.5 s more |
+
+| Busy page, 1080p | Size | SSIM |
+|---|---|---|
+| H.264 QP 18 (default) | 6.93 MB | 0.9952 |
+| H.264 QP 20 | 5.57 MB | 0.9947 |
+| H.264 QP 22 | 4.71 MB | 0.9944 |
+| H.264 QP 26 | 3.12 MB | 0.9925 |
+| HEVC QP 20 | 5.10 MB | 0.9949 |
+| HEVC QP 22 | 4.32 MB | 0.9944 |
+| SVT-AV1 after it (CRF 32) | 2.80 MB | 0.9904 |
+
+What came out of it:
+
+- QP 22 is about 30% smaller than 18 at both sizes, and its SSIM drops by 0.0004 at 4K and 0.0008 at 1080p. On the 2D and 3D templates it was 26 to 29% smaller.
+- HEVC is 10 to 15% smaller than H.264 at the same SSIM at 1080p, and no smaller at 4K (QP 22: 8.67 against 8.68 MB). It was slower at 4K, and fewer players and browsers play it, so H.264 stays the default.
+- A second pass with ffmpeg was not worth it. `hevc_nvenc` was no smaller than raising the QP at the same SSIM. x264 (`-preset slow -crf 20 -tune animation`), measured on the templates only, came out about as large as QP 22 with a lower VMAF. SVT-AV1 was smaller only at a lower SSIM, and adds about one second for every second of 4K video.
+- A keyframe every 10 s instead of every 2 s saved 1 to 5%, and a QP for P-frames 2 above the keyframes' saved what raising the QP by 2 saves, at the same loss. Neither was worth a change.
+
 ## Quirks
 
 - Headless Chrome uses the integrated Radeon GPU by default. `--force_high_performance_gpu` moves it to the RTX 3060. Check with `WEBGL_debug_renderer_info`.
 - WebCodecs in headless Chrome supports hardware H.264 and HEVC, but not hardware AV1 or VP9, and not software HEVC.
-- WebCodecs does not seem to use NVENC: `nvidia-smi` shows zero encoder sessions during a hardware encode. Chrome probably uses the AMD encoder through Media Foundation, but that is not confirmed.
+- WebCodecs encodes on the RTX 3060's NVENC through Media Foundation, on the GPU it draws on. During a 4K hardware encode, `nvidia-smi --query-gpu=utilization.encoder` peaked at 51% and Windows' `GPU Engine(*engtype_VideoEncode)` counter showed encoding only on the adapter that also did the drawing. `nvidia-smi`'s encoder session count stays at zero, because it does not count Media Foundation sessions; that count was why earlier notes said NVENC was not used.
 - The hardware encoder is not always faster. In one process, software is faster at 1080p (about 120 fps against 48) and at 4K (about 40 fps against 17 to 34).
 - The hardware encoder has two throughput states. At 4K it runs at about 34 fps or about 17 fps and switches between runs with no code change. H.264 and HEVC are affected together. The cause is unknown, so measure several times before concluding anything about speed.
 - The saved encoder probe keeps one machine, named by Chrome, GPU, CPU and platform. A render on another GPU, or on SwiftShader, probes again and replaces the saved results, so switching back and forth probes every time.

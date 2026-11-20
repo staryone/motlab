@@ -61,10 +61,16 @@ export function projectPaths(target) {
 // version are rendered again after an update, and a finished render removes the cached parts it did not use.
 // The key is the scene page itself, so a file the scene loads (a shared script, a font, a picture) changing is
 // not noticed: render the whole project again then, or delete the cache folder.
-export async function renderProject({ dir, out, scale, only, parallel, log = console.log, signal }) {   // signal: an AbortSignal that stops the render
+// qp and codec: the file size against quality (docs/rendering.md#file-size). They come from the options, else from
+// "qp" and "codec" in project.json, so the viewer's Export uses them too, else the encoder's defaults.
+export async function renderProject({ dir, out, scale, only, parallel, qp, codec, log = console.log, signal }) {   // signal: an AbortSignal that stops the render
   const { root, file, name } = projectPaths(dir);
   dir = root; out = resolve(out || join(dir, 'out', name + '.mp4'));
-  const p = JSON.parse(readFileSync(file, 'utf8')), tmp = mkdtempSync(join(tmpdir(), 'motlab-project-')), partial = out + '.part';
+  const p = JSON.parse(readFileSync(file, 'utf8'));
+  qp ??= p.qp; codec ??= p.codec;
+  if (qp !== undefined && !(Number.isInteger(qp) && qp >= 0 && qp <= 51)) throw new Error(`qp must be a whole number from 0 to 51, not ${JSON.stringify(qp)}`);
+  if (codec !== undefined && !['auto', 'h264', 'hevc'].includes(codec)) throw new Error(`codec must be auto, h264 or hevc, not ${JSON.stringify(codec)}`);
+  const tmp = mkdtempSync(join(tmpdir(), 'motlab-project-')), partial = out + '.part';
   try {
     // One MP4 per scene. The first scene picks the encoder and the rest are forced to the same one, so the parts
     // can be joined without re-encoding.
@@ -114,9 +120,9 @@ export async function renderProject({ dir, out, scale, only, parallel, log = con
       const { i } = jobs[j], scene = scenes[i], into = scene.transition, next = scenes[i + 1]?.transition;
       signal.throwIfAborted();
       if (jobs[j].kind === 'scene') {
-        const k = key({ kind: 'scene', file: scene.file, hash: hashes[i], fps: p.fps, scale, version: VERSION, head: into?.n || 0, tail: next?.n || 0 });
+        const k = key({ kind: 'scene', file: scene.file, hash: hashes[i], fps: p.fps, scale, qp, codec, version: VERSION, head: into?.n || 0, tail: next?.n || 0 });
         const part = await getPart(k, !only || only.includes(i + 1), `\nScene ${i + 1}/${scenes.length}: ${scene.file}`, log, () => renderVideo({ page: join(dir, scene.file), root: dir,
-          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, log, signal, progress, head: into?.n, tail: next?.n, ...same() }));
+          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, qp, codec, log, signal, progress, head: into?.n, tail: next?.n, ...same() }));
         // a stream copy join of parts with different sizes makes an MP4 that changes resolution partway through
         if (parts[0] && (part.width !== parts[0].width || part.height !== parts[0].height))
           throw Object.assign(new Error(`${scene.file} is ${part.width}x${part.height} but ${scenes[0].file} is ${parts[0].width}x${parts[0].height}. All scenes in a project must have the same canvas size`), { final: true });
@@ -124,12 +130,12 @@ export async function renderProject({ dir, out, scale, only, parallel, log = con
       }
       const from = parts[j - 1];
       const tk = key({ kind: 'transition', from: scene.file, to: scenes[i + 1].file, fromHash: hashes[i], toHash: hashes[i + 1],
-        type: next.type, glsl: isTransitionFile(next.type) ? hash(next.type) : undefined, n: next.n, ease: next.ease, params: next.params, fps: p.fps, scale, version: VERSION });
+        type: next.type, glsl: isTransitionFile(next.type) ? hash(next.type) : undefined, n: next.n, ease: next.ease, params: next.params, fps: p.fps, scale, qp, codec, version: VERSION });
       const query = new URLSearchParams({ from: scene.file, to: scenes[i + 1].file, offset: (from.pageFrames - next.n) / p.fps, frames: next.n,
         fps: p.fps, type: next.type, ease: next.ease, params: JSON.stringify(next.params) });
       return getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.type}, ${next.n} frames`, log,
         () => renderVideo({ url: '__motlab/transition.html', query: String(query), root: dir, out: join(cacheRoot, tk + '.mp4'),
-          fps: p.fps, scale, log, signal, progress, ...same() }));
+          fps: p.fps, scale, qp, codec, log, signal, progress, ...same() }));
     };
     // Runs the parts that have no result yet, `width` at a time. When one fails the others are stopped, and the parts
     // that finished are kept. A part's log is printed in one piece when it ends, so parallel logs do not interleave.

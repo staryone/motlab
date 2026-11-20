@@ -11,7 +11,7 @@ import { openInViewer, restartViewer, startViewer, stopViewer } from './viewer.j
 
 const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, ready, EVENTS) with headless Chrome and WebCodecs.
 
-  motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3]
+  motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3] [--qp 22] [--codec hevc]
                                                      all scenes and audio in project.json, as one MP4
   motlab start                                       the viewer in the background at http://127.0.0.1:4173, for every
                                                      project; the menu lists the projects in this folder
@@ -96,7 +96,8 @@ export async function main(argv) {
   if (mode === 'restart') { await restartViewer(); return 0; }
   if (mode === 'render') {
     if (!page) throw new Error('render needs a project folder or project file');
-    await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only), parallel: num('parallel', v.parallel, { min: 1, int: true }) });
+    await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only), parallel: num('parallel', v.parallel, { min: 1, int: true }),
+      qp: num('qp', v.qp, { min: 0, int: true }), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc']) });
     return 0;
   }
   if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, stills, video, events, doctor, setup, update or uninstall)`);
