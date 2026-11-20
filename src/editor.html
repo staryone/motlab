@@ -642,18 +642,25 @@ try {
   let shown = null, rendering = [];
   // A scene is a path, or { file, transition } where the transition turns the scene before into this one. Its length
   // in frames (n) follows the renderer's rule in src/project.js.
-  const { createMixer, findTransition, transitionProgress } = await import('/__motlab/transitions.js');
-  const scenes = project.scenes.map((x, i) => {
+  // A transition from a .glsl file in the project is read and compiled here, so a mistake in it shows on opening.
+  const { createMixer, isTransitionFile, loadTransition, transitionProgress } = await import('/__motlab/transitions.js');
+  const readText = async path => { const r = await fetch(path); if (!r.ok) throw new Error(`${path} did not load (HTTP ${r.status})`); return r.text(); };
+  let mixer = null;
+  const scenes = await Promise.all(project.scenes.map(async (x, i) => {
     const s = typeof x === 'string' ? { file: x } : { file: x.file, transition: x.transition };
     if (!s.file) throw hint(L('noFile', i + 1));
     if (s.transition) {
       if (!i) throw hint(L('firstTransition'));
-      try { s.transition = { ease: 'inOutCubic', params: {}, ...s.transition, type: findTransition(s.transition.type).name, n: Math.max(1, Math.round((Number(s.transition.duration) || 0) * fps)) }; transitionProgress(0, 1, s.transition.ease); }
+      try {
+        const def = await loadTransition(s.transition.type, readText);
+        s.transition = { ease: 'inOutCubic', params: {}, ...s.transition, type: def.name, def, n: Math.max(1, Math.round((Number(s.transition.duration) || 0) * fps)) };
+        transitionProgress(0, 1, s.transition.ease);
+        if (isTransitionFile(def.name)) (mixer ??= createMixer()).check(def);
+      }
       catch (e) { throw hint(L('badTransition', i + 1, e.message)); }
     }
     return s;
-  });
-  let mixer = null;
+  }));
   function unload(s) { s.frame.remove(); s.frame = s.win = s.canvas = s.warm = null; live.splice(live.indexOf(s), 1); }
   function load(s) {
     if (s.win) { live.push(...live.splice(live.indexOf(s), 1)); return s; }
@@ -920,7 +927,7 @@ try {
         const tr = s.transition, a = pair.from;
         await a.win.renderAt(frameIn(a, at) / fps); await s.win.renderAt(frame / fps);
         mixer ??= createMixer();
-        c.drawImage(mixer.draw(tr.type, a.canvas, s.canvas, transitionProgress(pair.k, pair.n, tr.ease), tr.params), 0, 0, clean.width, clean.height);
+        c.drawImage(mixer.draw(tr.def, a.canvas, s.canvas, transitionProgress(pair.k, pair.n, tr.ease), tr.params), 0, 0, clean.width, clean.height);
       } else {
         await s.win.renderAt(frame / fps);
         c.drawImage(s.canvas, 0, 0, clean.width, clean.height);

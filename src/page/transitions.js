@@ -34,9 +34,38 @@ export const TRANSITIONS = {
 export const transitionNames = Object.keys(TRANSITIONS);
 export const findTransition = name => {
   const key = transitionNames.find(k => k.toLowerCase() === String(name).toLowerCase());
-  if (!key) throw new Error(`unknown transition "${name}"; use one of: ${transitionNames.join(', ')}`);
+  if (!key) throw new Error(`unknown transition "${name}"; use one of: ${transitionNames.join(', ')}, or a path to a .glsl file in the project`);
   return { name: key, ...TRANSITIONS[key] };
 };
+
+// A transition of the project's own: a .glsl file in the project folder, written like a gl-transitions shader. It
+// defines vec4 transition(vec2 uv) and may call getFromColor(uv), getToColor(uv) and read progress (0 to 1) and ratio
+// (width / height). Each uniform it declares can be set from "params", and a comment after it gives its default, as
+// in gl-transitions: uniform float amount; // = 0.5   or   uniform vec2 direction; // = vec2(1.0, 0.0)
+export const isTransitionFile = type => /\.glsl$/i.test(String(type));
+const UNIFORM = /uniform\s+(\w+)\s+(\w+)\s*(?:\/\*\s*=\s*(.*?)\s*\*\/)?\s*;(?:[ \t]*\/\/\s*=\s*([^\n]*))?/g;
+const SIZES = { float: 1, int: 1, bool: 1, vec2: 2, vec3: 3, vec4: 4, ivec2: 2, ivec3: 3, ivec4: 4 };
+export function parseTransition(glsl, name) {
+  const types = {}, defaults = {};
+  if (!/vec4\s+transition\s*\(/.test(glsl)) throw new Error(`transition ${name} has no vec4 transition(vec2 uv) function`);
+  for (const [, type, key, inline, comment] of String(glsl).replace(/^\s*\/\/.*$/gm, '').matchAll(UNIFORM)) {
+    if (key === 'progress' || key === 'ratio') throw new Error(`transition ${name} declares the uniform ${key}, which motlab sets itself; remove that line`);
+    if (!SIZES[type]) throw new Error(`transition ${name}: the uniform ${key} is a ${type}; a project transition can use float, int, bool, vec2 to vec4 and ivec2 to ivec4`);
+    types[key] = type;
+    const v = (inline ?? comment ?? '').match(/^(true|false|[-+.\d][-+.\deE]*|\w+\s*\([^)]*\))/)?.[1];
+    if (v === undefined) continue;
+    if (type === 'bool') { defaults[key] = v === 'true'; continue; }
+    const nums = (/\(([^)]*)\)/.exec(v)?.[1] ?? v).split(',').map(Number);
+    if (nums.some(n => Number.isNaN(n))) continue;
+    defaults[key] = SIZES[type] === 1 ? nums[0] : nums.length === 1 ? Array(SIZES[type]).fill(nums[0]) : nums;
+  }
+  return { name, glsl, types, defaults, file: true };
+}
+
+// A built-in name, or a .glsl path read with readText(path) (fetch in a page, readFileSync in Node).
+export async function loadTransition(type, readText) {
+  return isTransitionFile(type) ? parseTransition(await readText(type), type) : findTransition(type);
+}
 
 // Frame k of a transition that lasts n frames. The middle of each frame, so neither the first nor the last frame is
 // a plain copy of one scene. Easing names are the ones in motion.js (default inOutCubic).
@@ -51,6 +80,7 @@ const frag = glsl => `precision highp float;
 varying vec2 vUv; uniform sampler2D uFrom, uTo; uniform float progress, ratio;
 vec4 getFromColor(vec2 uv) { return texture2D(uFrom, uv); }
 vec4 getToColor(vec2 uv) { return texture2D(uTo, uv); }
+#line 1
 ${glsl}
 void main() { gl_FragColor = transition(vUv); }`;
 
@@ -76,9 +106,12 @@ export function createMixer() {
   }
   init();
 
-  function program(name) {
-    if (programs.has(name)) return programs.get(name);
-    const t = findTransition(name), p = gl.createProgram();
+  // t: a built-in name, or what loadTransition() returned
+  function program(t) {
+    const id = typeof t === 'string' ? t.toLowerCase() : t.name;
+    if (programs.has(id)) return programs.get(id);
+    if (typeof t === 'string') t = findTransition(t);
+    const p = gl.createProgram();
     for (const [type, src] of [[gl.VERTEX_SHADER, VERT], [gl.FRAGMENT_SHADER, frag(t.glsl)]]) {
       const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
       if (!gl.getShaderParameter(s, gl.COMPILE_STATUS)) throw new Error(`transition ${t.name}: ${gl.getShaderInfoLog(s)}`);
@@ -87,7 +120,7 @@ export function createMixer() {
     gl.bindAttribLocation(p, 0, 'p'); gl.linkProgram(p);
     if (!gl.getProgramParameter(p, gl.LINK_STATUS)) throw new Error(`transition ${t.name}: ${gl.getProgramInfoLog(p)}`);
     const entry = { p, t, u: n => gl.getUniformLocation(p, n) };
-    programs.set(name, entry); return entry;
+    programs.set(id, entry); return entry;
   }
 
   function drawOnce(name, from, to, progress, params) {
@@ -102,6 +135,7 @@ export function createMixer() {
       if (loc === null || v === undefined) continue;
       if (type === 'float') gl.uniform1f(loc, v);
       else if (type === 'bool' || type === 'int') gl.uniform1i(loc, Number(v));
+      else if (type.startsWith('ivec')) gl[`uniform${type.slice(4)}iv`](loc, v.map(Math.round));   // ivec2, ivec3, ivec4
       else gl[`uniform${type.slice(3)}fv`](loc, v);   // vec2, vec3, vec4
     }
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
@@ -111,7 +145,10 @@ export function createMixer() {
 
   return {
     get canvas() { return cv; },
-    // A context lost mid-frame throws from a compile or draws nothing, so both are checked; a second loss is reported.
+    // Compiles a transition without drawing, so a mistake in a project's .glsl file shows before the first frame.
+    check(t) { program(t); },
+    // name: a built-in name or a loaded transition. A context lost mid-frame throws from a compile or draws nothing,
+    // so both are checked; a second loss is reported.
     draw(name, from, to, progress, params = {}) {
       for (let tries = 0; tries < 2; tries++) {
         try { const out = drawOnce(name, from, to, progress, params); if (!gl.isContextLost()) return out; }

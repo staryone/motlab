@@ -114,6 +114,32 @@ test('project: a transition overlaps two scenes and mixes them on the frame grid
   assert.ok(grey(30) > 248, `frame 30 is ${grey(30)}`);
 });
 
+test('project: a transition from a .glsl file in the project, with params over its defaults, and its compile errors', async () => {
+  const proj = join(dir, 'glsl'), flat = (name, colour) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);
+    window.renderAt = () => { c.fillStyle = '${colour}'; c.fillRect(0, 0, 320, 180); };</script>`);
+  mkdirSync(join(proj, 'transitions'), { recursive: true }); flat('a.html', '#000'); flat('b.html', '#fff');
+  // a fixed mix of the two scenes, the same on every frame, so the level shows which value the shader got
+  writeFileSync(join(proj, 'transitions', 'hold.glsl'), `// a test transition
+uniform float level; // = 0.25
+uniform ivec2 grid; // = ivec2(2, 3)
+vec4 transition(vec2 uv) { return mix(getFromColor(uv), getToColor(uv), grid.x == 2 && grid.y == 3 ? level : 0.0); }
+`);
+  const write = transition => writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes: ['a.html', { file: 'b.html', transition }] }));
+  const grey = (file, f) => meanRgb(file, '100:100:110:40', f)[0];
+  write({ type: 'transitions/hold.glsl', duration: 0.5 });
+  await renderProject({ dir: proj, out: join(dir, 'glsl1.mp4'), scale: 1, ...quiet });
+  assert.equal((await probeVideo(join(dir, 'glsl1.mp4'))).frames, 45);
+  assert.ok(Math.abs(grey(join(dir, 'glsl1.mp4'), 18) - 64) < 8, `the default 0.25 gave ${grey(join(dir, 'glsl1.mp4'), 18)}`);
+  write({ type: 'transitions/hold.glsl', duration: 0.5, params: { level: 0.75 } });
+  await renderProject({ dir: proj, out: join(dir, 'glsl2.mp4'), scale: 1, ...quiet });
+  assert.ok(Math.abs(grey(join(dir, 'glsl2.mp4'), 18) - 191) < 8, `params 0.75 gave ${grey(join(dir, 'glsl2.mp4'), 18)}`);
+  // a mistake on line 3 of the file is reported on line 3, with the file's name
+  writeFileSync(join(proj, 'transitions', 'bad.glsl'), 'uniform float level; // = 0.5\nvec4 transition(vec2 uv) {\n  return mix(getFromColor(uv), getToColor(uv), lvl);\n}\n');
+  write({ type: 'transitions/bad.glsl', duration: 0.5 });
+  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'glsl3.mp4'), scale: 1, ...quiet }), /transitions\/bad\.glsl: ERROR: 0:3: 'lvl'/);
+});
+
 test('project: --only re-renders one scene and the transition touching it, reuses the cached rest and prunes the parts it did not use', async () => {
   const proj = join(dir, 'only'), flat = (name, colour) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
     const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);

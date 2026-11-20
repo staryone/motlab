@@ -6,7 +6,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 
 - Alpha output (ProRes 4444).
 - The viewer on a VPS with a domain. That needs security in front of it, or access only through Tailscale, which is also worth considering. From there, work could be run remotely on the personal laptop (when it is on) or on the VPS (when there is one).
-- Custom GLSL transitions from a file in the project. A transition as a layer over the cut (a swish of shapes) already exists as the asset skill's `transition.js`, but each of the two scene pages has to draw its half by hand; `project.json` has no option for it.
+- A transition as a layer over the cut (a swish of shapes) in `project.json`. It exists as the asset skill's `transition.js`, but each of the two scene pages has to draw its half by hand. Shader transitions from a `.glsl` file in the project are built.
 - A cut list that splits one recording over several scenes by section, with captions placed from a transcript. `cuts.js` has the time map (`toOut`), but each section page still picks its part of the list by hand.
 - A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
 
@@ -21,6 +21,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - Footage filmed on a phone (variable frame rate and HEVC were tested with files made by ffmpeg), and HEVC on a Chrome that cannot decode it.
 - Scene transitions between scenes of different sizes in the viewer, and in a normal Chrome window. The render refuses scenes of different sizes.
 - The cut voice from `cut_pauses.py` on a real person's take. The whole-take test used Windows text to speech.
+- A `.glsl` transition copied from gl-transitions beyond the 11 built in, and one matched to a real reference video by the skill.
 - Rive, Lottie text layers exported with glyphs, Theatre.js state exported from its studio, and the studio inside the viewer.
 - p5.js `loadFont` and p5 add-on libraries.
 - The asset skill (`motlab-assets`) on a real brief and a kit used in a real video. Its scripts were run on a test kit: an SVG character with a rig, a transition, a mug on both 3D paths and a Rigify figure.
