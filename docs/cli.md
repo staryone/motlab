@@ -1,7 +1,7 @@
 # Command line
 
 ```text
-motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3]  all scenes and audio in project.json, as one MP4
+motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3] [--qp 22] [--codec hevc]  all scenes and audio in project.json, as one MP4
 motlab start                                      the viewer in the background at http://127.0.0.1:4173, one for all projects
 motlab edit   [project]                           open a project in the viewer, starting it first if needed
 motlab stop | restart                             end the viewer, or start it again from the same folder
@@ -34,7 +34,7 @@ When the page throws while loading, the error names the file, line and column, f
 
 ## Options
 
-`render` takes `--scale`, `--only` and `--parallel`; the rest are for `video` (and `--root`, `--chrome`, `--scale` and `--format` for `stills`, and `--root` and `--chrome` for `events`).
+`render` takes `--scale`, `--only`, `--parallel`, `--qp` and `--codec` (the last two also from `project.json`); the rest are for `video` (and `--root`, `--chrome`, `--scale` and `--format` for `stills`, and `--root` and `--chrome` for `events`).
 
 | Option | Meaning |
 |---|---|

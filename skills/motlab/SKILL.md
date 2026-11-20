@@ -137,6 +137,9 @@ promo/
   the video is that much shorter. Use these for edits, explainers and talking heads; in an ad, a shape that carries
   across the cut (`craft.md`) is still better. The types and options are in `references/motion-and-libraries.md`,
   with how to write a `.glsl` transition of your own into the project and how to match one from a reference video.
+- When the user wants a smaller file, set `"qp": 22` in `project.json` (about 30% smaller than the default 18, at
+  nearly the same quality); their Export then uses it. Higher saves more and shows more. Details in the engine's
+  docs/rendering.md, File size.
 - `audio` is mixed by ffmpeg. `start` is seconds from the start of the whole video, `volume` a multiplier, `from` and
   `duration` pick a part of the file. A video file listed here contributes its sound.
 - `window.EVENTS` times are per scene. To place a sound on a beat, add the scene's start (the `TOTAL`s before it,
