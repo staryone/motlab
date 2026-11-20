@@ -14,7 +14,9 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
   motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3] [--qp 22] [--codec hevc]
                                                      all scenes and audio in project.json, as one MP4
   motlab start                                       the viewer in the background at http://127.0.0.1:4173, for every
-                                                     project; the menu lists the projects in this folder
+                                                     project; the menu lists the projects in this folder.
+                                                     --domain viewer.example.com serves it behind a reverse proxy,
+                                                     with the login password in MOTLAB_VIEWER_PASSWORD
   motlab edit   [project]                            open a project in the viewer (starting it if needed) and print its
                                                      address. [project] is a folder with project.json, or a project
                                                      file in it (video/storyboard.json). Clicks go to selection.json
@@ -81,7 +83,7 @@ export async function main(argv) {
   const { values: v, positionals } = parseArgs({ args: argv, allowPositionals: true, options: {
     fps: { type: 'string' }, scale: { type: 'string' }, audio: { type: 'string' }, encoder: { type: 'string' }, codec: { type: 'string' },
     workers: { type: 'string' }, bitrate: { type: 'string' }, qp: { type: 'string' }, mux: { type: 'string' }, root: { type: 'string' }, chrome: { type: 'string' },
-    only: { type: 'string' }, parallel: { type: 'string' },
+    only: { type: 'string' }, domain: { type: 'string' }, parallel: { type: 'string' },
     format: { type: 'string' }, reprobe: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
   } });
   const [mode, page, out, ...rest] = positionals;
@@ -90,7 +92,7 @@ export async function main(argv) {
   if (mode === 'update') return update({ dryRun: v['dry-run'] });
   if (mode === 'uninstall') return uninstall({ dryRun: v['dry-run'], yes: v.yes });
   // --foreground is the server itself (what start runs in the background); it runs until it is stopped.
-  if (mode === 'start') return v.foreground ? (await startEditor(page) === 'joined' ? 0 : new Promise(() => {})) : (await startViewer(), 0);
+  if (mode === 'start') return v.foreground ? (await startEditor(page, undefined, { domain: v.domain }) === 'joined' ? 0 : new Promise(() => {})) : (await startViewer({ domain: v.domain }), 0);
   if (mode === 'edit') { await openInViewer(page); return 0; }
   if (mode === 'stop') { await stopViewer(); return 0; }
   if (mode === 'restart') { await restartViewer(); return 0; }

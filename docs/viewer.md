@@ -151,6 +151,36 @@ The Export button in the top right renders the project. Pick 720p, 1080p, 1440p 
 
 While an export runs, the button is faded with a spinner and a red Cancel button appears under it. Pressing Cancel stops the render: the server closes its headless Chrome and any ffmpeg step, deletes the temp files, and the menu shows "Export cancelled". The file that was being written is never left half done in `out/`, because the render writes it as `.part` and renames it only when it is complete; an earlier export of the same size stays as it was. On the example project at 4K a cancel took 0.3 s. Reloading the page does not cancel an export; it keeps running in the terminal, and Export answers that another export is still running until it ends.
 
+## On a VPS with a domain
+
+The viewer can run on a server and be opened from anywhere at a domain of your own, behind a password. It still listens only on `127.0.0.1`; a reverse proxy on the same server gives it HTTPS and passes requests to it. With [Caddy](https://caddyserver.com), which gets the certificate by itself, the whole proxy is a Caddyfile:
+
+```text
+viewer.example.com {
+    reverse_proxy 127.0.0.1:4173
+}
+```
+
+Point the domain's DNS at the server, then start the viewer with the domain and a password of at least 12 characters in `MOTLAB_VIEWER_PASSWORD`:
+
+```bash
+MOTLAB_VIEWER_PASSWORD='a long password of your own' motlab start --domain viewer.example.com
+```
+
+Open `https://viewer.example.com` and sign in. Then:
+
+- Every request needs the login, whatever address it comes in on, so a proxy that rewrites the Host header to `127.0.0.1` does not skip it. Only the sign-in page answers without it.
+- The session is a cookie that is HttpOnly, Secure and SameSite=Strict, and lasts 30 days or until the viewer stops. A save, a new version or an Export must come from the viewer's own page on `https://viewer.example.com`; a request from another site is refused.
+- After 5 wrong passwords in a minute, the login waits until the minute is over.
+- `motlab edit`, `stop` and `restart` on the server still work: the viewer writes a random token to `~/.motlab/viewer-token` (readable only by you on Linux and macOS) and removes it when it stops, and the commands send it. `restart` keeps the domain.
+- Export renders on the server, so the server needs Chrome and ffmpeg (`motlab doctor`). The finished file opens from the Open link as it does on your own machine.
+
+The password is read from the environment so that it does not show up in the process list. Put it in your service manager's environment file rather than in a command line that the shell history keeps. A proxy other than Caddy works the same way: HTTPS in front, `127.0.0.1:4173` behind it.
+
+Without a domain of your own, [Tailscale](https://tailscale.com) keeps the viewer private to your own devices: `tailscale serve 4173` on the server gives it an HTTPS name on your tailnet. Start the viewer with `--domain` set to that name and a password, because without `--domain` the viewer refuses saves and Export from any name but `127.0.0.1`.
+
+Tested on the Windows laptop: `test/access.test.js` checks the login, the cookie, refused writes from other sites and other Host headers, the token, the wait after wrong passwords and signing out. The real viewer was started with `--domain` and checked with curl sending the domain's Host header as a proxy does, and in Chrome on `localhost`: the sign-in page came first, a wrong password was refused, the right one opened the project, and a click saved `selection.json`. `motlab edit` and `motlab stop` worked through the token, and the token file was gone after the stop. Not tried yet: a real VPS behind Caddy with a real certificate, and Tailscale Serve.
+
 ## How the preview works
 
 Nothing is rendered to a file for the preview. Each scene is its real page in a hidden iframe at `?scale=1`, and the preview copies its canvas, so you see exactly what the render draws, on the same frame grid.
