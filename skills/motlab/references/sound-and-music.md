@@ -97,7 +97,8 @@ Save the WAV in `<video>/audio/` and list it in `project.json`. The viewer plays
 [earshot](https://github.com/Leonxlnx/earshot) (MIT, CPU only) turns sound into words and numbers an agent can read.
 motlab does not depend on it, so check once at the start of the sound work:
 
-- `earshot --help` runs: the CLI is there. If the session lists earshot MCP tools, use those instead of the CLI.
+- `motlab doctor` has an earshot line: `ok` means the CLI and its models are there, `warn` says which is missing.
+  `earshot --help` running is enough for the CLI. If the session lists earshot MCP tools, use those instead.
 - Neither: carry on with the steps above. Mention earshot once only if the user asks how to pick sounds better.
 - The analysis commands need about 1.1 GB of models (`earshot doctor --fetch`). Ask before fetching them.
 

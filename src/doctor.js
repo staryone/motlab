@@ -47,7 +47,22 @@ export function checks() {
     out.push({ name: 'Python packages (numpy, scipy, Pillow)', ok: !missing.length, optional: true, detail: missing.length ? `missing: ${missing.join(', ')}` : '',
       fix: `${py.p} -m pip install -r "${fileURLToPath(new URL('../skills/motlab/requirements.txt', import.meta.url))}"` });   // the full path: an npm install is not the current folder
   }
+  out.push(earshotCheck());
   return out;
+}
+
+// earshot (github.com/Leonxlnx/earshot, MIT) lets the agent listen: the skill uses it to pick sounds and check a mix
+// when it is there. Optional and never installed here: it needs Python with torch and about 1.1 GB of models.
+// `earshot doctor` answers in about a second without loading the models and says whether they are downloaded.
+export function earshotCheck(runCmd = (cmd, args) => spawnSync(cmd, args, { encoding: 'utf8', shell: false, timeout: 30000 })) {
+  const name = 'earshot (optional: lets the agent listen to sound)';
+  const r = runCmd('earshot', ['doctor']);
+  if (r.error || r.status !== 0) return { name, ok: false, optional: true, detail: 'not installed', fix: 'install it from https://github.com/Leonxlnx/earshot if you want the agent to listen (Python, about 1.1 GB of models)' };
+  let cached = null;
+  try { cached = Object.values(JSON.parse(/^models_cached:\s*(\{.*\})\s*$/m.exec(r.stdout)[1])); } catch {}
+  if (cached?.length && cached.every(Boolean)) return { name, ok: true, optional: true, detail: 'models downloaded' };
+  return { name, ok: false, optional: true, detail: cached ? 'installed, models not downloaded' : 'installed, its doctor output was not understood',
+    fix: 'earshot doctor --fetch (downloads about 1.1 GB of models)' };
 }
 
 export function doctor(log = console.log) {
