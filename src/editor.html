@@ -184,15 +184,19 @@
   .mark::before { content: ""; position: absolute; top: 0; left: -4px; width: 10px; height: 12px; border-radius: 3px 3px 5px 5px; background: inherit; }
   #pick { background: var(--blue); width: 1px; margin-left: 0; }
   #pick::before { display: none; }
-  .toast { position: absolute; top: 56px; left: 50%; transform: translate(-50%, 0); transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease), display var(--fast) allow-discrete; z-index: 5; max-width: calc(100% - 24px); padding: 8px 12px; border-radius: 8px; background: var(--text); color: #fff; font-size: 13px; }
+  /* messages sit in one column at the top of the canvas, in the row of the full-screen pill and above the frame (the
+     stage keeps 60 px free there); the agent's work first, then a short message under it. On a phone they move, see below */
+  #notices { position: absolute; top: 12px; left: 50%; translate: -50% 0; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 6px; width: max-content; max-width: calc(100% - 136px); pointer-events: none; }
+  #notices > * { max-width: 100%; pointer-events: auto; }
+  .toast { transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease), display var(--fast) allow-discrete; padding: 8px 12px; border-radius: 8px; background: var(--text); color: #fff; font-size: 13px; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
 
   /* menus */
   .menu { position: absolute; top: calc(100% + 6px); z-index: 10; max-height: calc(100dvh - 56px); overflow-y: auto; min-width: 220px; padding: 6px; background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.12); font-weight: 400; }
   .menu { transform-origin: top right; transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease), display var(--fast) allow-discrete; }
   .menu[hidden], .toast[hidden] { display: none; opacity: 0; }
   .menu[hidden] { transform: translateY(-4px) scale(.98); }
-  .toast[hidden] { transform: translate(-50%, -4px); }
-  @starting-style { .menu:not([hidden]) { opacity: 0; transform: translateY(-4px) scale(.98); } .toast:not([hidden]) { opacity: 0; transform: translate(-50%, -4px); } }
+  .toast[hidden] { transform: translateY(-4px); }
+  @starting-style { .menu:not([hidden]) { opacity: 0; transform: translateY(-4px) scale(.98); } .toast:not([hidden]) { opacity: 0; transform: translateY(-4px); } }
   .menu.r { right: 0; }
   .menu.c { left: 50%; translate: -50% 0; transform-origin: top center; }
   #projMenu { width: 300px; max-width: calc(100vw - 24px); }
@@ -236,6 +240,7 @@
   /* the note tools, a pill next to the play toolbar: box or point (M) and the pencil (P); the one in use has the
      selected-row grey */
   #drawBar { height: 40px; padding: 0 6px; border-radius: 12px; }
+  #drawBar .lbl { display: none; }
   #drawBar .on { background: var(--sel); }
   #drawBar .on:hover { background: var(--press); }
   /* pencil notes: blue strokes with a light halo over the preview, so they show on dark, light and blue frames; the
@@ -248,7 +253,7 @@
   .mk.stroke.on { border-color: var(--blue); background: rgba(44,111,224,.06); }
   /* what the agent is working on, or a scene that did not load again: a pill at the top of the canvas, between the
      corners; a scene row shows a spinner instead of its length meanwhile */
-  #work { position: absolute; top: 12px; left: 50%; translate: -50% 0; z-index: 2; gap: 8px; max-width: calc(100% - 136px); padding: 0 12px; font-size: 13px; }
+  #work { gap: 8px; padding: 0 12px; font-size: 13px; }
   #work > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #workIcon { display: flex; }
   .row .d .spin { vertical-align: -2px; }
@@ -275,6 +280,12 @@
     body.closed aside { opacity: 1; transform: translateX(-100%); transition: visibility 0s var(--slide), transform var(--slide) var(--ease); }
     #stage { min-height: 0; padding: 8px 64px 6px; }
     #lane { max-height: 28vh; }
+    /* the agent's work as a spinner in the free top left corner (its text in the tooltip, the timeline names the scenes),
+       and a message at the bottom of the screen, so neither covers the small preview */
+    #notices { left: 12px; translate: none; align-items: flex-start; }
+    #work { width: 36px; padding: 0; justify-content: center; }
+    #work > span:last-child { display: none; }
+    #notices .toast { position: fixed; left: 50%; translate: -50% 0; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: calc(100vw - 24px); }
   }
   /* phones held upright: one column that scrolls, in the order a review on a phone needs, as in Frame.io's app: the
      preview at the top across the width, the play toolbar with full screen in it, the timeline, then the notes, the
@@ -294,18 +305,23 @@
     #canvas { overflow: visible; }
     #stage { min-height: 0; padding: 8px 8px 0; }
     #view { max-height: 62vh; }
-    #bar { margin: 10px 0; }
+    #bar { flex-direction: column; align-items: stretch; gap: 6px; margin: 10px 0; padding: 0 8px; }
+    #tools { justify-content: space-between; }
+    #drawBar .sq { flex: 1; width: auto; gap: 6px; font-size: 13px; }
+    #drawBar .lbl { display: inline; }
     #fullBar { display: flex; }
     #exportLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     #export { padding: 0 8px; }
     .menu, #projMenu, #verMenu, #exportMenu { position: fixed; top: 50px; left: 8px; right: 8px; width: auto; min-width: 0; max-width: none; translate: none; transform-origin: top center; }
     .pop { width: auto; max-width: none; }
-    #work { position: static; translate: none; max-width: none; margin: 8px 8px 0; }
+    #notices { position: static; translate: none; width: auto; max-width: none; align-items: stretch; }
+    #work { margin: 8px 8px 0; }
+    #notices .toast { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 30; }
   }
   @media (pointer: coarse) {
     .icon, .btn, .pick, .pill button, .row, .menu .opt, #go, #stop, #verGo, #verName, #popDel, #popDone, #popOk { min-height: 44px; }
     .icon, .pill .sq { min-width: 44px; }
-    .pill { height: auto; }
+    .pill, #tools, #rangeBar, #drawBar { height: auto; padding-block: 2px; }   /* the 44 px buttons stay inside their pill */
   }
   /* the smallest phones (360 px): the toolbar's buttons give up 6 px each so it fits, still 38 by 44 px */
   @media (max-width: 379px) { #tools .sq { min-width: 38px; } #tools { gap: 0; } #time { padding: 0 6px; } }
@@ -349,8 +365,7 @@
 <main>
   <div id="canvas">
     <div class="pill" id="pillFull"><button class="sq" id="full" data-i="full" data-label="full" data-key="F"></button></div>
-    <div class="toast" id="note" role="status" hidden></div>
-    <div class="pill" id="work" role="status" hidden><span id="workIcon"></span><span id="workText"></span></div>
+    <div id="notices"><div class="pill" id="work" role="status" hidden><span id="workIcon"></span><span id="workText"></span></div><div class="toast" id="note" role="status" hidden></div></div>
     <div id="stage"><span id="msg" data-t="loadingProject"></span><canvas id="view" hidden></canvas><div id="marks"></div>
       <div class="pop" id="pop" role="dialog" aria-labelledby="popWhere" hidden>
         <div class="head"><span class="tag" id="popN"></span><span id="popWhere" class="num"></span><span class="end"><span id="popState" hidden></span><button class="icon" id="popUndo" data-i="undo2" data-label="undoStroke" data-key="Ctrl+Z" hidden></button></span></div>
@@ -373,8 +388,8 @@
       <button class="sq" id="fullExit" data-i="unfull" data-label="fullExit" data-key="F"></button>
     </div>
     <div class="pill" id="drawBar" role="group" data-t="aria-label=drawTools">
-      <button class="sq on" id="toolMark" data-i="mark" data-label="toolMark" data-key="M" aria-pressed="true"></button>
-      <button class="sq" id="toolPen" data-i="pen" data-label="toolPen" data-key="P" aria-pressed="false"></button>
+      <button class="sq on" id="toolMark" data-i="mark" data-label="toolMark" data-key="M" aria-pressed="true"><span class="lbl" data-t="toolMark" aria-hidden="true"></span></button>
+      <button class="sq" id="toolPen" data-i="pen" data-label="toolPen" data-key="P" aria-pressed="false"><span class="lbl" data-t="toolPen" aria-hidden="true"></span></button>
     </div>
     <div class="pill" id="rangeBar" role="group" data-t="aria-label=range" hidden>
       <span class="ri" data-i="range"></span><span id="rangeText" class="num"></span>
@@ -486,7 +501,7 @@ const TEXT = {
   drawTools: ['Alat catatan', 'Note tools'],
   toolMark: ['Kotak atau titik', 'Box or point'],
   toolPen: ['Pensil', 'Pencil'],
-  penHow: ['Coret di preview. Coretan berikutnya masuk ke catatan yang sama sampai catatan ditutup.', 'Draw on the preview. More strokes go into the same note until you close it.'],
+  penHow: ['Coret di preview. Satu catatan bisa berisi beberapa coretan.', 'Draw on the preview. One note can hold several strokes.'],
   undoStroke: ['Urungkan coretan', 'Undo stroke'],
   and: ['dan', 'and'],
   working: [(list, n, text) => `Agent sedang memperbaiki scene ${list}${text ? `: ${text}` : ''}`, (list, n, text) => `The agent is working on scene${n > 1 ? 's' : ''} ${list}${text ? `: ${text}` : ''}`],
@@ -566,7 +581,7 @@ const label = (b, text, key = b.dataset.key) => {   // the accessible name and t
   b.setAttribute('aria-label', text); b.dataset.tip = text;
   if (key) { b.dataset.key = key; b.setAttribute('aria-keyshortcuts', key === '−' ? '-' : key); }
 };
-document.querySelectorAll('[data-i]').forEach(e => e.insertAdjacentHTML(e.id === 'export' || e.id === 'rangeNote' ? 'afterbegin' : 'beforeend', ICON[e.dataset.i]));
+document.querySelectorAll('[data-i]').forEach(e => e.insertAdjacentHTML(['export', 'rangeNote', 'toolMark', 'toolPen'].includes(e.id) ? 'afterbegin' : 'beforeend', ICON[e.dataset.i]));
 document.querySelectorAll('[data-label]').forEach(b => label(b, L(b.dataset.label)));
 // Tooltips: shown after 0.5 s of hover (at once while moving between controls, or on keyboard focus), above the control
 // or below it near the top of the window. The timeline's list of keys waits 1 s and goes away when the pointer moves on,
@@ -609,7 +624,12 @@ const fmt = t => `${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFi
 const name = f => f.split('/').pop().replace(/\.\w+$/, '');
 const hint = text => Object.assign(new Error(text), { hint: true });   // a message that already says what to do next
 let noteTimer;
-const note = text => { $('note').textContent = text; $('note').hidden = false; clearTimeout(noteTimer); noteTimer = setTimeout(() => $('note').hidden = true, 5000); };
+const note = text => {   // on a phone the message is a bar at the bottom of the screen, above an open note's card
+    const el = $('note'), pop = $('pop');
+    el.textContent = text; el.hidden = false; el.style.bottom = '';
+    if (matchMedia('(max-width: 719px)').matches && !pop.hidden) el.style.bottom = innerHeight - pop.getBoundingClientRect().top + 8 + 'px';
+    clearTimeout(noteTimer); noteTimer = setTimeout(() => el.hidden = true, 5000);
+  };
 
 // ---- menus, the side panel and full screen work before the project has loaded
 const menus = [[$('export'), $('exportMenu')], [$('proj'), $('projMenu')], [$('ver'), $('verMenu')]];
