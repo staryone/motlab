@@ -16,7 +16,7 @@ motlab restart    # stop it and start it again from the same folder, for example
 
 One viewer holds many projects. The project name in the header is a menu of the motlab projects it knows: the folders with a `project.json` up to four levels under the folder `motlab edit` was started from (without `node_modules`, `out`, `backup` and hidden folders), and every project opened with `motlab edit` before, which is remembered in `~/.motlab/recent.json`. A project on another drive shows up in the menu after it has been opened once. The folder the menu scans is the one the viewer was started from, by `motlab start` or by the `motlab edit` that started it. `motlab edit` without a project prints the viewer's address, which opens the first project it finds. If port 4173 belongs to something else, the viewer takes the next free port up to 4190, and `motlab edit`, `stop` and `restart` find it there. The left panel lists the scenes and audio files, the middle shows the preview with the play controls, and the bottom has a timeline of scenes and audio with waveforms.
 
-The viewer is for looking and pointing, not editing. It does not watch files, so reload the page after the project changes.
+The viewer is for looking and pointing, not editing. While a page is open it watches the project folder, so a scene the agent saves shows without a reload ([Live updates](#live-updates)).
 
 ## Language
 
@@ -38,13 +38,16 @@ The name after the project in the header is the version menu. It lists every pro
 | Scroll a zoomed timeline | its scrollbar, Shift+scroll, or plain scroll when there is no vertical scroll |
 | Mark a range | the range button in the play toolbar (or `R`), then drag on the timeline; or Shift+drag on the timeline; or `I` and `O` at the playhead for its start and end; drag an edge or its blue head to change it |
 | Make the scene a range | `X`, for the scene under the playhead |
-| Remove the range | the × in the range bar, or Escape when no note is open |
+| Remove the range | the × in the range bar, or Escape when no note is open and the pencil is not picked |
 | A note with a box | drag on the preview, then type |
 | A note on one spot | click on the preview without dragging, then type |
+| Pick the pencil | the pencil button in the note tools next to the play toolbar, or `P`; the box button, `M` or Escape goes back to boxes and points |
+| A note drawn with the pencil | with the pencil picked, draw on the preview, then type; more strokes go into the same note until it is closed |
+| Take back the last stroke | the undo arrow in the open pencil note, or Ctrl+Z (Cmd+Z on a Mac); Shift+Ctrl+Z or Ctrl+Y puts it back |
 | A note on a range | mark the range, then Note in the range bar |
 | Save and close a note | Enter, Save, Escape, or a click on the empty grey space around the preview (Shift+Enter is a new line) |
 | Open a note | its row under Notes, its number on the timeline, or a click on its box |
-| Move or resize a note's box | open the note, then drag inside its box to move it, or a corner or an edge to resize it; a point moves the same way |
+| Move or resize a note's box | open the note, then drag inside its box to move it, or a corner or an edge to resize it; a point and a drawing move the same way, with boxes and points picked |
 | Delete a note | Delete in the open note |
 | Mark a note done | Mark done in the open note; Reopen opens it again |
 | See the done notes | Done at the end of the Notes list |
@@ -107,9 +110,10 @@ Each note in `marks` has its number `n`, an `id` the page gives it (notes from b
 |---|---|
 | `box` | `{ x, y, w, h }` in the scene's own pixels at `?scale=1`, the units the scene code uses |
 | `point` | `{ x, y }` in the same units |
+| `stroke` | a drawing made with the pencil: a list of strokes, each a list of `[x, y]` points in the same units; `box` is then the box around it |
 | `range` | `{ start, end, scenes }`, as above |
 
-`image` is `selection/<n>.png` for a box or point: that frame with the note's box or point and number drawn on it, as on screen. `project` is the version the note was made in. `done: true` marks a note as done; an open note has no `done`.
+`image` is `selection/<n>.png` for a box, a point or a drawing: that frame with the note's box, point or strokes and its number drawn on it, as on screen. `project` is the version the note was made in. `done: true` marks a note as done; an open note has no `done`.
 
 A range marks a stretch of time, for a note such as "seconds 3 to 5 are too slow". The range button in the play toolbar turns blue and the page says to drag on the timeline; the drag marks the range and the button turns off again, so the next drag scrubs as usual. The range is a light blue band over the whole timeline with a blue head at the top of each edge, like the playhead's, to drag it by, and a range bar appears next to the play toolbar with its start, end and length, Note to write a note about it, and × to remove it. While there is a range, Play starts at its start and goes round inside it; a click elsewhere while playing plays on from there. A click on the timeline moves the playhead and keeps the range.
 
@@ -125,6 +129,8 @@ The agent writes `done` into the file while the page is open. So the viewer keep
 
 An open note's box has a small square on each corner. Dragging inside the box moves it, and dragging a corner or an edge resizes it; the cursor shows which. An open point can be dragged too. The box stays inside the frame, keeps its number, text and frame, and its picture in `selection/` is drawn again. A drag on the preview with no note open still draws a new box, even over an old one, so a box has to be opened before it can be moved.
 
+The pencil draws freehand, for circling something or drawing an arrow at it. Pick it with `P` or the pencil button in the note tools, a small toolbar next to the play toolbar, and the cursor becomes a dot. A stroke on the preview makes a note as a box does, and its card opens. More strokes go into the same note until the note is closed, so a circle and an arrow are one note. The undo arrow in the card's head, or Ctrl+Z, takes back the last stroke down to the first one (Delete removes the note), and Shift+Ctrl+Z or Ctrl+Y puts it back until a new stroke is drawn. In the card's text field, Ctrl+Z takes back a stroke only while the text has not changed since that stroke; after typing, it undoes the typing. A click with the pencil marks nothing, and a click on a note opens it. `M`, Escape or the box button goes back to boxes and points, and with those a drawing moves like a box: open the note and drag inside its outline. It is not resized. The strokes are blue with a light halo, so they show on light, dark and blue frames, and they are kept in `stroke` with the fewest points that stay within 0.75 screen pixels of what was drawn: a circle drawn with 127 pointer events kept 27 points. `box` is the box around them, so an agent that reads boxes still knows where the drawing is.
+
 The done notes can be deleted in one go with Delete all done notes, the last row under the unfolded done notes. The first click turns the row into "Click again to delete 2 notes" for 4 seconds, and a second click deletes them and their pictures, as Delete does one by one. It deletes the done notes of the open version only.
 
 Full screen shows the preview on the whole screen with a player bar along its bottom edge. The bar has a scrub bar across its width, split into the scenes and dark up to the playhead: click or drag it to move in time, and rest the pointer on it to see the time there. The open notes' numbers sit above it, and a click on one opens that note; a range shows as a light blue band. Under it, the time and the scene's name are on the left, previous, play and next in the middle of the screen, and a button on the right leaves full screen. The Left and Right arrows step one frame anywhere in full screen (one second with Shift), and Home and End jump to the start and the end. The timeline, the range bar and the range, zoom and timeline buttons stay out of full screen; `R` does nothing there, while `I`, `O` and `X` still mark a range at the playhead. The bar stays hidden so that it covers nothing, also while the video is paused, and comes up like an auto-hidden taskbar while the pointer is in the bottom 120 px of the screen. It also shows for 2.5 seconds on entering full screen and after Space, the arrows, Home or End. Drawing or moving a note never brings it up, so a box can be drawn down to the bottom of the frame. While the video plays and the pointer rests for 2.5 seconds with the bar hidden, the cursor hides too.
@@ -139,9 +145,21 @@ Each version has its own notes. The numbers run across all versions of the folde
 
 `selection.json`, `selection.png` (from before notes) and `selection/` are in `.gitignore`.
 
+## Live updates
+
+While a page is open, the server watches the project folder and sends every saved file to the page over one event stream (`/p/<project>/__events`). Renders in `out/`, `backup/`, the note pictures in `selection/`, `node_modules` and hidden or temporary files are left out. The page knows which files each scene's page loaded, from the browser's resource timing, so a save loads again only the scenes that use the file: a scene's own HTML loads that scene, and a `lib.js` three scenes share loads all three. The new page loads in the background and its length and thumbnails are read again; only then does it take the old page's place, at the frame on screen. Meanwhile the scene's row says "loading again" with a spinner, and its tile on the timeline is faded with "Loading" next to its number. When it is in, a message says "Scene 2 updated". A scene that changed length moves the scenes after it.
+
+A page that does not load keeps the old one on screen: a syntax error while the agent is still writing, no `<canvas id="c">`, no `renderAt` and `TOTAL`, or `ready` not resolving within 20 s. The scene's row and tile then say Error, and a pill at the top of the canvas says which scene did not load and why. The next save that works clears it.
+
+A file the viewer page loaded itself, such as the project file, its audio or a transition's `.glsl` or layer module, loads the whole page again, and the selection brings back the time. While a note is open or the Export menu is open, it waits and says so, and reloads once they are closed. `selection.json` is read again at once, so a note the agent marks done moves under Done straight away.
+
+`motlab working <project> [text] --note 3,5 --scene 2` tells the open pages what the agent is working on. The scenes it names, and the scenes of the notes it names, show a spinner and "being fixed" in the list and "Fixing" on the timeline, the notes show "being worked on", and a pill at the top of the canvas says "The agent is working on scenes 2 and 3", with the text after a colon. `motlab working <project> --done` clears it, and so does 10 minutes with no word from the agent and no saved file. A page opened later gets the current work at once. With no viewer running, or no page open on that project, the command says nobody sees it and still succeeds, so an agent can always call it.
+
+Tried in Chrome on the Windows laptop with a copy of `example/`: a change to `02-grafik.html` loaded scene 2 again and nothing else, a change to the shared `lib.js` loaded all three scenes, a syntax error in scene 3 kept its old page with the error pill and the fix brought the new one in, and `motlab working . --scene 3` and `--done` showed and cleared the pill. `test/live.test.js` checks that a saved file reaches the page and the viewer's own pictures do not. Not tried: the event stream through Caddy on a real VPS, and a project folder on a network drive, where file watching may not report changes.
+
 ## On a phone
 
-Held upright, the viewer is one column that scrolls: the preview across the top, the play toolbar under it with the full-screen button at its end, the timeline, then the notes, the scenes and the audio, notes first. The side panel's toggle is not there, because the lists are on the page. The header shows the project and its version; the scene's name is on the timeline, and Export is its icon. The project, version and Export menus open across the width under the header. The open note's card sits across the bottom of the screen, above the keyboard while it types. Held sideways, the viewer keeps its two panes, with the side panel closed at first and floating over the preview when it opens.
+Held upright, the viewer is one column that scrolls: the preview across the top, the play toolbar under it with the full-screen button at its end and the note tools on their own row, the timeline, then the notes, the scenes and the audio, notes first. The side panel's toggle is not there, because the lists are on the page. The header shows the project and its version; the scene's name is on the timeline, and Export is its icon. The project, version and Export menus open across the width under the header. The open note's card sits across the bottom of the screen, above the keyboard while it types. Held sideways, the viewer keeps its two panes, with the side panel closed at first and floating over the preview when it opens.
 
 Checked in headless Chrome over the DevTools protocol with a phone emulated (touch, 2x pixels) at 390x844 and 360x740 upright and 844x390 and 740x360 sideways: no sideways scrolling, every menu inside the screen, and a box drawn with touch events opened its card inside the screen and saved the note. A real phone has not been tried.
 

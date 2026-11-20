@@ -7,7 +7,7 @@ import { renderProject } from './project.js';
 import { dumpEvents, renderStills, renderVideo } from './render.js';
 import { uninstall } from './uninstall.js';
 import { update } from './update.js';
-import { openInViewer, restartViewer, startViewer, stopViewer } from './viewer.js';
+import { openInViewer, restartViewer, startViewer, stopViewer, workInViewer } from './viewer.js';
 
 const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, ready, EVENTS) with headless Chrome and WebCodecs.
 
@@ -21,6 +21,9 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
                                                      address. [project] is a folder with project.json, or a project
                                                      file in it (video/storyboard.json). Clicks go to selection.json
   motlab stop | restart                              end the viewer, or start it again from the same folder
+  motlab working <project> [text] [--note 3,5] [--scene 2]
+                                                     show in the open viewer what the agent is working on, until
+                                                     motlab working <project> --done (or 10 minutes without a change)
   motlab stills <page.html> <outDir> <t1> <t2> ...  [--scale 1] [--format png|jpg]
   motlab video  <page.html> <out.mp4> [--fps 24] [--scale 2] [--audio file] [--encoder auto|hw|sw] [--workers N]
   motlab events <page.html> <out.json>
@@ -60,14 +63,15 @@ that pass it keep working). Needs ffmpeg and ffprobe on PATH.
 Engine folder: ${fileURLToPath(new URL('..', import.meta.url))}  (README.md, example/, src/page/footage.js)`;
 
 const oneOf = (name, v, list) => { if (v !== undefined && !list.includes(v)) throw new Error(`--${name} must be one of: ${list.join(', ')}`); return v; };
-const only = v => {
+const numbers = (name, what) => v => {
   if (v === undefined) return undefined;
   return v.split(',').map(s => {
     const n = Number(s.trim());
-    if (!Number.isInteger(n) || n < 1) throw new Error(`--only: "${s.trim()}" is not a scene number`);
+    if (!Number.isInteger(n) || n < 1) throw new Error(`--${name}: "${s.trim()}" is not a ${what} number`);
     return n;
   });
 };
+const only = numbers('only', 'scene');
 const num = (name, v, { min = 0, int = false } = {}) => {
   if (v === undefined) return undefined;
   const n = Number(v);
@@ -84,7 +88,7 @@ export async function main(argv) {
   const { values: v, positionals } = parseArgs({ args: argv, allowPositionals: true, options: {
     fps: { type: 'string' }, scale: { type: 'string' }, audio: { type: 'string' }, encoder: { type: 'string' }, codec: { type: 'string' },
     workers: { type: 'string' }, bitrate: { type: 'string' }, qp: { type: 'string' }, mux: { type: 'string' }, root: { type: 'string' }, chrome: { type: 'string' },
-    only: { type: 'string' }, domain: { type: 'string' }, parallel: { type: 'string' },
+    only: { type: 'string' }, domain: { type: 'string' }, parallel: { type: 'string' }, note: { type: 'string' }, scene: { type: 'string' }, done: { type: 'boolean' },
     format: { type: 'string' }, reprobe: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
   } });
   const [mode, page, out, ...rest] = positionals;
@@ -97,13 +101,17 @@ export async function main(argv) {
   if (mode === 'edit') { await openInViewer(page); return 0; }
   if (mode === 'stop') { await stopViewer(); return 0; }
   if (mode === 'restart') { await restartViewer(); return 0; }
+  if (mode === 'working') {
+    await workInViewer(page, { notes: numbers('note', 'note')(v.note) || [], scenes: numbers('scene', 'scene')(v.scene) || [], text: [out, ...rest].filter(Boolean).join(' '), done: v.done });
+    return 0;
+  }
   if (mode === 'render') {
     if (!page) throw new Error('render needs a project folder or project file');
     await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only), parallel: num('parallel', v.parallel, { min: 1, int: true }),
       qp: num('qp', v.qp, { min: 0, int: true }), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc']) });
     return 0;
   }
-  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, stills, video, events, doctor, setup, update, uninstall or help)`);
+  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, working, stills, video, events, doctor, setup, update, uninstall or help)`);
   if (!page || !out) throw new Error(`${mode} needs a page and an output path`);
   const common = { page, root: v.root, chrome: v.chrome };
 

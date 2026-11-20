@@ -27,7 +27,8 @@ What is not built, what has not been tested, and ideas that came up while using 
 - MPFB, which was not installed on the test laptop.
 - The asset skill's FBX and OBJ files in programs other than Blender (Unity, Unreal, Maya, Cinema 4D).
 - `svgparts.js` and `transition.js` in the viewer. They were checked with stills and a video render.
-- Notes on a real touch screen. Touch was emulated in Chrome over the DevTools protocol. Moving and resizing a box was tried with the mouse only.
+- Notes on a real touch screen, the pencil with a finger or a stylus among them. Touch was emulated in Chrome over the DevTools protocol. Moving and resizing a box, and the pencil, were tried with the mouse and with pointer events only.
+- The viewer's live updates through a reverse proxy on a real VPS, and on a project folder on a network drive, where file watching may not report changes.
 - The viewer on a real phone. The phone layout, its menus and notes drawn with touch were checked in Chrome with a phone emulated over the DevTools protocol, at 390 and 360 px upright and 844 and 740 px sideways. On an iPhone, Safari allows full screen for video elements only, so the viewer has no full screen there.
 - The viewer's full screen outside Chrome on Windows.
 - The skills in agents other than Claude Code. The installer was run with `--dry-run` for every target, and the folders come from each agent's docs. A Muse agent followed `skills/motlab/SKILL.md` from a clone and made a real video (a 42 s project on Ubuntu 24.04 with no GPU, issue #8). The skills installed with `--skill muse`, Hermes Agent (both added from their docs in November 2026) and the other agents have not been tried yet.

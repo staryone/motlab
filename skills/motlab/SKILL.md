@@ -6,7 +6,7 @@ description: Make and edit videos as code with the motlab engine, with no AI vid
 # motlab
 
 Build a video as code and put it in the motlab viewer, where the user plays it, steps through it frame by frame and
-points at what to change. Everything is code, so a note such as "slower here" means changing a number and reloading.
+points at what to change. Everything is code, so a note such as "slower here" means changing a number, and the viewer shows the saved scene by itself.
 No AI model makes any picture or video.
 
 **The split of work.** The user gives a folder of high-quality references (pictures, logos, screenshots, footage,
@@ -81,8 +81,11 @@ ask; never stash, reset or discard their changes. The new skills load in a new s
    leaves notes in the viewer and says "kerjakan semua catatan". When they say "this one", "here", "yang ini" or "di
    sini", or mention notes, read `<video>/selection.json` first (and look at `<video>/selection/<n>.png` for each note
    with a box or point), then grab that frame with
-   `motlab stills <scene> <dir> <frame time>` (see below) so you see what they see. Apply every open note, check stills
-   around the change, re-run `mix.py` if beats moved, and tell the user to reload. Report what changed in plain words.
+   `motlab stills <scene> <dir> <frame time>` (see below) so you see what they see. Before you change anything, run
+   `motlab working <video> --note 3,5 "<what you are doing, a few words>"` with the note numbers (or `--scene 2` for a
+   change without a note), so the open viewer marks those scenes as being fixed. Apply every open note, check stills
+   around the change, re-run `mix.py` if beats moved, then run `motlab working <video> --done`. The viewer loads a saved
+   scene again by itself, so there is no reload to ask for. Report what changed in plain words.
    Before a round that changes a lot, copy `scenes/` to `backup/<n>/`. Never delete or edit the user's reference files.
    Many rounds are normal; keep going until the user is happy.
 9. **The render is the user's.** They press Export in the viewer and pick 720p, 1080p, 1440p or 4K. The file lands in
@@ -156,7 +159,7 @@ promo/
 - `motlab edit <video>` (or a project file) opens the project in the viewer at `http://127.0.0.1:4173/p/<folder>/`,
   starting the viewer in the background when none is running, prints the address and ends. Give the user the address
   it prints. `motlab restart` restarts the viewer (after `motlab update`), `motlab stop` ends it. The project name in the header switches between projects. It cannot edit; the
-  user reloads after changes. Space plays, arrows step frames on the timeline, Ctrl+scroll or `+`/`-` zooms the
+  viewer shows a saved scene by itself. Space plays, arrows step frames on the timeline, Ctrl+scroll or `+`/`-` zooms the
   timeline, Export renders 720p to 4K.
 - When the user wants to review from their phone or anywhere else, with the viewer on a server of theirs, follow
   "The viewer on a VPS" in the engine's `docs/install-for-agents.md`. It runs behind a domain and a password the user
@@ -178,10 +181,12 @@ promo/
   `O`): video seconds on the frame grid and the scene numbers it covers. A note like "ini terlalu lambat" with a range
   is about that whole stretch, not the single `time`.
 - `marks` are the user's notes, numbered `n` across all versions of the folder: `{ n, id, note, time, scene, sceneIndex,
-  sceneTime, frame, transition, box, point, range, image, project }`. Each is a box or a point drawn on one frame, or
-  a range, with the text `note` saying what is wrong there (it can be empty: then the spot is the note). `box` and
-  `point` are in the scene's own pixels at `?scale=1`, the same units as the scene code. `image` is
-  `<video>/selection/<n>.png`: that frame with the note's box or point and number drawn on it. Look at it first, then
+  sceneTime, frame, transition, box, point, stroke, range, image, project }`. Each is a box, a point or a pencil drawing
+  on one frame, or a range, with the text `note` saying what is wrong there (it can be empty: then the spot is the
+  note). `box` and `point` are in the scene's own pixels at `?scale=1`, the same units as the scene code. A drawing
+  has `stroke` (a list of strokes, each a list of `[x, y]` points) and `box` around it; a circle marks the thing
+  inside it, and an arrow points at its tip. `image` is `<video>/selection/<n>.png`: that frame with the note's box,
+  point or strokes and its number drawn on it. Look at it first, then
   find what the scene draws inside the box. It is the preview, not a clean still, so use `motlab stills` for a clean
   frame. Work only on the notes whose `project` is the version you are editing, and when the user says "catatan 3",
   that is `n: 3`. Skip notes with `"done": true`; they were dealt with in an earlier round. Report per note number
