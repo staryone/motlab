@@ -97,6 +97,34 @@ test('footage: a WebM clip shows the right frame at every time, though Matroska 
   assert.deepEqual(wrong, [], `source greys ${src}`);
 });
 
+test('cut list sections: two scenes play their own parts of one recording, back to back, with TOTAL set in ready', async () => {
+  const proj = join(dir, 'sections'), clip = join(proj, 'take.webm');
+  mkdirSync(proj);
+  // 3 s at 10 fps, each frame a grey 7 levels lighter than the one before
+  spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'nullsrc=s=64x64:r=10:d=3,geq=lum=16+N*7:cb=128:cr=128', '-c:v', 'libvpx-vp9', '-b:v', '2M', '-pix_fmt', 'yuv420p', clip]);
+  // three parts of 0.8 s; section "b" asks for 1.9 s, which moves it to the cut at 2.0 s
+  writeFileSync(join(proj, 'cuts.json'), JSON.stringify({ segments: [{ from: 0, to: 0.8 }, { from: 1, to: 1.8 }, { from: 2, to: 2.8 }], sections: [{ name: 'a', from: 0 }, { name: 'b', from: 1.9 }] }));
+  for (const name of ['a', 'b']) writeFileSync(join(proj, `${name}.html`), `<!doctype html><canvas id="c" width="64" height="64"></canvas><script>
+    const ctx = document.getElementById('c').getContext('2d'); let edit;
+    window.ready = (async () => {
+      const clip = await (await import('/__motlab/footage.js')).openFootage('take.webm'), { cutList } = await import('/__motlab/cuts.js');
+      edit = cutList(await (await fetch('cuts.json')).json(), clip, { section: '${name}' }); window.TOTAL = edit.duration; return true;
+    })();
+    window.renderAt = async t => { await window.ready; await edit.draw(ctx, t, 0, 0, 64, 64); };</script>`);
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 10, scenes: ['a.html', 'b.html'] }));
+  const out = join(dir, 'sections.mp4');
+  await renderProject({ dir: proj, out, scale: 1, ...quiet });
+  assert.equal((await probeVideo(out)).frames, 24);   // section a: 16 frames, section b: 8
+  const grey = (file, f) => meanRgb(file, '32:32:16:16', f)[1];
+  const src = Array.from({ length: 30 }, (_, f) => grey(clip, f)), wrong = [];
+  const want = f => f < 8 ? f : f < 16 ? 10 + f - 8 : 20 + f - 16;   // the source frame each output frame should show
+  for (let f = 0; f < 24; f++) {
+    const g = grey(out, f), shown = src.reduce((b, v, i) => Math.abs(v - g) < Math.abs(src[b] - g) ? i : b, 0);
+    if (shown !== want(f)) wrong.push(`frame ${f} showed source frame ${shown}, not ${want(f)}`);
+  }
+  assert.deepEqual(wrong, [], `source greys ${src}`);
+});
+
 test('project: a transition overlaps two scenes and mixes them on the frame grid', async () => {
   const proj = join(dir, 'proj'), flat = (name, colour) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
     const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);

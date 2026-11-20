@@ -8,6 +8,8 @@
 #       [--keep-tail 0.12] [--keep-lead 0.08] seconds kept after speech stops and before it starts again
 #       [--drop 61.2-63.0,90-91.5]           more parts of the file to leave out (a fluffed line)
 #       [--dissolve 0.12]                    parts overlap and fade by this long instead of cutting hard
+#       [--sections hook=0,demo=41.5,end=96] one scene per section: names and where each starts (seconds in the
+#                                            file, moved to the nearest cut), for cutList(..., { section: 'demo' })
 #
 # Run it from the project folder; the paths in cuts.json are relative to it. Listen to the result: a pause that was a
 # deliberate beat may need --min-pause raised, and a cut that clips a word needs more --keep-tail or --keep-lead.
@@ -48,9 +50,20 @@ def main():
     segs = [{'from': round(a, 3), 'to': round(b, 3)} for a, b in keep]
     length = sum(s['to'] - s['from'] for s in segs) - D * (len(segs) - 1)
     data = {'source': src.replace('\\', '/'), 'dissolve': D, 'duration': round(length, 3), 'segments': segs}
+    sections = [(n.strip(), float(v)) for n, v in (x.split('=') for x in opt('--sections', '', str).split(',') if x)]
+    # The same rule as cutList in cuts.js: a section starts at the cut nearest its time and runs to the next section.
+    at = [sum(s['to'] - s['from'] - D for s in segs[:k]) for k in range(len(segs))]
+    first = [min(range(len(segs)), key=lambda k: abs(segs[k]['from'] - v)) for _, v in sections] + [len(segs)]
+    for i, (n, _) in enumerate(sections):
+        if first[i + 1] <= first[i]: sys.exit(f'section {n} starts at the same cut as the next one: move one of them')
+    if sections: data['sections'] = [{'name': n, 'from': v} for n, v in sections]
     os.makedirs(os.path.dirname(os.path.abspath(out)), exist_ok=True)
     with open(out, 'w', encoding='utf-8') as f: json.dump(data, f, indent=1)
     print(f'{len(segs)} parts kept, {end - start:.2f} s of the take became {length:.2f} s -> {out}')
+    for i, (n, _) in enumerate(sections):
+        a, b = first[i], first[i + 1]
+        print(f'  section {n}: from {segs[a]["from"]:.2f} s in the file, {at[a]:.2f} s into the edit, '
+              f'{(at[b] if b < len(segs) else length) - at[a]:.2f} s long ({b - a} part{"s" if b - a > 1 else ""})')
 
     audio = opt('--audio-out', None, str)
     if audio:   # the same cuts on the sound: 5 ms fades at each cut so it does not click, or crossfades for a dissolve
