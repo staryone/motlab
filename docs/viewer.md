@@ -96,7 +96,7 @@ Every click on a scene, an audio clip or a point on the timeline is saved to `se
 | `scene`, `sceneIndex` | the scene page and its number, from 1 |
 | `sceneTime` | seconds into that scene |
 | `frame` | the frame of that scene the preview shows; `frame / fps` is its time on the render's frame grid |
-| `transition` | inside a transition: `{ type, from, frame, frames }`, the scene number it comes from and its frame `frame` of `frames`; else `null`. `scene` is then the scene it leads into |
+| `transition` | inside a transition: `{ type, from, frame, frames }`, the scene number it comes from and its frame `frame` of `frames`; else `null`. `scene` is then the scene it leads into. Inside a layer over a cut it is `{ layer, from, frame, frames }`, and `scene` is the one under the layer |
 | `audio` | `{ file, start, index }` when the click was on an audio clip, else `null` |
 | `range` | `{ start, end, scenes }` when a range is marked, else `null`: seconds from the start of the video, on the frame grid, and the scene numbers it covers |
 | `marks` | the notes, see below |
@@ -159,7 +159,7 @@ When the viewer opens, it goes through the scenes one at a time for their length
 
 What the viewer plays was recorded off its audio graph on the example project and compared with the render of the same project: the same events at the same times, the same loudness (-19.9 LUFS integrated, -7.2 dBTP) and level within 0.02 dB, with no dropouts or clipping (measured, and listened to with earshot).
 
-Scene transitions from `project.json` play in the preview: in the overlap the viewer draws both scenes and mixes them with `src/page/transitions.js`, the code the render uses. On the timeline the two tiles overlap, and the overlap is lighter with a bowtie on it. A transition frame in the viewer and in the 1080p MP4 differed by 1.37 levels of 255 on average (example project, desktop app's browser). A wrong transition type, or one too long for its scenes, shows a message instead of the project.
+Scene transitions from `project.json` play in the preview: in the overlap the viewer draws both scenes and mixes them with `src/page/transitions.js`, the code the render uses. On the timeline the two tiles overlap, and the overlap is lighter with a bowtie on it. A layer over a cut is drawn over the preview by its own module, and on the timeline the tiles meet at the cut with the bowtie on it and a lighter band over the frames the layer covers. A transition frame in the viewer and in the 1080p MP4 differed by 1.37 levels of 255 on average (example project, desktop app's browser). A wrong transition type, or one too long for its scenes, shows a message instead of the project.
 
 A frame is drawn only when the playhead reaches a new one. The display refreshes many times per video frame, and drawing the same frame again took time from the next one.
 

@@ -6,7 +6,6 @@ What is not built, what has not been tested, and ideas that came up while using 
 
 - Alpha output (ProRes 4444).
 - The viewer on a VPS with a domain. That needs security in front of it, or access only through Tailscale, which is also worth considering. From there, work could be run remotely on the personal laptop (when it is on) or on the VPS (when there is one).
-- A transition as a layer over the cut (a swish of shapes) in `project.json`. It exists as the asset skill's `transition.js`, but each of the two scene pages has to draw its half by hand. Shader transitions from a `.glsl` file in the project are built.
 - A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
 
 ## Not tested yet

@@ -142,6 +142,30 @@ test('project: a transition overlaps two scenes and mixes them on the frame grid
   assert.ok(grey(30) > 248, `frame 30 is ${grey(30)}`);
 });
 
+test('project: a layer transition is drawn over a hard cut, in the page pixels, without shortening the video', async () => {
+  const proj = join(dir, 'layer'), flat = (name, colour) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c"></canvas><script>
+    const s = +(new URLSearchParams(location.search).get('scale') || 1), cv = document.getElementById('c'), c = cv.getContext('2d');
+    cv.width = 320 * s; cv.height = 180 * s; window.TOTAL = 1; window.ready = Promise.resolve(true);
+    window.renderAt = () => { c.fillStyle = '${colour}'; c.fillRect(0, 0, cv.width, cv.height); };</script>`);
+  mkdirSync(proj); flat('a.html', '#000'); flat('b.html', '#fff');
+  // a red bar from the left edge, p of the page's 320 px wide
+  writeFileSync(join(proj, 'bar.js'), 'export function draw(ctx, p, W, H) { ctx.fillStyle = "#f00"; ctx.fillRect(0, 0, p * W, H); }\n');
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes: ['a.html', { file: 'b.html', transition: { layer: 'bar.js', duration: 0.5 } }] }));
+  const out = join(dir, 'layer.mp4');
+  await renderProject({ dir: proj, out, scale: 2, ...quiet });   // at scale 2 the bar must still be p of the width
+  const v = await probeVideo(out);
+  assert.equal(v.frames, 60);   // two scenes of 30 frames, nothing shared
+  assert.deepEqual([v.width, v.height], [640, 360]);
+  const rgb = (f, x) => meanRgb(out, `16:16:${x}:172`, f);
+  // 15 frames: the last 7 of a (frames 23 to 29) and the first 8 of b (30 to 37); frame 26 is k = 3, p = 0.233
+  assert.ok(near(rgb(20, 600), [0, 0, 0], 8), `frame 20 is ${rgb(20, 600)}`);
+  assert.ok(near(rgb(26, 40), [255, 0, 0], 16), `frame 26 left is ${rgb(26, 40)}`);
+  assert.ok(near(rgb(26, 400), [0, 0, 0], 8), `frame 26 right is ${rgb(26, 400)}`);
+  assert.ok(near(rgb(33, 400), [255, 0, 0], 16), `frame 33 at 0.62 of the width is ${rgb(33, 400)}`);   // k = 10, p = 0.7
+  assert.ok(near(rgb(33, 600), [255, 255, 255], 8), `frame 33 right is ${rgb(33, 600)}`);
+  assert.ok(near(rgb(40, 40), [255, 255, 255], 8), `frame 40 is ${rgb(40, 40)}`);
+});
+
 test('project: a transition from a .glsl file in the project, with params over its defaults, and its compile errors', async () => {
   const proj = join(dir, 'glsl'), flat = (name, colour) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
     const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);

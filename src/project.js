@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSy
 import { freemem, availableParallelism, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { finalize, probeVideo, run } from './ffmpeg.js';
-import { findTransition, isTransitionFile, parseTransition, transitionProgress } from './page/transitions.js';
+import { findTransition, isTransitionFile, parseTransition, transitionHead, transitionProgress, transitionTail } from './page/transitions.js';
 import { cacheDir } from './probe.js';
 import { renderVideo } from './render.js';
 
@@ -22,7 +22,8 @@ export const defaultParallel = () => Math.max(1, Math.min(3, Math.floor(availabl
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 // The scenes as { file, transition }, each transition with its length in frames (n): its duration on the frame grid,
-// at least 1. The viewer applies the same rule. root: the project folder, where a transition's .glsl file is checked.
+// at least 1. The viewer applies the same rule. root: the project folder, where a transition's .glsl file or layer
+// module is checked. A layer transition ({ layer, duration }) is drawn over a hard cut instead of mixing two scenes.
 export function projectScenes(p, root) {
   return p.scenes.map((s, i) => {
     const scene = typeof s === 'string' ? { file: s } : { ...s };
@@ -32,7 +33,12 @@ export function projectScenes(p, root) {
     if (tr) {
       scene.transition = { ease: 'inOutCubic', params: {}, ...tr, n: Math.max(1, Math.round((Number(tr.duration) || 0) * p.fps)) };
       try {
-        if (!isTransitionFile(tr.type)) scene.transition.type = findTransition(tr.type).name;
+        if (tr.layer !== undefined) {
+          if (tr.type !== undefined) throw new Error('a transition has "type" (a shader that mixes the two scenes) or "layer" (a module drawn over the cut), not both');
+          if (!/\.m?js$/i.test(String(tr.layer))) throw new Error(`the layer ${tr.layer} must be a .js module that exports draw(ctx, p, W, H)`);
+          if (root && !existsSync(join(root, tr.layer))) throw new Error(`the layer file ${tr.layer} does not exist`);
+        }
+        else if (!isTransitionFile(tr.type)) scene.transition.type = findTransition(tr.type).name;
         else if (root) {   // its uniforms are read here; a GLSL mistake shows when Chrome compiles it, before the first frame
           if (!existsSync(join(root, tr.type))) throw new Error(`the transition file ${tr.type} does not exist`);
           parseTransition(readFileSync(join(root, tr.type), 'utf8'), tr.type);
@@ -114,9 +120,9 @@ export async function renderProject({ dir, out, scale, only, parallel, log = con
       const { i } = jobs[j], scene = scenes[i], into = scene.transition, next = scenes[i + 1]?.transition;
       signal.throwIfAborted();
       if (jobs[j].kind === 'scene') {
-        const k = key({ kind: 'scene', file: scene.file, hash: hashes[i], fps: p.fps, scale, version: VERSION, head: into?.n || 0, tail: next?.n || 0 });
+        const k = key({ kind: 'scene', file: scene.file, hash: hashes[i], fps: p.fps, scale, version: VERSION, head: transitionHead(into), tail: transitionTail(next) });
         const part = await getPart(k, !only || only.includes(i + 1), `\nScene ${i + 1}/${scenes.length}: ${scene.file}`, log, () => renderVideo({ page: join(dir, scene.file), root: dir,
-          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, log, signal, progress, head: into?.n, tail: next?.n, ...same() }));
+          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, log, signal, progress, head: transitionHead(into), tail: transitionTail(next), ...same() }));
         // a stream copy join of parts with different sizes makes an MP4 that changes resolution partway through
         if (parts[0] && (part.width !== parts[0].width || part.height !== parts[0].height))
           throw Object.assign(new Error(`${scene.file} is ${part.width}x${part.height} but ${scenes[0].file} is ${parts[0].width}x${parts[0].height}. All scenes in a project must have the same canvas size`), { final: true });
@@ -124,10 +130,10 @@ export async function renderProject({ dir, out, scale, only, parallel, log = con
       }
       const from = parts[j - 1];
       const tk = key({ kind: 'transition', from: scene.file, to: scenes[i + 1].file, fromHash: hashes[i], toHash: hashes[i + 1],
-        type: next.type, glsl: isTransitionFile(next.type) ? hash(next.type) : undefined, n: next.n, ease: next.ease, params: next.params, fps: p.fps, scale, version: VERSION });
-      const query = new URLSearchParams({ from: scene.file, to: scenes[i + 1].file, offset: (from.pageFrames - next.n) / p.fps, frames: next.n,
-        fps: p.fps, type: next.type, ease: next.ease, params: JSON.stringify(next.params) });
-      return getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.type}, ${next.n} frames`, log,
+        type: next.type, glsl: isTransitionFile(next.type) ? hash(next.type) : undefined, layer: next.layer, layerHash: next.layer ? hash(next.layer) : undefined, n: next.n, ease: next.ease, params: next.params, fps: p.fps, scale, version: VERSION });
+      const query = new URLSearchParams({ from: scene.file, to: scenes[i + 1].file, offset: (from.pageFrames - transitionTail(next)) / p.fps, frames: next.n,
+        fps: p.fps, ...(next.layer ? { layer: next.layer } : { type: next.type, ease: next.ease, params: JSON.stringify(next.params) }) });
+      return getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.layer ? `layer ${next.layer}` : next.type}, ${next.n} frames`, log,
         () => renderVideo({ url: '__motlab/transition.html', query: String(query), root: dir, out: join(cacheRoot, tk + '.mp4'),
           fps: p.fps, scale, log, signal, progress, ...same() }));
     };
