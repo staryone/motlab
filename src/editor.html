@@ -251,24 +251,27 @@
   .ink .line { stroke: var(--blue); stroke-width: 2px; }
   .mk.stroke { border-color: transparent; background: none; }
   .mk.stroke.on { border-color: var(--blue); background: rgba(44,111,224,.06); }
-  /* the agent at work on the scene on screen, while paused: a still light veil over the part it is fixing (the notes it
-     named on this frame, else the whole frame) and one line in the middle of the frame, "Agent sedang bekerja", with a
-     highlight sweeping through its letters as in the Claude app's "thinking" text. That sweep is the only moving sign of
-     the agent's work; the scene list, the timeline and the notes name it in still text. The line has no chip: a halo
-     that follows the letters keeps it apart from the frame, and its tone follows the middle of the frame as the cursor's
-     does (dark text with a white halo, or white text with a dark one). The sweep stays above 4.5:1 without the halo on the
-     example's frames: #1f1f1e and #333331 on the veiled blue are 6.48 and 4.97:1, white and 85% white on the veiled black
-     6.69 and about 5.36:1. A scene that did not load gets the line with the alert icon, without the sweep */
-  .fix { position: absolute; background: rgba(255,255,255,.3); }
-  .fix.part { background: rgba(255,255,255,.4); }
-  .fixtext { position: absolute; translate: -50% -50%; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 0 16px; color: var(--text); filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 4px #fff) drop-shadow(0 0 10px rgba(255,255,255,.9)); font-size: 15px; font-weight: 600; line-height: 1.35; text-align: center; white-space: nowrap; pointer-events: none; }
-  /* over a dark middle of the frame the line turns white with a dark halo, by the same rule as the cursor */
-  .fixtext.dark { color: #fff; filter: drop-shadow(0 0 1px #000) drop-shadow(0 0 4px rgba(0,0,0,.7)) drop-shadow(0 0 10px rgba(0,0,0,.5)); }
-  .fixtext.err { white-space: normal; font-size: 13px; font-weight: 500; }
-  .fixtext svg { width: 16px; height: 16px; }
-  .fixtext:not(.err) span { background: linear-gradient(90deg, var(--text) 0 38%, #333331 50%, var(--text) 62% 100%) 100% 0 / 250% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shine 2s linear infinite; }
-  .fixtext.dark:not(.err) span { background-image: linear-gradient(90deg, #fff 0 38%, rgba(255,255,255,.85) 50%, #fff 62% 100%); }
-  @keyframes shine { to { background-position: 0 0; } }
+  /* a scene the agent works on is not shown: a blank pane takes the frame's place, in the viewer's own empty-state style
+     (white like the preview's background, Plus Jakarta Sans, no chip or shadow), with a small loader drawn from the
+     timeline above the words: four scene tiles and the dark playhead with its head sweeping across them, filling each tile
+     as it passes, every 1.8 s. It is the only moving sign of the agent's work; the scene list, the timeline and the notes
+     name it in still text. It stays while playing, and takes the pointer, so no note is drawn on a version about to
+     change. A scene that did not load gets the pane with the alert icon and the reason in muted text instead */
+  .workpane { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; background: #fff; border-radius: 3px; color: var(--text); font-size: 14px; font-weight: 500; line-height: 1.4; text-align: center; pointer-events: auto; cursor: default; }
+  .workpane p { max-width: 40ch; }
+  .workpane.err { gap: 8px; color: var(--muted); font-size: 13px; font-weight: 400; }
+  .workpane.err svg { width: 18px; height: 18px; }
+  .loader { position: relative; display: flex; gap: 4px; padding-top: 6px; }
+  .loader i { width: 22px; height: 14px; border-radius: 4px; background: var(--line); animation: 1.8s linear var(--at, 0s) infinite; }
+  .loader i:nth-child(1) { animation-name: fill1; } .loader i:nth-child(2) { animation-name: fill2; } .loader i:nth-child(3) { animation-name: fill3; } .loader i:nth-child(4) { animation-name: fill4; }
+  .loader b { position: absolute; top: 0; bottom: -3px; left: 0; width: 2px; margin-left: -1px; background: var(--text); animation: sweep 1.8s linear var(--at, 0s) infinite; }
+  .loader b::before { content: ""; position: absolute; top: 0; left: -3px; width: 8px; height: 9px; border-radius: 2px 2px 4px 4px; background: inherit; }
+  /* the playhead crosses in 85% of the loop and rests; a tile fills when the playhead passes its middle */
+  @keyframes sweep { 0% { left: 0; } 85%, 100% { left: 100%; } }
+  @keyframes fill1 { 0%, 9.3% { background: var(--line); } 9.4%, 100% { background: #c9c9c7; } }
+  @keyframes fill2 { 0%, 31.4% { background: var(--line); } 31.5%, 100% { background: #c9c9c7; } }
+  @keyframes fill3 { 0%, 53.5% { background: var(--line); } 53.6%, 100% { background: #c9c9c7; } }
+  @keyframes fill4 { 0%, 75.6% { background: var(--line); } 75.7%, 100% { background: #c9c9c7; } }
   .row .d svg { display: inline-block; vertical-align: -3px; }
 
   /* pressed state, after hover so it wins */
@@ -282,7 +285,7 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before { transition-duration: 0s !important; transition-delay: 0s !important; }
     .spin { animation: none; border-color: var(--text); }
-    .fixtext span { animation: none; }
+    .loader i, .loader b { animation: none; }
   }
   /* short windows, as a phone held sideways: the panel floats over the canvas instead of squeezing it, and starts
      closed; the preview takes the room the full-screen pill and the timeline leave */
@@ -324,7 +327,7 @@
     .menu, #projMenu, #verMenu, #exportMenu { position: fixed; top: 50px; left: 8px; right: 8px; width: auto; min-width: 0; max-width: none; translate: none; transform-origin: top center; }
     .pop { width: auto; max-width: none; }
     #notices { position: static; translate: none; width: auto; max-width: none; align-items: stretch; }
-    .fixtext { font-size: 13px; }
+    .workpane { gap: 10px; font-size: 13px; }
     #notices .toast { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 30; }
   }
   @media (pointer: coarse) {
@@ -524,7 +527,7 @@ const TEXT = {
   tlLoading: ['Memuat', 'Loading'],
   tlError: ['Error', 'Error'],
   updated: [(list, n) => `Scene ${list} diperbarui`, (list, n) => `Scene${n > 1 ? 's' : ''} ${list} updated`],
-  reloadError: [(n, e) => `Scene ${n} gagal dimuat: ${e}. Yang tampil versi terakhir yang berhasil.`, (n, e) => `Scene ${n} did not load: ${e}. Showing the last version that worked.`],
+  reloadError: [(n, e) => `Scene ${n} gagal dimuat: ${e}.`, (n, e) => `Scene ${n} did not load: ${e}.`],
   noRenderAt: ['halaman tidak memasang renderAt dan TOTAL, mungkin ada error (lihat console browser)', 'the page set no renderAt and TOTAL, so it may have an error (see the browser console)'],
   projectChanged: ['Project berubah. Memuat ulang…', 'The project changed. Reloading…'],
   projectChangedLater: ['Project berubah. Halaman dimuat ulang setelah catatan atau menu Export ditutup.', 'The project changed. The page reloads once the note or the Export menu is closed.'],
@@ -1015,41 +1018,27 @@ try {
     });
     const lines = [...vis.flatMap(m => m.stroke || []), ...(ink ? [ink.pts] : [])];
     if (lines.length) els.unshift(inkLayer(lines, vr, sr));
-    const fx = fixLayer(vr, sr, k);
-    $('marks').replaceChildren(...fx.under, ...els, ...(fx.label ? [fx.label] : []));
+    const pane = workPane(vr, sr);
+    $('marks').replaceChildren(...els, ...(pane ? [pane] : []));
     if (active?.box || active?.point) place();
   }
-  // The scene on screen being fixed by the agent, while paused (playing shows the video clean): the notes the agent named
-  // that sit on this frame are veiled, else the whole frame, and one line sits in the middle of the frame. Its sweep keeps
-  // its phase when the preview is drawn again.
-  function fixLayer(vr, sr, k) {
+  // The scene on screen while the agent works on it, or after it did not load again: a blank pane over the frame and its
+  // notes. While the agent works, a scene that breaks for a moment is expected, so the work pane wins. The loader keeps
+  // its phase when the preview is drawn again, which it is on every frame while playing.
+  function workPane(vr, sr) {
     const s = cur?.s;
-    if (!s || playing || !(s.work || s.state === 'error')) return { under: [], label: null };
-    const err = s.state === 'error', ox = vr.left - sr.left, oy = vr.top - sr.top, M = 12 / k;
-    const named = err ? [] : openNotes().filter(m => onFrame(m) && work?.notes?.includes(m.n));
-    const area = m => m.point ? { x: m.point.x - M, y: m.point.y - M, w: 2 * M, h: 2 * M } : m.stroke ? { x: m.box.x - INK / k, y: m.box.y - INK / k, w: m.box.w + 2 * INK / k, h: m.box.h + 2 * INK / k } : m.box;
-    const rects = err ? [] : named.length ? named.map(area) : [{ x: 0, y: 0, w: view.width, h: view.height }];
-    const under = rects.map(b => {
-      const d = document.createElement('div'); d.className = 'fix' + (named.length ? ' part' : '');
-      Object.assign(d.style, { left: ox + b.x * k + 'px', top: oy + b.y * k + 'px', width: b.w * k + 'px', height: b.h * k + 'px' });
-      return d;
-    });
-    const label = document.createElement('div'); label.className = 'fixtext' + (err ? ' err' : '') + (darkMiddle(named.length ? 0.4 : err ? 0 : 0.3) ? ' dark' : ''); label.setAttribute('aria-hidden', 'true');
-    label.innerHTML = (err ? ICON.alert : '') + '<span></span>';
-    label.lastChild.textContent = err ? L('reloadError', scenes.indexOf(s) + 1, s.err) : L('agentWorking');
-    if (!err) label.lastChild.style.animationDelay = -(performance.now() % 2000) + 'ms';
-    Object.assign(label.style, { left: ox + vr.width / 2 + 'px', top: oy + vr.height / 2 + 'px', maxWidth: vr.width * (err ? 0.8 : 1) + 'px' });
-    return { under, label };
-  }
-  // Whether the middle of the frame, under the veil (alpha a of white), is dark: the mean relative luminance of a band
-  // across the middle below 0.179, where white text has more contrast than dark, as for the cursor.
-  const mid = Object.assign(document.createElement('canvas'), { width: 32, height: 6 }), midCtx = mid.getContext('2d', { willReadFrequently: true });
-  function darkMiddle(a) {
-    midCtx.drawImage(clean, clean.width * 0.25, clean.height * 0.44, clean.width * 0.5, clean.height * 0.12, 0, 0, 32, 6);
-    const d = midCtx.getImageData(0, 0, 32, 6).data, lin = c => (c /= 255) <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-    let sum = 0;
-    for (let i = 0; i < d.length; i += 4) { const v = j => d[i + j] * (1 - a) + 255 * a; sum += 0.2126 * lin(v(0)) + 0.7152 * lin(v(1)) + 0.0722 * lin(v(2)); }
-    return sum / (d.length / 4) < 0.179;
+    if (!s || !(s.work || s.state === 'error')) return null;
+    const d = document.createElement('div'); d.className = 'workpane'; d.setAttribute('aria-hidden', 'true');
+    Object.assign(d.style, { left: vr.left - sr.left + 'px', top: vr.top - sr.top + 'px', width: vr.width + 'px', height: vr.height + 'px' });
+    if (s.work) {
+      d.innerHTML = '<span class="loader"><i></i><i></i><i></i><i></i><b></b></span><p></p>';
+      d.firstChild.style.setProperty('--at', -(performance.now() % 1800) + 'ms');
+      d.lastChild.textContent = L('agentWorking');
+    } else {
+      d.classList.add('err'); d.innerHTML = ICON.alert + '<p></p>';
+      d.lastChild.textContent = L('reloadError', scenes.indexOf(s) + 1, s.err);
+    }
+    return d;
   }
   // Pencil strokes: one SVG over the preview in the scene's own pixels, all halos under all lines. A stroke is a list of
   // [x, y] points; a single point is drawn as a dot.
