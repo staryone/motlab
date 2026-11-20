@@ -765,8 +765,8 @@ try {
     return s;
   }));
   function unload(s) { usedBy(s); s.frame.remove(); s.frame = s.win = s.canvas = s.warm = null; live.splice(live.indexOf(s), 1); }
-  // A scene's page in a new hidden iframe, once its `ready` has resolved. `limit` (ms) is for a page loaded again
-  // after a save, which may be half written and never get ready.
+  // A scene's page in a new hidden iframe, once its `ready` has resolved, or an error that says what is missing. `limit`
+  // (ms) bounds the wait for `ready`, which a half-written page may never resolve.
   async function openPage(file, limit) {
     const frame = document.createElement('iframe'); frame.src = `${file}?scale=1`; $('frames').append(frame);
     try {
@@ -774,6 +774,7 @@ try {
       const win = frame.contentWindow, canvas = win.document.getElementById('c');
       if (!canvas) throw hint(L('noCanvas', file));
       await (limit ? Promise.race([win.ready, new Promise((ok, no) => setTimeout(() => no(new Error(`ready did not resolve within ${limit / 1000} s`)), limit))]) : win.ready);
+      if (typeof win.renderAt !== 'function' || !(win.TOTAL > 0)) throw new Error(L('noRenderAt'));
       return { frame, win, canvas };
     } catch (e) { frame.remove(); throw e; }
   }
@@ -781,20 +782,34 @@ try {
   function load(s) {
     if (s.win) { live.push(...live.splice(live.indexOf(s), 1)); return s; }
     return s.loading ??= (async () => {
-      Object.assign(s, await openPage(s.file)); live.push(s); usedBy(s); trim(s);
+      Object.assign(s, await openPage(s.file, 60000)); live.push(s); usedBy(s); trim(s);
       return s;
     })().finally(() => s.loading = null);
   }
 
   // One pass through the scenes for their length and a few thumbnails (one per 2 s, at most 12).
   const thumbAt = async (s, time) => { await s.win.renderAt(time); return createImageBitmap(s.canvas, { resizeHeight: VH * 2, resizeQuality: 'high' }); };
+  // A scene that does not load is kept as a broken one, BROKEN seconds long with a blank thumbnail, so the rest of the
+  // project opens: the preview shows why in its place, and the save that fixes it loads it as usual.
+  const BROKEN = 2, blank = await (async () => {
+    const c = new OffscreenCanvas(Math.round(VH * 2 * 16 / 9), VH * 2), x = c.getContext('2d');
+    x.fillStyle = '#f0f0ee'; x.fillRect(0, 0, c.width, c.height); return createImageBitmap(c);
+  })();
   for (const [i, s] of scenes.entries()) {
     $('msg').textContent = L('loadingScene', i + 1, scenes.length);
-    await load(s);
-    Object.assign(s, { dur: Math.round(s.win.TOTAL * fps) / fps, w: s.canvas.width, h: s.canvas.height, thumbs: [] });
-    const n = Math.min(12, Math.max(1, Math.round(s.dur / 2)));
-    for (let k = 0; k < n; k++) s.thumbs.push(await thumbAt(s, (k + 0.5) / n * s.dur));
+    try {
+      await load(s);
+      Object.assign(s, { dur: Math.round(s.win.TOTAL * fps) / fps, w: s.canvas.width, h: s.canvas.height, thumbs: [] });
+      const n = Math.min(12, Math.max(1, Math.round(s.dur / 2)));
+      for (let k = 0; k < n; k++) s.thumbs.push(await thumbAt(s, (k + 0.5) / n * s.dur));
+    } catch (e) {
+      if (s.win) unload(s);
+      Object.assign(s, { state: 'error', err: String(e.message).replace(/\.$/, ''), dur: BROKEN, thumbs: [blank] });
+    }
   }
+  const good = scenes.find(s => s.state !== 'error');
+  if (!good) throw hint(L('reloadError', 1, scenes[0].err));   // nothing to show at all
+  for (const s of scenes) if (s.state === 'error') Object.assign(s, { w: good.w, h: good.h });
   // With a shader transition, a scene starts that many frames before the one before it ends: the two overlap. A layer
   // transition is drawn over a hard cut, so the scenes do not overlap.
   let total = 0;
@@ -802,7 +817,7 @@ try {
     let bad = null; total = 0;
     for (const [i, s] of scenes.entries()) {
       const n = transitionHead(s.transition), out = transitionTail(scenes[i + 1]?.transition);   // the renderer's rule: a scene keeps at least one frame of its own
-      if (n + out >= Math.round(s.dur * fps)) bad ??= { s, text: L('tooShort', i + 1, Math.round(s.dur * fps), n, out) };
+      if (s.state !== 'error' && n + out >= Math.round(s.dur * fps)) bad ??= { s, text: L('tooShort', i + 1, Math.round(s.dur * fps), n, out) };
       s.start = total - transitionOverlap(s.transition) / fps; total = s.start + s.dur;
     }
     return bad;
@@ -833,7 +848,7 @@ try {
   }));
 
   const view = $('view'), tl = $('tl'), lane = $('lane'), g = tl.getContext('2d'), clean = document.createElement('canvas');
-  view.width = clean.width = scenes[0].w; view.height = clean.height = scenes[0].h;
+  view.width = clean.width = good.w; view.height = clean.height = good.h;
   $('msg').hidden = true; view.hidden = false;
   tl.setAttribute('aria-valuemax', total.toFixed(2));
   let notes = [], others = [], active = null, opening = null, draft = null, hits = [];   // this version's notes, other versions', the open one, one to open, a box being drawn, tags on the timeline
@@ -1101,14 +1116,16 @@ try {
     if (cur && cur.s === s && cur.frame === frame && s.win) return;
     busy = true;
     try {
-      const pair = pairAt(at);
+      const broken = x => x.state === 'error' && !x.win;   // never loaded: nothing to draw, and no point asking again
+      if (broken(s)) { cur = { s, frame }; luma = null; return paint(); }
+      const both = pairAt(at), pair = both && !broken(both.from) ? both : null;
       rendering = pair ? [s, pair.from] : [s];
       if (pair) await load(pair.from);
       await load(s); await s.warm;
       const next = scenes[scenes.indexOf(s) + 1];
       // Load the next scene before playback reaches it, and draw its first frame, so its footage has already sought to
       // the start and the cut does not stall (161 to 221 ms down to 10 to 17 ms on a scene with two clips, measured).
-      if (next) Promise.resolve(load(next)).then(n => { if (n !== shown && !n.warm) n.warm = n.win.renderAt(0).catch(() => {}); }).catch(() => {});
+      if (next && !broken(next)) Promise.resolve(load(next)).then(n => { if (n !== shown && !n.warm) n.warm = n.win.renderAt(0).catch(() => {}); }).catch(() => {});
       const c = clean.getContext('2d');
       if (pair) {   // the frames of both scenes, mixed by the same code as the render (src/page/transitions.js)
         const tr = s.transition, a = pair.from;
@@ -1768,7 +1785,6 @@ try {
         const s = queued.values().next().value; queued.delete(s);
         try {
           const page = await openPage(s.file, 20000);
-          if (typeof page.win.renderAt !== 'function' || !(page.win.TOTAL > 0)) { page.frame.remove(); throw new Error(L('noRenderAt')); }
           const dur = Math.round(page.win.TOTAL * fps) / fps, n = Math.min(12, Math.max(1, Math.round(dur / 2))), thumbs = [];
           for (let k = 0; k < n; k++) thumbs.push(await thumbAt(page, (k + 0.5) / n * dur));
           if (queued.has(s)) { page.frame.remove(); continue; }

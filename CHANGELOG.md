@@ -23,6 +23,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
+- The viewer no longer stops the whole project when one scene is broken as the page opens. Before, a scene with a script error stopped the page with "Cannot read properties of undefined (reading 'width')", which said nothing about the scene. The broken scene is now kept as a 2 s scene with a blank thumbnail, the preview shows why in its place (no `renderAt` and `TOTAL`, no `<canvas id="c">`, or `ready` not resolving within 60 s), and a save that fixes it loads it as usual. Tried in Chrome with a syntax error in scene 2 and then in scene 1 of a copy of `example/`: the project opened both times at 1920x1080, and fixing scene 2 brought back its 3.50 s and the 9.00 s total.
 - `motlab stills` at 4K stopped with "TypeError: Failed to fetch" after 109 stills of a busy 1920x1080 page at `--scale 2` (4.6 MB PNGs, about 500 MB in all), every time. The page uploaded each still as a Blob, and Chrome frees a Blob only when garbage collection runs, which Blob memory does not trigger. Stills are now uploaded as an ArrayBuffer, and the raw bitstream path joins its chunks into one ArrayBuffer the same way. Checked on the Windows laptop: the same 200 stills at 4K all came out. Not covered by an automated test, because it needs about 500 MB of stills.
 
 ### Changed
