@@ -55,7 +55,12 @@
   async function openSink(o) {
     if (o.mux === 'raw') {
       let parts = [], size = 0;
-      const flush = async () => { if (!size) return; const blob = new Blob(parts); parts = []; size = 0; await post(`${o.base}/append?id=${o.sink}`, blob); };
+      const flush = async () => {   // one ArrayBuffer per upload, not a Blob, for the reason in still()
+        if (!size) return;
+        const all = new Uint8Array(size); let at = 0;
+        for (const p of parts) { all.set(p, at); at += p.length; }
+        parts = []; size = 0; await post(`${o.base}/append?id=${o.sink}`, all);
+      };
       return {
         async add(chunk) { const b = new Uint8Array(chunk.byteLength); chunk.copyTo(b); parts.push(b); size += b.length; if (size >= 4 << 20) await flush(); },
         finish: flush,
@@ -174,8 +179,12 @@
     await window.renderAt(o.t);
     const blob = await new Promise(r => canvas().toBlob(r, o.type, o.quality));
     if (!blob) throw new Error('canvas.toBlob returned nothing');
-    await post(`${o.base}/append?id=${o.sink}`, blob);
-    return blob.size;
+    // An ArrayBuffer, not the Blob: Chrome frees a Blob only when garbage collection runs, and Blob memory does not
+    // count towards the JavaScript heap, so nothing starts one. At 4K (4.6 MB PNGs) the uploads failed with "Failed to
+    // fetch" after 109 stills, about 500 MB.
+    const size = blob.size;
+    await post(`${o.base}/append?id=${o.sink}`, await blob.arrayBuffer());
+    return size;
   }
 
   window.__motlab = { info, gpu, encodeRange, probeEncoder, probeDone, still };
