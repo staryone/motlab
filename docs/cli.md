@@ -8,6 +8,7 @@ motlab stop | restart                             end the viewer, or start it ag
 motlab stills <page.html> <outDir> <t1> <t2> ...  single frames as PNG or JPEG
 motlab video  <page.html> <out.mp4> [options]     one page as an MP4
 motlab events <page.html> <out.json>              the page's EVENTS, for syncing sound
+motlab help                                       this list and the engine folder (also motlab --help or -h)
 motlab doctor                                     check Node, Chrome, ffmpeg, the skill's Python packages and earshot
 motlab setup [--skill <target>] [--update] ...    copy the skills to agent folders after npm install -g, and add the command if needed
 motlab update [--dry-run]                         the newest motlab (from GitHub, or the npm commands that get it), and the skills copied again where they were installed
@@ -16,7 +17,7 @@ motlab uninstall [--dry-run] [--yes]              remove the skills, ~/.motlab, 
 
 The viewer commands are described in [the viewer](viewer.md), `--domain` in [On a VPS with a domain](viewer.md#on-a-vps-with-a-domain), `motlab setup` in [From npm](install.md#from-npm), `motlab update` in [Updating](install.md#updating) and `motlab uninstall` in [Removing](install.md#removing).
 
-`<project>` is a folder with `project.json`, or a project file in it such as `video/project-tiktok.json` (a [version](projects.md#versions)). `motlab --help` prints the same list and the engine folder.
+`<project>` is a folder with `project.json`, or a project file in it such as `video/project-tiktok.json` (a [version](projects.md#versions)). `motlab help` (or `motlab --help`) prints the same list and the engine folder.
 
 ## Single pages
 

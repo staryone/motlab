@@ -136,8 +136,9 @@ promo/
   scene before turns into it through a shader, and the two overlap for that long, so it starts that much earlier and
   the video is that much shorter. Use these for edits, explainers and talking heads; in an ad, a shape that carries
   across the cut (`craft.md`) is still better. The types and options are in `references/motion-and-libraries.md`,
-  with how to write a `.glsl` transition of your own into the project, how to match one from a reference video, and
-  `"layer"` for a designed layer of shapes over a hard cut (the asset skill's `transition.js`).
+  with how to write a `.glsl` transition of your own into the project and how to match one from a reference video.
+  `"layer"` (a kit's `transition.js` drawn over a hard cut) is only for when the user asks for one; by default you
+  design each transition frame by frame in the scenes.
 - When the user wants a smaller file, set `"qp": 22` in `project.json` (about 30% smaller than the default 18, at
   nearly the same quality); their Export then uses it. Higher saves more and shows more. Details in the engine's
   docs/rendering.md, File size.
@@ -157,6 +158,9 @@ promo/
   it prints. `motlab restart` restarts the viewer (after `motlab update`), `motlab stop` ends it. The project name in the header switches between projects. It cannot edit; the
   user reloads after changes. Space plays, arrows step frames on the timeline, Ctrl+scroll or `+`/`-` zooms the
   timeline, Export renders 720p to 4K.
+- When the user wants to review from their phone or anywhere else, with the viewer on a server of theirs, follow
+  "The viewer on a VPS" in the engine's `docs/install-for-agents.md`. It runs behind a domain and a password the user
+  sets themselves; never handle, print or store the password, and never open the viewer's port to the internet.
 - A click writes `<video>/selection.json`:
 
   ```json

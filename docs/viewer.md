@@ -147,7 +147,7 @@ Checked in headless Chrome over the DevTools protocol with a phone emulated (tou
 
 ## Export
 
-The Export button in the top right renders the project. Pick 720p, 1080p, 1440p or 4K and press the button under the list, which names the size it will make. The viewer's server runs the same render as `motlab render` and streams the log back to the page; the log also appears in the terminal. The file is written to `out/<folder>-<resolution>.mp4` in the project folder, for example `example/out/example-1080p.mp4`, or `out/<folder>-<version>-<resolution>.mp4` for another version, and the Open link opens it. The resolution in the name is the short side of the frame: 4K is written as `-2160p`. Only one export runs at a time.
+The Export button in the top right renders the project. Pick 720p, 1080p, 1440p or 4K and press the button under the list, which names the size it will make. The viewer's server runs the same render as `motlab render` and streams the log back to the page; the log also appears in the terminal. The file is written to `out/<folder>-<resolution>.mp4` in the project folder, for example `example/out/example-1080p.mp4`, or `out/<folder>-<version>-<resolution>.mp4` for another version, and the Open link opens it. The resolution in the name is the short side of the frame: 4K is written as `-2160p`. Only one export runs at a time. Export renders the scenes three at a time like `motlab render`, and uses `qp` and `codec` from the project file when it has them ([File size](rendering.md#file-size)).
 
 While an export runs, the button is faded with a spinner and a red Cancel button appears under it. Pressing Cancel stops the render: the server closes its headless Chrome and any ffmpeg step, deletes the temp files, and the menu shows "Export cancelled". The file that was being written is never left half done in `out/`, because the render writes it as `.part` and renames it only when it is complete; an earlier export of the same size stays as it was. On the example project at 4K a cancel took 0.3 s. Reloading the page does not cancel an export; it keeps running in the terminal, and Export answers that another export is still running until it ends.
 
@@ -176,6 +176,32 @@ Open `https://viewer.example.com` and sign in. Then:
 - Export renders on the server, so the server needs Chrome and ffmpeg (`motlab doctor`). The finished file opens from the Open link as it does on your own machine.
 
 The password is read from the environment so that it does not show up in the process list. Put it in your service manager's environment file rather than in a command line that the shell history keeps. A proxy other than Caddy works the same way: HTTPS in front, `127.0.0.1:4173` behind it.
+
+### Keep it running
+
+On a Linux server, a systemd user service starts the viewer again after a reboot or a crash. Put the password in `~/.config/motlab/viewer.env` as one line, `MOTLAB_VIEWER_PASSWORD=...`, readable only by you (`chmod 600`), and this in `~/.config/systemd/user/motlab-viewer.service`, with your domain, your projects folder and the path that `command -v motlab` prints:
+
+```ini
+[Unit]
+Description=motlab viewer
+
+[Service]
+EnvironmentFile=%h/.config/motlab/viewer.env
+WorkingDirectory=%h/videos
+ExecStart=/usr/local/bin/motlab start --foreground --domain viewer.example.com
+Restart=on-failure
+
+[Install]
+WantedBy=default.target
+```
+
+```bash
+systemctl --user daemon-reload
+systemctl --user enable --now motlab-viewer
+loginctl enable-linger "$USER"
+```
+
+The last line keeps it running when you are not logged in. `systemctl --user restart motlab-viewer` picks up a new password; everyone signs in again after a restart. This unit has not been run on a real server yet.
 
 Without a domain of your own, [Tailscale](https://tailscale.com) keeps the viewer private to your own devices: `tailscale serve 4173` on the server gives it an HTTPS name on your tailnet. Start the viewer with `--domain` set to that name and a password, because without `--domain` the viewer refuses saves and Export from any name but `127.0.0.1`.
 

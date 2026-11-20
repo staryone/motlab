@@ -30,7 +30,9 @@ The ad above (19 seconds, 7 scenes) was made with motlab and its skill, reviewed
 - The viewer plays the real pages with their audio, frame by frame, with a timeline you can zoom and step through.
 - You point at what to change: click a frame, drag a box over a part of it, or mark a time range, and type a note on it. The agent reads every note from `selection.json` and works through them by number.
 - Versions of a project sit side by side in the viewer, so a second cut does not overwrite the first.
-- Export renders 720p, 1080p, 1440p or 4K MP4, with the scenes' transitions, music and voice mixed in.
+- Export renders 720p, 1080p, 1440p or 4K MP4, with the scenes' transitions, music and voice mixed in. Scenes render three at a time (fewer on a small machine), which took a project of 12 short scenes from 93 to 53 s at 4K, and `"qp"` in `project.json` makes the file smaller (about 30% at `22`) when you need that.
+- The viewer can run on your own server behind a domain and a password, so you can review and export from your phone.
+- A long talking-head take is cut at its pauses and can be split into one scene per section, with captions placed from a transcript.
 - Frames are encoded with WebCodecs inside the page, so they never leave Chrome as images. On a GPU that made it 2 to 4 times as fast as Remotion and HyperFrames on the [benchmark scene](#speed).
 - A second skill, `motlab-assets`, builds reusable asset kits the same way: icons, illustrations, 2D characters with a rig, transitions, 3D objects and textures, rendered to transparent PNG plus SVG, or GLB, FBX and OBJ with PBR textures. Every video that uses the kit shares one look.
 
@@ -94,7 +96,7 @@ Later, `motlab update` tells you when a new version is out and how to get it (fr
 3. The agent plans the shots, writes the scenes and starts the viewer. Click the frame you mean, or drag a box over the part and type a note right on it. Notes can be left all over the video and handed over at once, so "this one" or "all the notes" is enough.
 4. When you are happy, press Export in the top right. The video goes to the project's `out/` folder.
 
-The viewer keeps running in the background for every project: `motlab stop` ends it, `motlab restart` starts it again, and `motlab start` starts it without opening a project. Its text is in English or Indonesian, following your browser, and the project menu switches it. You can also render from the command line:
+The viewer keeps running in the background for every project: `motlab stop` ends it, `motlab restart` starts it again, and `motlab start` starts it without opening a project. `motlab help` lists every command. Its text is in English or Indonesian, following your browser, and the project menu switches it. You can also render from the command line:
 
 ```bash
 motlab render example --scale 1
@@ -121,13 +123,13 @@ This is one scene on one machine; macOS and Linux were not measured. The other s
 1. A project is a `project.json` that lists scene pages and audio files.
 2. A scene page is plain HTML with a `<canvas id="c">`, `window.renderAt(t)`, `window.TOTAL` and `window.ready`. Everything visible is a function of time, so the preview, the stills and the render draw the same frames.
 3. The viewer (`motlab start`, or `motlab edit` to open a project in it) shows the real pages in iframes with their audio through WebAudio, and saves your clicks and notes to `selection.json`.
-4. `motlab render` opens headless Chrome per scene and encodes the frames with `VideoEncoder` inside the page. ffmpeg only copies streams, joins the parts, sets the colour tags and adds the audio.
+4. `motlab render` opens headless Chrome for each scene and transition, three at a time, and encodes the frames with `VideoEncoder` inside the page. ffmpeg only copies streams, joins the parts, sets the colour tags and adds the audio.
 
 ```text
 project.json + scene pages (canvas, renderAt(t)) + audio files
   |
   +-- motlab edit    viewer: the real pages in iframes, WebAudio audio, selection.json
-  +-- motlab render  headless Chrome per scene -> VideoEncoder in the page -> MP4 parts
+  +-- motlab render  headless Chrome per part, 3 at a time -> VideoEncoder in the page -> MP4 parts
                      -> ffmpeg -c copy: join, colour tags, audio -> out/<name>.mp4
 ```
 
@@ -139,9 +141,9 @@ Footage is decoded inside the page with Mediabunny, so a scene can cut and trim 
 |---|---|
 | Install, update, per-OS notes | [Install](docs/install.md), [Agent install](docs/install-for-agents.md) |
 | Projects, scenes, audio and footage | [Projects](docs/projects.md) |
-| The viewer, keys and `selection.json` | [Viewer](docs/viewer.md) |
+| The viewer, keys, `selection.json`, the viewer on a VPS | [Viewer](docs/viewer.md) |
 | Commands, options and the page contract | [Command line](docs/cli.md) |
-| How a render works, encoders, measurements, quirks | [Rendering](docs/rendering.md) |
+| How a render works, encoders, file size, measurements, quirks | [Rendering](docs/rendering.md) |
 | What the skill does and its references | [SKILL.md](skills/motlab/SKILL.md), [skill references](skills/motlab/references/) |
 | Asset kits: tokens, 2D, 3D | [motlab-assets SKILL.md](skills/motlab-assets/SKILL.md), [its references](skills/motlab-assets/references/) |
 | The viewer's visual design | [DESIGN.md](DESIGN.md) |
@@ -179,6 +181,22 @@ Footage is decoded inside the page with Mediabunny, so a scene can cut and trim 
 <br>
 
 > A real video has now been made on Linux: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, rendered in about 82 s with the Chromium Playwright downloads (issue #8). CI runs the tests, the end-to-end renders among them, on an Ubuntu runner, but nothing has run on macOS (the Chrome paths and the Metal flag are in the code). Everything else was built and measured on one Windows laptop.
+
+</details>
+
+<details><summary><strong>Can I review on my phone?</strong></summary>
+
+<br>
+
+> Yes, with the viewer on a server of yours: `motlab start --domain viewer.example.com` behind a reverse proxy such as Caddy, with a password you set, as described in [the viewer docs](docs/viewer.md#on-a-vps-with-a-domain). An agent can set it up from [its install steps](docs/install-for-agents.md). On the same Wi-Fi without a server, there is no option yet. The login has been tested on the Windows laptop, not yet on a real VPS.
+
+</details>
+
+<details><summary><strong>Can the files be smaller?</strong></summary>
+
+<br>
+
+> Set `"qp": 22` in `project.json`: a busy 4K render came out 30% smaller with nearly the same quality (SSIM 0.9964 to 0.9960). HEVC, AV1 and a second encoding pass were measured too and did not do better at the same quality. The numbers are in [File size](docs/rendering.md#file-size).
 
 </details>
 

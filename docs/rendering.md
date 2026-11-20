@@ -1,6 +1,6 @@
 # Rendering
 
-How `motlab render`, `motlab video` and Export turn scene pages into an MP4, how the encoder is chosen, and what was measured. The screenshot pipeline in the tables captures each frame from Chrome as a JPEG and pipes it to ffmpeg libx264, the way DOM-based video tools capture frames. motlab was built to avoid that step.
+How `motlab render`, `motlab video` and Export turn scene pages into an MP4, how the encoder is chosen, what sets the file size, and what was measured. The screenshot pipeline in the tables captures each frame from Chrome as a JPEG and pipes it to ffmpeg libx264, the way DOM-based video tools capture frames. motlab was built to avoid that step.
 
 ## Steps
 
@@ -10,6 +10,8 @@ How `motlab render`, `motlab video` and Export turn scene pages into an MP4, how
 4. Mediabunny muxes the encoded chunks into an MP4 inside the page, which is POSTed to Node. If that fails, the engine retries with a raw Annex B bitstream.
 5. ffmpeg copies the stream (`-c copy`) into the final file. This pass writes BT.709 tags with the encoder's range into the bitstream, joins the parts from parallel mode, adds audio and moves `moov` to the front. It always runs, even after a successful Mediabunny mux, because the encoders tag colour inconsistently (see quirks).
 6. ffprobe counts the frames and duration of the final file. The render fails if they do not match.
+
+A project (`motlab render`, Export) runs these steps once for each scene and transition, three at a time after the first scene, and joins the parts with one more `-c copy` pass ([Rendering a project](projects.md#rendering-a-project)).
 
 Temporary files go to the system temp folder and are removed afterwards. The output is written as `.part` and renamed at the end.
 

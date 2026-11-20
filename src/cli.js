@@ -24,6 +24,7 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
   motlab stills <page.html> <outDir> <t1> <t2> ...  [--scale 1] [--format png|jpg]
   motlab video  <page.html> <out.mp4> [--fps 24] [--scale 2] [--audio file] [--encoder auto|hw|sw] [--workers N]
   motlab events <page.html> <out.json>
+  motlab help                                        this list (also motlab --help or -h)
   motlab doctor                                      check Node, Chrome, ffmpeg, the skill's Python packages and earshot
   motlab setup  [--skill claude|agents|antigravity|hermes|...] [--skill-dir <dir>] [--link] [--update] [--dry-run]
                                                      copy the skills to agent folders (after npm install -g; default
@@ -87,7 +88,7 @@ export async function main(argv) {
     format: { type: 'string' }, reprobe: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
   } });
   const [mode, page, out, ...rest] = positionals;
-  if (v.help || !mode) { console.log(USAGE); return v.help ? 0 : 1; }
+  if (v.help || mode === 'help' || !mode) { console.log(USAGE); return v.help || mode ? 0 : 1; }   // motlab help, --help or -h
   if (mode === 'doctor') return doctor();
   if (mode === 'update') return update({ dryRun: v['dry-run'] });
   if (mode === 'uninstall') return uninstall({ dryRun: v['dry-run'], yes: v.yes });
@@ -102,7 +103,7 @@ export async function main(argv) {
       qp: num('qp', v.qp, { min: 0, int: true }), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc']) });
     return 0;
   }
-  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, stills, video, events, doctor, setup, update or uninstall)`);
+  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, stills, video, events, doctor, setup, update, uninstall or help)`);
   if (!page || !out) throw new Error(`${mode} needs a page and an output path`);
   const common = { page, root: v.root, chrome: v.chrome };
 

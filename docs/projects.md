@@ -94,7 +94,7 @@ Frame `k` of an `n`-frame transition shows frame `TOTAL * fps - n + k` of the sc
 
 ### A layer over the cut
 
-A transition can also be a layer of shapes drawn over a hard cut, such as a swish of brand-coloured bands, instead of a shader that mixes the two scenes. Set `layer` to a JavaScript module in the project in place of `type`:
+A transition can also be a layer of shapes drawn over a hard cut, such as a swish of brand-coloured bands, instead of a shader that mixes the two scenes. It is an option, not the default: the skill still designs each transition frame by frame in the scene pages, and uses a layer only when the user asks for one. Set `layer` to a JavaScript module in the project in place of `type`:
 
 ```json
 { "file": "scenes/02.html", "transition": { "layer": "assets/kits/acme/transitions/swish/transition.js", "duration": 0.6 } }
