@@ -91,6 +91,30 @@ Frame `k` of an `n`-frame transition shows frame `TOTAL * fps - n + k` of the sc
 
 `type` is one of 11 shaders from [gl-transitions](https://github.com/gl-transitions/gl-transitions) 1.43.0, all MIT, copied into `src/page/transitions.js` with their authors: `fade`, `fadecolor`, `Directional`, `directionalwipe`, `directionalwarp`, `circleopen`, `CrossZoom`, `crosswarp`, `SimpleZoom`, `LinearBlur` and `cube`. `params` overrides their uniforms (for example `{ "direction": [1, 0] }`), and `ease` is a name from `motion.js`. An unknown type or ease stops the render and the viewer with the list of valid names.
 
+### A transition of your own
+
+`type` can also be a path to a `.glsl` file in the project folder:
+
+```json
+{ "file": "scenes/02.html", "transition": { "type": "transitions/swipe.glsl", "duration": 0.6, "params": { "softness": 0.1 } } }
+```
+
+The file is written like a gl-transitions shader. It defines `vec4 transition(vec2 uv)`, reads the two scenes with `getFromColor(uv)` and `getToColor(uv)`, and may use `progress` (0 to 1, after `ease`) and `ratio` (width divided by height), which motlab sets:
+
+```glsl
+// a soft-edged wipe from left to right
+uniform float softness; // = 0.05
+
+vec4 transition(vec2 uv) {
+  float edge = progress * (1.0 + softness);
+  return mix(getToColor(uv), getFromColor(uv), smoothstep(edge - softness, edge, uv.x));
+}
+```
+
+Each uniform the file declares can be set from `params`. A float, int, bool, vec2 to vec4 or ivec2 to ivec4 works; a texture (`sampler2D`) does not. A comment right after the declaration gives the default, as gl-transitions writes it: `// = 0.05`, `// = vec2(1.0, 0.0)`, `// = true` or `/* = 0.4 */` before the semicolon. A uniform with no default and no param is 0. Do not declare `progress` or `ratio`. A shader from gl-transitions that uses no texture can be copied in unchanged; keep its author and licence lines at the top.
+
+The viewer and the render compile the file before the first frame, so a mistake stops both with the compiler's message, for example `transition transitions/swipe.glsl: ERROR: 0:6: 'edg' : undeclared identifier`, where 6 is the line in the file. The file's contents are part of the cache key, so after editing it, `--only` renders that transition again.
+
 The render draws a transition with `__motlab/transition.html`, a page that loads both scene pages in iframes and mixes their canvases with WebGL2. The viewer mixes the same two canvases with the same code. On the example project with a `crosswarp` and a `cube` transition, a transition frame in the viewer and in the 1080p MP4 differed by 1.37 levels of 255 on average, with 0.2% of values more than 8 apart, at the edges, from the H.264 compression.
 
 Tested: the example's scenes with two transitions (7.6 s, 228 frames, the frame count and length expected), a 1080x1920 project of two footage scenes joined by `directionalwarp`, and `test/render.test.js`, which checks that a 15-frame linear fade from black to white is at mid grey on its eighth frame. A 12-scene project with all 11 types, one into each scene, gave 555 frames and 18.5 s as expected, and every scene showed its own colour and clock in the middle of its plain stretch. It took 57 s at 1080p, mostly from starting Chrome for 23 parts. Not tested: a transition between scenes of different sizes in the viewer, where the new scene is stretched to the size of the one before (the render refuses such a project).

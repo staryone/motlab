@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { cubicBezier, ease, spring, stagger, tween } from '../src/page/motion.js';
-import { findTransition, transitionNames, transitionProgress } from '../src/page/transitions.js';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { findTransition, isTransitionFile, parseTransition, transitionNames, transitionProgress } from '../src/page/transitions.js';
 import { projectScenes } from '../src/project.js';
 
 const near = (a, b, d = 1e-3) => assert.ok(Math.abs(a - b) <= d, `${a} is not within ${d} of ${b}`);
@@ -55,4 +58,36 @@ test('project scenes accept paths and objects with transitions', () => {
   assert.equal(s[1].transition.n, 15); assert.equal(s[1].transition.ease, 'inOutCubic');
   assert.throws(() => projectScenes({ fps: 30, scenes: [{ file: 'a.html', transition: { type: 'fade', duration: 1 } }] }), /no scene before it/);
   assert.throws(() => projectScenes({ fps: 30, scenes: ['a.html', { file: 'b.html', transition: { type: 'zap', duration: 1 } }] }), /scene 2 .*unknown transition/);
+});
+
+test('a .glsl transition file: its uniforms and their defaults are read as gl-transitions writes them', () => {
+  // the built-in shaders come back with the types and defaults listed next to them
+  for (const name of transitionNames) {
+    const t = findTransition(name), parsed = parseTransition(t.glsl, name);
+    assert.deepEqual([parsed.types, parsed.defaults], [t.types, t.defaults], name);
+  }
+  const t = parseTransition(`uniform float amount; // = 0.25
+uniform vec3 tint;// = vec3(1.0)
+uniform float soft/* = 0.4 */; // a note after the default
+uniform bool flip; // = true
+uniform int steps; // = 6
+uniform vec2 dir;
+uniform ivec2 grid; // = ivec2(4)
+// uniform float old; // = 9.0
+vec4 transition(vec2 uv) { return mix(getFromColor(uv), getToColor(uv), progress * amount); }`, 'mine.glsl');
+  assert.deepEqual(t.types, { amount: 'float', tint: 'vec3', soft: 'float', flip: 'bool', steps: 'int', dir: 'vec2', grid: 'ivec2' });
+  assert.deepEqual(t.defaults, { amount: 0.25, tint: [1, 1, 1], soft: 0.4, flip: true, steps: 6, grid: [4, 4] });
+  assert.throws(() => parseTransition('vec4 main2(vec2 uv) { return vec4(1.0); }', 'x.glsl'), /no vec4 transition/);
+  assert.throws(() => parseTransition('uniform sampler2D map;\nvec4 transition(vec2 uv) { return vec4(1.0); }', 'x.glsl'), /map is a sampler2D/);
+  assert.throws(() => parseTransition('uniform float progress;\nvec4 transition(vec2 uv) { return vec4(1.0); }', 'x.glsl'), /progress, which motlab sets/);
+  assert.ok(isTransitionFile('transitions/Swirl.GLSL') && !isTransitionFile('fade'));
+  // projectScenes keeps the path as the type and checks the file when it knows the project folder
+  const dir = mkdtempSync(join(tmpdir(), 'motlab-glsl-'));
+  try {
+    mkdirSync(join(dir, 't')); writeFileSync(join(dir, 't', 'mine.glsl'), 'vec4 transition(vec2 uv) { return getToColor(uv); }');
+    const p = { fps: 30, scenes: ['a.html', { file: 'b.html', transition: { type: 't/mine.glsl', duration: 0.5 } }] };
+    assert.equal(projectScenes(p, dir)[1].transition.type, 't/mine.glsl');
+    p.scenes[1].transition.type = 't/gone.glsl';
+    assert.throws(() => projectScenes(p, dir), /scene 2 .*t\/gone\.glsl does not exist/);
+  } finally { rmSync(dir, { recursive: true, force: true }); }
 });

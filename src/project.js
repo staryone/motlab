@@ -10,7 +10,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSy
 import { freemem, availableParallelism, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { finalize, probeVideo, run } from './ffmpeg.js';
-import { findTransition, transitionProgress } from './page/transitions.js';
+import { findTransition, isTransitionFile, parseTransition, transitionProgress } from './page/transitions.js';
 import { cacheDir } from './probe.js';
 import { renderVideo } from './render.js';
 
@@ -22,8 +22,8 @@ export const defaultParallel = () => Math.max(1, Math.min(3, Math.floor(availabl
 const VERSION = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8')).version;
 
 // The scenes as { file, transition }, each transition with its length in frames (n): its duration on the frame grid,
-// at least 1. The viewer applies the same rule.
-export function projectScenes(p) {
+// at least 1. The viewer applies the same rule. root: the project folder, where a transition's .glsl file is checked.
+export function projectScenes(p, root) {
   return p.scenes.map((s, i) => {
     const scene = typeof s === 'string' ? { file: s } : { ...s };
     if (!scene.file) throw new Error(`scene ${i + 1} has no "file"`);
@@ -31,7 +31,14 @@ export function projectScenes(p) {
     if (tr && i === 0) throw new Error(`scene 1 (${scene.file}) has a transition, but there is no scene before it`);
     if (tr) {
       scene.transition = { ease: 'inOutCubic', params: {}, ...tr, n: Math.max(1, Math.round((Number(tr.duration) || 0) * p.fps)) };
-      try { scene.transition.type = findTransition(tr.type).name; transitionProgress(0, 1, scene.transition.ease); }
+      try {
+        if (!isTransitionFile(tr.type)) scene.transition.type = findTransition(tr.type).name;
+        else if (root) {   // its uniforms are read here; a GLSL mistake shows when Chrome compiles it, before the first frame
+          if (!existsSync(join(root, tr.type))) throw new Error(`the transition file ${tr.type} does not exist`);
+          parseTransition(readFileSync(join(root, tr.type), 'utf8'), tr.type);
+        }
+        transitionProgress(0, 1, scene.transition.ease);
+      }
       catch (e) { throw new Error(`scene ${i + 1} (${scene.file}): ${e.message}`); }
     }
     return scene;
@@ -63,7 +70,7 @@ export async function renderProject({ dir, out, scale, only, parallel, log = con
     // can be joined without re-encoding.
     // A transition is a part of its own between the two scenes: their overlapping frames, mixed by
     // __motlab/transition.html, and left out of the scenes' own parts.
-    const parts = [], scenes = projectScenes(p), same = () => parts[0] && { encoder: parts[0].hw ? 'hw' : 'sw', codec: parts[0].codec };
+    const parts = [], scenes = projectScenes(p, dir), same = () => parts[0] && { encoder: parts[0].hw ? 'hw' : 'sw', codec: parts[0].codec };
     const used = new Set();   // the cache keys this render used, for pruning the ones it did not
     if (only && only.some(n => !Number.isInteger(n) || n < 1 || n > scenes.length))
       throw new Error(`--only takes scene numbers from 1 to ${scenes.length}`);
@@ -117,7 +124,7 @@ export async function renderProject({ dir, out, scale, only, parallel, log = con
       }
       const from = parts[j - 1];
       const tk = key({ kind: 'transition', from: scene.file, to: scenes[i + 1].file, fromHash: hashes[i], toHash: hashes[i + 1],
-        type: next.type, n: next.n, ease: next.ease, params: next.params, fps: p.fps, scale, version: VERSION });
+        type: next.type, glsl: isTransitionFile(next.type) ? hash(next.type) : undefined, n: next.n, ease: next.ease, params: next.params, fps: p.fps, scale, version: VERSION });
       const query = new URLSearchParams({ from: scene.file, to: scenes[i + 1].file, offset: (from.pageFrames - next.n) / p.fps, frames: next.n,
         fps: p.fps, type: next.type, ease: next.ease, params: JSON.stringify(next.params) });
       return getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.type}, ${next.n} frames`, log,
