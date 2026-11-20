@@ -6,6 +6,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 
 - Alpha output (ProRes 4444).
 - From the viewer on a VPS, sending a render to the personal laptop when it is on. The viewer itself runs on a domain behind a password now (`motlab start --domain`), and its Export renders on the server it runs on.
+- Less setup to open the viewer from a phone. Today it is a domain behind Caddy, or `tailscale serve` with `--domain` (docs/viewer.md). Two ideas: `motlab start --tailscale`, which would run `tailscale serve` and start the viewer on the tailnet name, where the password could be optional since only your own devices reach it; and `motlab start --tunnel` through Cloudflare Tunnel, either a free `trycloudflare.com` address for a quick review or a domain whose DNS is on Cloudflare, with no Caddy and no open ports. The free address does not carry server-sent events, so the page would have to ask for changes every few seconds instead; it also changes on every start, and Cloudflare offers it for testing only.
 - A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
 
 ## Not tested yet
