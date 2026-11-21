@@ -76,7 +76,8 @@ export function startEditor(target, port = 4173, { domain, password = process.en
   };
   function register(target) {   // the slug of a project, added if it is new; throws if there is no project file
     const { root, file } = projectPaths(target);
-    for (const [slug, p] of projects) if (p.root.toLowerCase() === root.toLowerCase()) return slug;
+    const key = path => process.platform === 'win32' || process.platform === 'darwin' ? path.toLowerCase() : path;
+    for (const [slug, p] of projects) if (key(p.root) === key(root)) return slug;
     const base = basename(root).toLowerCase().replace(/[^a-z0-9._-]+/g, '-') || 'project';
     let slug = base; for (let i = 2; projects.has(slug); i++) slug = `${base}-${i}`;
     projects.set(slug, { root, file });
