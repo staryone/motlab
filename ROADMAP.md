@@ -9,14 +9,6 @@ What is not built, what has not been tested, and ideas that came up while using 
 - Less setup to open the viewer from a phone. Today it is a domain behind Caddy, or `tailscale serve` with `--domain` (docs/viewer.md). Two ideas: `motlab start --tailscale`, which would run `tailscale serve` and start the viewer on the tailnet name, where the password could be optional since only your own devices reach it; and `motlab start --tunnel` through Cloudflare Tunnel, either a free `trycloudflare.com` address for a quick review or a domain whose DNS is on Cloudflare, with no Caddy and no open ports. The free address does not carry server-sent events, so the page would have to ask for changes every few seconds instead; it also changes on every start, and Cloudflare offers it for testing only.
 - A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
 
-## Known problems
-
-Found on a real phone, with the viewer on a VPS over Tailscale:
-
-- Dragging the playhead on the timeline with a finger is not smooth: a held finger that moves often leaves the playhead behind, and a range dragged on the timeline sticks the same way.
-- Held upright, the page is one long scroll: the preview and toolbars, the timeline, then the notes, the scenes, the audio and the selection box. A bottom navigation, fixed or floating, that opens Notes, Scenes, Audio and the selection would keep the preview in view.
-- In full screen, once the player bar has hidden, nothing shows how to bring it back. A tap in the bottom 120 px of the screen does, but it is not visible.
-
 ## Not tested yet
 
 - The benchmark against Remotion and HyperFrames on macOS and Linux, with their own downloaded browsers, and on scenes heavy on text, images or footage. It was one scene on Windows, at 1080p and 4K.
@@ -36,9 +28,9 @@ Found on a real phone, with the viewer on a VPS over Tailscale:
 - MPFB, which was not installed on the test laptop.
 - The asset skill's FBX and OBJ files in programs other than Blender (Unity, Unreal, Maya, Cinema 4D).
 - `svgparts.js` and `transition.js` in the viewer. They were checked with stills and a video render.
-- Notes on a real touch screen, the pencil with a finger or a stylus among them. Touch was emulated in Chrome over the DevTools protocol. Moving and resizing a box, and the pencil, were tried with the mouse and with pointer events only.
+- Notes on a real touch screen beyond the pencil, which drew with a finger on an Android phone. Moving and resizing a box were tried with the mouse and with pointer events only, and the pencil has not been tried with a stylus.
 - The viewer's live updates through a reverse proxy on a real VPS, and on a project folder on a network drive, where file watching may not report changes.
-- The viewer on a real phone. The phone layout, its menus and notes drawn with touch were checked in Chrome with a phone emulated over the DevTools protocol, at 390 and 360 px upright and 844 and 740 px sideways. On an iPhone, Safari allows full screen for video elements only, so the viewer has no full screen there.
+- The viewer on a real phone beyond opening it over Tailscale on Android. Three problems found there were changed after: dragging on the timeline with a finger, the long page held upright (now tabs along the bottom) and the full-screen bar that could not be found again (now a line at the bottom edge). Those changes were checked in Chrome with a phone emulated, not on the phone. On an iPhone, Safari allows full screen for video elements only, so the viewer has no full screen there.
 - The viewer's full screen outside Chrome on Windows.
 - The skills in agents other than Claude Code. The installer was run with `--dry-run` for every target, and the folders come from each agent's docs. A Muse agent followed `skills/motlab/SKILL.md` from a clone and made a real video (a 42 s project on Ubuntu 24.04 with no GPU, issue #8). The skills installed with `--skill muse`, Hermes Agent (both added from their docs in November 2026) and the other agents have not been tried yet.
 

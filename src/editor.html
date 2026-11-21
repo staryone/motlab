@@ -59,6 +59,13 @@
   #sel { padding: 12px 20px 14px; }
   #sel b { display: block; font-weight: 500; }
   #sel small { display: block; font-size: 12px; color: var(--muted); }
+  /* the tabs that open the panel as a sheet on a phone held upright: an icon over its label, the open one on a grey pill */
+  #tabs, #scrim { display: none; }
+  .tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; border-radius: 8px; font-size: 12px; color: var(--muted); }
+  .tab .ti { display: grid; place-items: center; width: 48px; height: 26px; border-radius: 13px; transition: background var(--fast) var(--ease); }
+  .tab .tl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab[aria-expanded="true"] { color: var(--text); font-weight: 500; }
+  .tab[aria-expanded="true"] .ti { background: var(--sel); }
 
   /* canvas pane */
   main { grid-area: 2 / 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -99,6 +106,11 @@
   #canvas:fullscreen #fullExit { grid-area: 1 / 5; justify-self: end; display: flex; }
   #canvas.idle:fullscreen, #canvas.idle:fullscreen #view { cursor: none; }
   #canvas.bar-off:fullscreen #dock { opacity: 0; pointer-events: none; }
+  /* on a touch screen the hidden bar leaves a short line at the bottom edge, like a phone's home bar; a tap on it brings
+     the bar back. White with a dark edge, so it shows on a light frame and on a dark one */
+  #barHint { display: none; }
+  @media (pointer: coarse) { #canvas.bar-off:fullscreen #barHint { display: grid; place-items: center; position: absolute; left: 50%; bottom: env(safe-area-inset-bottom, 0px); translate: -50% 0; z-index: 3; width: 96px; height: 44px; } }
+  #barHint::before { content: ""; width: 44px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.9); box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 1px 4px rgba(0,0,0,.3); }   /* the edge is #808080 on a white frame, 3.9:1 */
   /* notes on the preview, after the Claude canvas selection box: a 1 px blue line and a light blue fill, square
      corners, and the note's number in a small blue tag above the top left corner */
   #marks { position: absolute; inset: 0; pointer-events: none; }
@@ -178,7 +190,7 @@
   #time { padding: 0 10px 0 12px; font-size: 13px; }
   #lane { max-height: 35vh; margin: 0 12px 12px; background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04); overflow: auto; }
   #laneIn { position: relative; }
-  #tl { position: sticky; left: 0; display: block; width: 100%; height: 144px; cursor: pointer; }
+  #tl { position: sticky; left: 0; display: block; width: 100%; height: 144px; cursor: pointer; touch-action: pan-y; }   /* a finger moving sideways scrubs instead of scrolling */
   #tl:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 12px; }
   .mark { position: absolute; top: 4px; bottom: 6px; left: 20px; width: 2px; margin-left: -1px; background: var(--text); pointer-events: none; }
   .mark::before { content: ""; position: absolute; top: 0; left: -4px; width: 10px; height: 12px; border-radius: 3px 3px 5px 5px; background: inherit; }
@@ -299,24 +311,28 @@
     /* a message at the bottom of the screen, so it does not cover the small preview */
     #notices .toast { position: fixed; left: 50%; translate: -50% 0; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: calc(100vw - 24px); }
   }
-  /* phones held upright: one column that scrolls, in the order a review on a phone needs, as in Frame.io's app: the
-     preview at the top across the width, the play toolbar with full screen in it, the timeline, then the notes, the
-     scenes and the audio. The header keeps the project and its version, and Export shows its icon only. Menus open
-     across the width under the header, and the open note's card sits at the bottom of what is visible, above the
-     on-screen keyboard */
+  /* phones held upright: the page fits the screen, so the preview stays in view, as in Frame.io's app: the preview at
+     the top across the width, the play toolbar with full screen in it, the timeline, and tabs along the bottom (#tabs)
+     that open the notes, the scenes, the audio or the selection in a sheet above them, one at a time. The open tab, the
+     dimmed area around the sheet, a row in it and Escape close it. The header keeps the project and its version, and
+     Export shows its icon only. Menus open across the width under the header, and the open note's card sits above the
+     tabs, or above the on-screen keyboard */
   @media (max-width: 719px) {
-    html, body { height: auto; }
-    body { display: flex; flex-direction: column; min-height: 100%; }
-    header { position: sticky; top: 0; z-index: 25; min-height: 44px; background: #fff; }
-    main { order: 1; }
-    aside, body.closed aside { order: 2; visibility: visible; opacity: 1; overflow: visible; box-shadow: none; border-top: .5px solid #ececeb; }
+    body { --nav: calc(56px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+    header { flex: none; min-height: 44px; }
+    main { order: 1; flex: 1; }
+    #tabs { order: 2; flex: none; position: relative; z-index: 23; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: var(--nav); padding: 4px 6px env(safe-area-inset-bottom, 0px); background: #fff; border-top: .5px solid #ececeb; }
+    aside { position: fixed; left: 0; right: 0; bottom: var(--nav); z-index: 22; max-height: min(55dvh, calc(100dvh - var(--nav) - 184px)); border-radius: 14px 14px 0 0; box-shadow: 0 0 0 1px var(--edge), 0 -8px 28px rgba(0,0,0,.12); transition: visibility 0s, translate var(--slide) var(--ease); }
+    body.closed aside { opacity: 1; translate: 0 calc(100% + var(--nav)); transition: visibility 0s var(--slide), translate var(--slide) var(--ease); }
     aside > * { width: auto; }
-    #lists { display: flex; flex-direction: column; overflow: visible; }
-    #lists > h2:nth-of-type(3), #notes { order: -1; }   /* the notes first */
+    #lists { padding-top: 0; }
+    #lists > *, #sel { display: none; }
+    aside[data-tab="scenes"] :is(#lists > h2:nth-of-type(1), #scenes), aside[data-tab="audio"] :is(#lists > h2:nth-of-type(2), #audio),
+    aside[data-tab="notes"] :is(#lists > h2:nth-of-type(3), #notes), aside[data-tab="sel"] #sel { display: block; }
+    aside[data-tab="sel"] #lists { display: none; }
+    body:not(.closed) #scrim { display: block; position: fixed; left: 0; right: 0; top: 0; bottom: var(--nav); z-index: 21; background: rgba(31,31,30,.12); }
     #panel, #pillFull, #crumb, .sep:has(+ #crumb) { display: none; }
-    #canvas { overflow: visible; }
-    #stage { min-height: 0; padding: 8px 8px 0; }
-    #view { max-height: 62vh; }
+    #stage { min-height: 120px; padding: 8px 8px 0; }
     #bar { flex-direction: column; align-items: stretch; gap: 6px; margin: 10px 0; padding: 0 8px; }
     #tools { justify-content: space-between; }
     #drawBar .sq { flex: 1; width: auto; gap: 6px; font-size: 13px; }
@@ -328,7 +344,7 @@
     .pop { width: auto; max-width: none; }
     #notices { position: static; translate: none; width: auto; max-width: none; align-items: stretch; }
     .workpane { gap: 10px; font-size: 13px; }
-    #notices .toast { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 30; }
+    #notices .toast { position: fixed; left: 12px; right: 12px; bottom: calc(var(--nav) + 12px); z-index: 30; }
   }
   @media (pointer: coarse) {
     .icon, .btn, .pick, .pill button, .row, .menu .opt, #go, #stop, #verGo, #verName, #popDel, #popDone, #popOk { min-height: 44px; }
@@ -366,7 +382,7 @@
       </div>
   </div>
 </header>
-<aside>
+<aside data-tab="notes" id="side">
   <nav id="lists" data-t="aria-label=lists">
     <h2 data-t="scenes"></h2><ol id="scenes"></ol>
     <h2>Audio</h2><ul id="audio"></ul>
@@ -374,6 +390,13 @@
   </nav>
   <section id="sel" aria-live="polite" data-t="aria-label=selection"><b id="selText" class="muted" data-t="nothing"></b><small id="selSub" data-t="how"></small><small id="selRange" class="num" hidden></small><small data-t="saved"></small></section>
 </aside>
+<div id="scrim"></div>
+<div id="tabs" role="group" data-t="aria-label=panels">
+  <button class="tab" data-tab="notes" aria-expanded="false" aria-controls="side"><span class="ti" data-i="note"></span><span class="tl"><span data-t="notes"></span> <span id="tabCount" class="num"></span></span></button>
+  <button class="tab" data-tab="scenes" aria-expanded="false" aria-controls="side"><span class="ti" data-i="tiles"></span><span class="tl" data-t="scenes"></span></button>
+  <button class="tab" data-tab="audio" aria-expanded="false" aria-controls="side"><span class="ti" data-i="wave"></span><span class="tl">Audio</span></button>
+  <button class="tab" data-tab="sel" aria-expanded="false" aria-controls="side"><span class="ti" data-i="aim"></span><span class="tl" data-t="selection"></span></button>
+</div>
 <main>
   <div id="canvas">
     <div class="pill" id="pillFull"><button class="sq" id="full" data-i="full" data-label="full" data-key="F"></button></div>
@@ -384,6 +407,7 @@
         <textarea id="popText" rows="2" data-t="placeholder=noteHint aria-label=note"></textarea>
         <div class="foot2"><button id="popDel" data-t="del"></button><span><button id="popDone"></button><button id="popOk" data-t="save"></button></span></div>
       </div></div>
+    <button id="barHint" data-label="showControls"></button>
     <div id="dock">
     <div id="scrubWrap"><canvas id="scrub" aria-hidden="true"></canvas><div id="scrubTip" hidden></div></div>
     <div id="bar">
@@ -453,6 +477,7 @@ const TEXT = {
   resolution: ['Resolusi', 'Resolution'],
   cancel: ['Batalkan', 'Cancel'],
   lists: ['Scene dan audio', 'Scenes and audio'],
+  panels: ['Panel', 'Panels'],
   scenes: ['Scene', 'Scenes'],
   notes: ['Catatan', 'Notes'],
   note: ['Catatan', 'Note'],
@@ -462,6 +487,7 @@ const TEXT = {
   saved: ['Tersimpan di selection.json', 'Saved in selection.json'],
   full: ['Layar penuh', 'Full screen'],
   fullExit: ['Keluar dari layar penuh', 'Exit full screen'],
+  showControls: ['Tampilkan kontrol', 'Show the controls'],
   fullNone: ['Layar penuh tidak tersedia di browser ini', 'Full screen is not available in this browser'],
   fullRefused: ['Layar penuh ditolak browser', 'The browser refused full screen'],
   fullStuck: ['Layar penuh tidak terbuka. Coba di Chrome biasa.', 'Full screen did not open. Try it in regular Chrome.'],
@@ -575,6 +601,8 @@ const ICON = {
   play: svg('<path d="M5 3.5v9L12.5 8z"/>', true),
   pause: svg('<path d="M5 3.5v9M11 3.5v9" stroke-width="2.5"/>'),
   wave: svg('<path d="M3 6.5v3M5.5 4v8M8 5.5v5M10.5 3v10M13 6.5v3"/>'),
+  tiles: svg('<rect x="2" y="4" width="5" height="8" rx="1.2"/><rect x="9" y="4" width="5" height="8" rx="1.2"/>'),   // scenes, as the tiles of the timeline
+  aim: svg('<circle cx="8" cy="8" r="5"/><path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3"/>'),   // the selection
   range: svg('<path d="M5 3H3v10h2M11 3h2v10h-2M6.5 8h3"/>'),
   note: svg('<path d="M3 3.5h10v7H8.5L5.5 13v-2.5H3z"/>'),
   x: svg('<path d="m4.5 4.5 7 7m0-7-7 7"/>'),
@@ -693,7 +721,19 @@ addEventListener('keydown', e => {
 const setPanel = open => {
   document.body.classList.toggle('closed', !open); $('panel').setAttribute('aria-expanded', open);
   label($('panel'), L(open ? 'hidePanel' : 'showPanel'));
+  for (const b of $('tabs').children) b.setAttribute('aria-expanded', open && b.dataset.tab === $('side').dataset.tab);
 };
+// On a phone held upright the panel is a sheet that the tabs open, one list at a time (see the CSS). The open tab, the
+// dimmed area, a row in the sheet (it has done its job: a scene, a clip or a note is picked) and Escape close it.
+const upright = matchMedia('(max-width: 719px)');
+const setSheet = tab => { if (tab) $('side').dataset.tab = tab; setPanel(!!tab); };
+for (const b of $('tabs').children) b.onclick = () => setSheet(b.getAttribute('aria-expanded') === 'true' ? null : b.dataset.tab);
+$('scrim').onclick = () => setSheet(null);
+$('lists').addEventListener('click', e => { if (upright.matches && e.target.closest('.row') && !e.target.closest('#doneBtn, #clearDone')) setSheet(null); });
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !upright.matches || document.body.classList.contains('closed') || e.defaultPrevented) return;
+  e.preventDefault(); const b = $('tabs').querySelector('[aria-expanded="true"]'); setSheet(null); b?.focus();
+});
 $('panel').onclick = () => setPanel(document.body.classList.contains('closed'));
 const narrow = matchMedia('(max-width: 719px), (max-height: 499px)');   // a narrow or short window hides the panel, also when it becomes one later
 if (narrow.matches) setPanel(false);
@@ -1214,6 +1254,7 @@ try {
   $('scrub').onpointermove = e => { if (scrubbing) seek(scrubTime(e.offsetX)); scrubTip(e.offsetX); };
   $('scrub').onpointerup = $('scrub').onpointercancel = e => { scrubbing = false; if (e.pointerType === 'touch') flashBar(); };
   $('dock').addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && document.fullscreenElement) flashBar(); });   // a tap on the bar keeps it up
+  $('barHint').onclick = () => flashBar();
   $('scrub').onpointerleave = () => { if (!scrubbing) $('scrubTip').hidden = true; };
   new ResizeObserver(() => drawScrub()).observe($('scrub'));
   addEventListener('keydown', e => {
@@ -1342,7 +1383,8 @@ try {
     if (phone.matches && !document.fullscreenElement) {   // a phone: across the bottom of what is visible, above the keyboard
       const vv = visualViewport || { offsetLeft: 0, offsetTop: 0, width: innerWidth, height: innerHeight };
       pop.style.left = vv.offsetLeft + 8 + 'px'; pop.style.width = vv.width - 16 + 'px';
-      pop.style.top = vv.offsetTop + vv.height - pop.offsetHeight - 8 + 'px';
+      const floor = Math.min(vv.offsetTop + vv.height, $('tabs').getBoundingClientRect().top || Infinity);
+      pop.style.top = floor - pop.offsetHeight - 8 + 'px';
       return;
     }
     pop.style.width = '';
@@ -1419,7 +1461,7 @@ try {
   let doneOpen = false; try { doneOpen = localStorage.motlabDone === '1'; } catch {}
   function listNotes() {
     const open = notes.filter(m => !m.done), done = notes.filter(m => m.done);
-    $('noteCount').textContent = open.length || '';
+    $('noteCount').textContent = $('tabCount').textContent = open.length || '';
     const row = m => {
       const li = document.createElement('li'), b = document.createElement('button');
       b.className = 'row' + (m.done ? ' done' : ''); b.innerHTML = '<span class="ic n num" aria-hidden="true"></span><span class="name"><span></span><small class="num"></small></span>';
@@ -1512,7 +1554,7 @@ try {
     const tag = tagAt(e);
     if (tag) return goTo(tag);
     const edge = edgeAt(e);
-    if (!e.shiftKey && !edge && !rangeMode) return scrub(e);
+    if (!e.shiftKey && !edge && !rangeMode) { tl.setPointerCapture(e.pointerId); return scrub(e); }
     tl.setPointerCapture(e.pointerId);
     rangeDrag = edge ? (edge === 'start' ? range.end : range.start) : timeAt(e);
     setRange(rangeDrag, timeAt(e), false);
