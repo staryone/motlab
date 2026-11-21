@@ -41,7 +41,7 @@ The ad above (19 seconds, 7 scenes) was made with motlab and its skill, reviewed
 
 Two minutes in English, made with motlab too: the install, the brief to the agent, the build, playing it in the viewer, notes on frames, versions, the revision and the export.
 
-https://github.com/user-attachments/assets/522d1db2-a0bd-43bd-84b7-9f071f224854
+https://github.com/user-attachments/assets/8f70bc60-5f56-4c4f-b55e-bf9f87ba1e34
 
 ## Install
 

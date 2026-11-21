@@ -10,6 +10,7 @@ motlab stills <page.html> <outDir> <t1> <t2> ...  single frames as PNG or JPEG
 motlab video  <page.html> <out.mp4> [options]     one page as an MP4
 motlab events <page.html> <out.json>              the page's EVENTS, for syncing sound
 motlab help                                       this list and the engine folder (also motlab --help or -h)
+motlab version                                    the installed version, such as 0.4.0 (also motlab --version or -v)
 motlab doctor                                     check Node, Chrome, ffmpeg, the skill's Python packages and earshot
 motlab setup [--skill <target>] [--update] ...    copy the skills to agent folders after npm install -g, and add the command if needed
 motlab update [--dry-run]                         the newest motlab (from GitHub, or the npm commands that get it), and the skills copied again where they were installed
