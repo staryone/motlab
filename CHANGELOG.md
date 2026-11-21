@@ -4,6 +4,10 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
+### Fixed
+
+- Captions over a dissolve could end before they started: a word in the outgoing part's faded tail landed after a word in the incoming part. Caption words now belong to a part only until the next part starts, matching the active picture; tail words are dropped like cut words, crossing words end at the boundary, and `edit.toOut()` maps the tail to the next part's start. Checked with a synthetic two-part transcript before and after, `test/cuts.test.js` (line order, nonnegative durations, tail and boundary words, empty captions and monotonic source mapping), `npm test` and `motlab doctor` on Ubuntu with Node 24. Not tried: a real Whisper transcript or a visual caption render.
+
 ### Added
 
 - `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".
