@@ -24,7 +24,7 @@ npx @motlab/cli setup --skill <target> --dry-run
 npx @motlab/cli setup --skill <target>
 ```
 
-Setup takes the same skill options as the installer and runs `motlab doctor` at the end. When npm's command folder is not on PATH (nvm for Windows), it writes a `motlab` launcher to `~/.local/bin`; if it then prints that `~/.local/bin` is not on PATH, show the user the line and ask before changing their PATH. To update later, `motlab update` prints the two commands (`npm install -g @motlab/cli@latest`, then `motlab setup --update`). Then skip to step 4.
+If the skills are already installed, because you are running from the motlab skill or the user ran `npx skills add staryone/motlab`, use `--skill none` so setup adds only the command. Setup leaves a skill that npx skills installed alone and says so; pass `--force` only when the user asks for it. Setup takes the same skill options as the installer and runs `motlab doctor` at the end. When npm's command folder is not on PATH (nvm for Windows), it writes a `motlab` launcher to `~/.local/bin`; if it then prints that `~/.local/bin` is not on PATH, show the user the line and ask before changing their PATH. To update later, `motlab update` prints the two commands (`npm install -g @motlab/cli@latest`, then `motlab setup --update`). Then skip to step 4.
 
 ## Get the repository
 

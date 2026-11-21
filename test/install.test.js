@@ -65,6 +65,30 @@ test('motlab setup copies the skills and nothing else', () => {
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
 
+// A skill installed with `npx skills add -g` is listed in that CLI's lock, ~/.agents/.skill-lock.json. Setup and
+// uninstall leave it to that CLI, so it never ends up twice; --force copies it anyway.
+test('setup and uninstall leave a skill that npx skills installed', () => {
+  const home = mkdtempSync(join(tmpdir(), 'motlab-home-'));
+  try {
+    mkdirSync(join(home, '.agents', 'skills', 'motlab'), { recursive: true });
+    writeFileSync(join(home, '.agents', 'skills', 'motlab', 'SKILL.md'), 'from npx skills');
+    writeFileSync(join(home, '.agents', '.skill-lock.json'), JSON.stringify({ version: 3, skills: { motlab: { source: 'staryone/motlab', sourceType: 'github' } } }));
+    const env = { ...process.env, HOME: home, USERPROFILE: home, XDG_STATE_HOME: '', MOTLAB_KEEP_VIEWER: '1' };
+    const run = (...args) => spawnSync(process.execPath, ['bin/motlab.js', ...args], { encoding: 'utf8', env, input: '' });
+    const claude = join(home, '.claude', 'skills');
+    const r = run('setup', '--skill', 'claude,agents', '--dry-run');
+    assert.equal(r.status, 0, r.stdout + r.stderr);
+    assert.ok(r.stdout.includes('skill motlab was installed with npx skills') && r.stdout.includes('npx skills update -g'), r.stdout);
+    const lines = s => s.split(/\r?\n/);
+    assert.ok(!lines(r.stdout).some(l => l.endsWith(join(claude, 'motlab')) || l.endsWith(join(home, '.agents', 'skills', 'motlab'))), r.stdout);
+    assert.ok(r.stdout.includes(`-> ${join(claude, 'motlab-assets')}`), 'a skill npx skills did not install is copied');
+    const forced = run('setup', '--skill', 'claude', '--force', '--dry-run');
+    assert.ok(lines(forced.stdout).some(l => l.endsWith(`-> ${join(claude, 'motlab')}`)), forced.stdout);
+    const u = run('uninstall', '--dry-run');
+    assert.ok(u.stdout.includes('npx skills remove motlab -g') && !u.stdout.includes(join(home, '.agents', 'skills', 'motlab') + ' '), u.stdout);
+  } finally { rmSync(home, { recursive: true, force: true }); }
+});
+
 // Muse Code reads ~/.agents/skills. Hermes reads only the skills folder in its home: HERMES_HOME when it is set, else
 // ~/.hermes, or %LOCALAPPDATA%\hermes on Windows.
 test('setup --skill muse,hermes puts the skills where Muse Code and Hermes read them', () => {
@@ -92,7 +116,8 @@ test('setup from an npm install adds the command only when npm put it off PATH',
     const pkg = win ? join(root, 'prefix', 'node_modules', '@motlab', 'cli') : join(root, 'prefix', 'lib', 'node_modules', '@motlab', 'cli');
     const npmBin = win ? join(root, 'prefix') : join(root, 'prefix', 'bin');
     mkdirSync(pkg, { recursive: true });
-    cpSync('install.js', join(pkg, 'install.js')); mkdirSync(join(pkg, 'src')); cpSync('src/userpath.js', join(pkg, 'src', 'userpath.js'));
+    cpSync('install.js', join(pkg, 'install.js')); mkdirSync(join(pkg, 'src'));
+    for (const f of ['userpath.js', 'skillslock.js']) cpSync(join('src', f), join(pkg, 'src', f));
     const run = path => spawnSync(process.execPath, [join(pkg, 'install.js'), '--skills-only', '--skill', 'none', '--dry-run'],
       { encoding: 'utf8', env: { ...process.env, HOME: root, USERPROFILE: root, PATH: path } });
     const off = run(process.env.PATH);

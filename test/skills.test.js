@@ -12,7 +12,14 @@ test('every skill has frontmatter that Codex, Cursor and the others accept', () 
     const field = k => head.match(new RegExp(`^${k}: (.*)$`, 'm'))?.[1];
     assert.equal(field('name'), dir, `${dir}: name must match the folder`);
     assert.match(dir, /^[a-z0-9]+(-[a-z0-9]+)*$/);
-    const d = field('description') || '';
+    // A strict YAML parser, such as the one in the skills CLI behind skills.sh, skips the whole skill when a plain
+    // value holds ": " or " #", so a description with those has to be in double quotes, with no " inside.
+    for (const line of head.split(/\r?\n/)) {
+      const v = line.match(/^[a-z-]+: (.*)$/)?.[1];
+      if (v && !/^".*"$/.test(v)) assert.ok(!/: | #/.test(v), `${dir}: put "${line.slice(0, 40)}..." in double quotes`);
+      if (v && /^".*"$/.test(v)) assert.ok(!/[^\\]"/.test(v.slice(1, -1)), `${dir}: a quoted value has a " inside`);
+    }
+    const d = (field('description') || '').replace(/^"(.*)"$/, '$1');
     assert.ok(d.length > 0 && Buffer.byteLength(d) <= 500, `${dir}: description is ${Buffer.byteLength(d)} bytes, keep it at 500 or less`);
   }
 });

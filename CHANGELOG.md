@@ -7,8 +7,12 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 ### Added
 
 - `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".
+- The skills can be installed on their own with `npx skills add staryone/motlab -g`, the skills CLI behind skills.sh (README, docs/install.md). The motlab skill now starts with `motlab --version`: when the command is missing, it tells the user what the engine needs and, with their yes, runs `npm install -g @motlab/cli` and `npx @motlab/cli setup --skill none`; when it prints no version, the engine is older than the skill. The asset skill says the same in one line.
+- `motlab setup`, `motlab setup --update`, `node install.js` and `motlab uninstall` leave a skill that the skills CLI installed with `-g`, which it lists in `~/.agents/.skill-lock.json`, and print the `npx skills` command that updates or removes it. Before, setup copied over the CLI's link, so the skill had two owners and two copies. `--force` copies over it anyway. `test/install.test.js` checks setup, `--force` and uninstall with a faked lock file.
 
 ### Changed
+
+- Both skills' `description` is in double quotes. The skills CLI's YAML parser read the `: ` inside it as a new key and skipped both skills with "No valid skills found"; Claude Code read them either way. `test/skills.test.js` now fails on a plain value with `: ` or ` #`. Checked with skills 1.9.0 on Windows: `npx skills add <folder> --list` found both after the change.
 
 - The README's demo video is a new recording.
 
