@@ -1346,31 +1346,32 @@ try {
   // A note's done state is the file's unless it was changed here (`toggled`), because the agent marks notes done in
   // selection.json while this page is open. The reply, and a read when the page gets focus back, bring those in.
   // Another tab of the viewer can save notes of the same project too, so the page names the notes it deleted instead of
-  // leaving them out, and takes in the file's notes after every save and on focus (sync).
+  // leaving them out, sends only notes changed here, and takes in the file's notes after every save and on focus (sync).
   let saveTimer = 0, saving = Promise.resolve();
   const toggled = new Set(), deleted = new Set();   // done changed here (by number), and notes deleted here (by key)
+  const dirty = new Set();
   const key = m => m.id || `#${m.n}`, uid = () => crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36);
   let known = new Set();   // keys of this version's notes in the file at the last sync
-  function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => saving = send(), 150); }
+  function save(m) { if (m) dirty.add(key(m)); clearTimeout(saveTimer); saveTimer = setTimeout(() => saving = send(), 150); }
   function flush() {   // a save that is waiting goes now; resolves once the last one is written
     if (saveTimer) { clearTimeout(saveTimer); saving = send(); }
     return saving;
   }
   async function send() {
     saveTimer = 0;
-    const png = Object.fromEntries(images), sent = [...toggled], gone = [...deleted]; images.clear(); toggled.clear(); deleted.clear();
+    const png = Object.fromEntries(images), sent = [...toggled], gone = [...deleted], changed = [...dirty]; images.clear(); toggled.clear(); deleted.clear(); dirty.clear();
     try {
-      const r = await fetch('selection', { method: 'POST', body: JSON.stringify({ ...sel, range: rangeOut(range), project: '{{project}}', marks: notes, toggled: sent, deleted: gone, images: png }) });
+      const r = await fetch('selection', { method: 'POST', body: JSON.stringify({ ...sel, range: rangeOut(range), project: '{{project}}', marks: notes.filter(m => changed.includes(key(m))), toggled: sent, deleted: gone, images: png }) });
       if (!r.ok) throw new Error(r.status);
       const res = await r.json();
       for (const [id, n] of res.renumbered) {   // another tab took this number first: the note moves to the next free one
         const m = notes.find(x => x.id === id); if (!m) continue;
         m.n = n; if (m.image) { m.image = `selection/${n}.png`; images.set(n, snapshot(m)); }
         if (m === active) $('popN').textContent = n;
-        save();
+        save(m);
       }
       sync(res.marks, res.others);
-    } catch { sent.forEach(n => toggled.add(n)); gone.forEach(k => deleted.add(k)); }
+    } catch { sent.forEach(n => toggled.add(n)); gone.forEach(k => deleted.add(k)); changed.forEach(k => dirty.add(k)); for (const [n, data] of Object.entries(png)) if (!images.has(+n)) images.set(+n, data); }
   }
   function sync(file, other) {   // this version's notes in the file, and the other versions'
     const inFile = new Map(file.map(m => [key(m), m]));
@@ -1383,6 +1384,17 @@ try {
     for (const f of file) {
       const m = notes.find(x => key(x) === key(f));
       if (!m) { if (!deleted.has(key(f))) { const { project, ...n } = f; notes.push({ note: '', ...n }); changed = true; } continue; }   // made in another tab
+      if (!dirty.has(key(m))) {
+        const { project, ...n } = f;
+        if (JSON.stringify(m) !== JSON.stringify(n)) {
+          const done = m.done;
+          for (const k of Object.keys(m)) delete m[k];
+          Object.assign(m, { note: '', ...n });
+          if (toggled.has(m.n)) { if (done) m.done = true; else delete m.done; }
+          if (m === active) { popText.value = m.note; grow(); }
+          changed = true;
+        }
+      }
       if (!toggled.has(m.n) && !!m.done !== !!f.done) { changed = true; if (m.done) delete m.done; else m.done = true; }   // done marked by the agent
     }
     known = new Set(inFile.keys()); others = other;
@@ -1436,6 +1448,7 @@ try {
   function setDone(m, on) {   // done: the card closes and the note leaves the preview and the timeline; opened again, it stays open
     if (on) m.done = true; else delete m.done;
     toggled.add(m.n);
+    dirty.add(key(m));
     if (on) closeNote(); else { doneUI(m); paint(); listNotes(); drawTimeline(); save(); popText.focus({ preventScroll: true }); }
   }
   function closeNote() {
@@ -1448,7 +1461,7 @@ try {
   const undoUI = () => { $('popUndo').hidden = !active?.stroke; $('popUndo').disabled = !(active?.stroke?.length > 1); };
   function restroke() {   // after a stroke was added, taken back or put back: a new box and picture
     active.box = bbox(active.stroke); images.set(active.n, snapshot(active)); strokeText = popText.value;
-    paint(); undoUI(); save(); place();
+    paint(); undoUI(); save(active); place();
   }
   const undoStroke = () => active?.stroke?.length > 1 && (redo.push(active.stroke.pop()), restroke(), true);
   const redoStroke = () => !!active?.stroke && redo.length > 0 && (active.stroke.push(redo.pop()), restroke(), true);
@@ -1469,7 +1482,7 @@ try {
   function addNote(extra, time = t) {
     const m = { id: uid(), n: nextN(), note: '', ...spot(time), box: null, point: null, stroke: null, range: null, image: null, ...extra };
     if (m.box || m.point) { m.image = `selection/${m.n}.png`; images.set(m.n, snapshot(m)); }
-    notes.push(m); openNote(m); save();
+    notes.push(m); openNote(m); save(m);
   }
   function goTo(m) {   // to the note's frame (and its range), then open it once that frame is on screen
     if (m.range) range = { start: m.range.start, end: m.range.end };
@@ -1525,7 +1538,7 @@ try {
     };
     li.append(b); return li;
   }
-  popText.oninput = () => { active.note = popText.value; grow(); place(); listNotes(); save(); };
+  popText.oninput = () => { active.note = popText.value; grow(); place(); listNotes(); save(active); };
   popText.onkeydown = e => {
     if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) { e.preventDefault(); closeNote(); }
     if (e.key === 'Escape') { e.preventDefault(); closeNote(); }   // Escape in the note only closes it, the range stays
@@ -1703,7 +1716,7 @@ try {
       select(t, null); addNote({ stroke: [line], box: bbox([line]) }); return showSelection();
     }
     if (d.edit && d.moved) {   // the note keeps its number and frame; its picture is drawn again
-      images.set(d.m.n, snapshot(d.m)); save(); place();
+      images.set(d.m.n, snapshot(d.m)); save(d.m); place();
       return popText.focus({ preventScroll: true });
     }
     if (d.moved) {

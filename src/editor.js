@@ -39,7 +39,7 @@ function versions(root) {
   }
   return out.sort((a, b) => (b.file === 'project.json') - (a.file === 'project.json') || a.label.localeCompare(b.label));
 }
-// One page's save of version v's notes, merged into the notes in selection.json (`old`). A page sends the notes it holds
+// One page's save of version v's notes, merged into the notes in selection.json (`old`). A page sends only changed notes
 // and names the ones it deleted, so a note it has not seen (made in another tab of the viewer) is kept rather than
 // dropped. A note is known by its `id` (notes from before ids, by `n`). A new note whose number another tab took meanwhile
 // gets the next free one: `renumbered` lists [id, old n, new n]. `done` is the file's unless the page changed it

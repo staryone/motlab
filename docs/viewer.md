@@ -141,6 +141,8 @@ Notes work in full screen too: the card opens over the full-screen preview and t
 
 Two tabs on the same project can both take notes. A save names the notes the tab deleted instead of leaving them out, so notes made in the other tab are kept, and a new note whose number the other tab took first moves to the next free number, with its picture drawn again. After every save, and when a tab gets focus back, the page takes in the file's notes: the other tab's new ones, the ones it deleted, and done marks. Tried in a windowed Chrome over the DevTools protocol with two tabs: tab B's first note became 2 next to tab A's 1, each tab listed the other's notes after a focus change, a note deleted in B stayed deleted when A saved again, and every picture showed its own number. Two tabs editing the text of the same note still keep whichever saved last.
 
+Saves send only notes changed in that tab. Seeking or changing a range in an older tab does not overwrite another tab's note edits. Sync also brings in edits to existing notes, without replacing local edits waiting to be saved.
+
 Each version has its own notes. The numbers run across all versions of the folder, so "catatan 3" means one note. The selection is written about 0.15 s after the last change, so scrubbing and typing do not write a file per pointer move or key. The last selection and the notes are loaded again when the page opens.
 
 `selection.json`, `selection.png` (from before notes) and `selection/` are in `.gitignore`.
