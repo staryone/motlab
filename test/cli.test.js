@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
@@ -14,7 +15,16 @@ test('motlab help, --help and -h print the commands and succeed; no command prin
     assert.match(r.stdout, /Engine folder: /);
   }
   assert.equal(run().status, 1);
-  assert.match(run('nope').stderr + run('nope').stdout, /unknown mode "nope" .* or help/);
+  assert.match(run('nope').stderr + run('nope').stdout, /unknown mode "nope" .* help or version/);
+});
+
+test('motlab version, --version and -v print the version from package.json and succeed', () => {
+  const { version } = JSON.parse(readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  for (const args of [['version'], ['--version'], ['-v']]) {
+    const r = run(...args);
+    assert.equal(r.status, 0, args.join(' '));
+    assert.equal(r.stdout.trim(), version, args.join(' '));
+  }
 });
 
 test('motlab working checks its note and scene numbers before it looks for a viewer', () => {

@@ -2,6 +2,16 @@
 
 Changes are listed by release, newest first. The sections dated before 0.1.0 record what was built on the way to the first release.
 
+## Unreleased
+
+### Added
+
+- `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".
+
+### Changed
+
+- The README's demo video is a new recording.
+
 ## 0.4.0 (2026-11-21)
 
 ### Added
