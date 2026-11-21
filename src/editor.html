@@ -1352,13 +1352,13 @@ try {
   const dirty = new Set();
   const key = m => m.id || `#${m.n}`, uid = () => crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36);
   let known = new Set();   // keys of this version's notes in the file at the last sync
-  function save(m) { if (m) dirty.add(key(m)); clearTimeout(saveTimer); saveTimer = setTimeout(() => saving = send(), 150); }
+  function save(m) { if (m) dirty.add(key(m)); clearTimeout(saveTimer); saveTimer = setTimeout(queueSave, 150); }
+  function queueSave() { saveTimer = 0; return saving = saving.then(send); }
   function flush() {   // a save that is waiting goes now; resolves once the last one is written
-    if (saveTimer) { clearTimeout(saveTimer); saving = send(); }
+    if (saveTimer) { clearTimeout(saveTimer); queueSave(); }
     return saving;
   }
   async function send() {
-    saveTimer = 0;
     const png = Object.fromEntries(images), sent = [...toggled], gone = [...deleted], changed = [...dirty]; images.clear(); toggled.clear(); deleted.clear(); dirty.clear();
     try {
       const r = await fetch('selection', { method: 'POST', body: JSON.stringify({ ...sel, range: rangeOut(range), project: '{{project}}', marks: notes.filter(m => changed.includes(key(m))), toggled: sent, deleted: gone, images: png }) });

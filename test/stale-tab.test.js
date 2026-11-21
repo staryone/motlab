@@ -7,6 +7,44 @@ import { mergeNotes } from '../src/editor.js';
 const html = readFileSync(new URL('../src/editor.html', import.meta.url), 'utf8');
 const saving = html.slice(html.indexOf('  let saveTimer ='), html.indexOf('  function sync(file, other)'));
 
+test('overlapping saves keep newer text until both writes are acknowledged', async () => {
+  const requests = [], pending = [];
+  const m = { id: 'a', n: 1, note: 'first edit' };
+  const context = {
+    notes: [m], active: m, popText: { value: m.note }, others: [],
+    sel: { time: 0 }, range: null, rangeOut: r => r, images: new Map(), crypto: {},
+    clearTimeout() {}, setTimeout() { return 1; },
+    paint() {}, listNotes() {}, drawTimeline() {}, grow() {}, doneUI() {},
+    fetch: (_url, options) => {
+      const payload = JSON.parse(options.body);
+      requests.push(payload);
+      return new Promise(resolve => pending.push(() => resolve({
+        ok: true, json: async () => ({ marks: payload.marks, others: [], renumbered: [] }),
+      })));
+    },
+  };
+  const code = html.slice(html.indexOf('  let saveTimer ='), html.indexOf('  const reread ='));
+  const first = runInNewContext(`${code}\nsave(notes[0]); flush()`, context);
+  await Promise.resolve();
+  m.note = context.popText.value = 'second edit';
+  const second = runInNewContext('save(notes[0]); flush()', context);
+  pending.shift()();
+  await first;
+  await new Promise(setImmediate);
+  try {
+    assert.equal(m.note, 'second edit');
+    assert.equal(context.popText.value, 'second edit');
+    assert.equal(requests[1].marks[0].note, 'second edit');
+  } finally {
+    pending.shift()();
+    await second;
+  }
+  assert.equal(m.note, 'second edit');
+  assert.equal(context.popText.value, 'second edit');
+  assert.equal(await runInNewContext('flush().then(() => "settled")', context), 'settled');
+  assert.equal(requests.length, 2);
+});
+
 test('only edited notes are sent, and failed writes retain notes and pictures for retry', async () => {
   const payloads = [];
   let fail = true;
