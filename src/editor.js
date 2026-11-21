@@ -11,7 +11,7 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { createAccess } from './access.js';
 import { createLive } from './live.js';
-import { projectPaths, renderProject } from './project.js';
+import { defaultParallel, projectPaths, renderProject } from './project.js';
 import { pageLib, sendFile } from './server.js';
 
 const RECENT = join(homedir(), '.motlab', 'recent.json');
@@ -144,6 +144,7 @@ export function startEditor(target, port = 4173, { domain, password = process.en
     const version = f => all.some(v => v.file === f) ? f : basename(p.file);
 
     if (sub === '/versions' && req.method === 'GET') return json(res, all);
+    if (sub === '/parallel' && req.method === 'GET') return json(res, { auto: defaultParallel() });   // asked each time the Export menu opens, as free memory changes
     if (sub === '/__events' && req.method === 'GET') return live.subscribe(root, req, res);   // live updates for the page
     if (sub === '/versions' && req.method === 'POST') {   // body: { from, name }; a copy of `from` as project-<name>.json
       try {
@@ -174,15 +175,16 @@ export function startEditor(target, port = 4173, { domain, password = process.en
         return json(res, { renumbered: renumbered.map(([id, , n]) => [id, n]), marks: all.filter(m => m.project === v), others: all.filter(m => m.project !== v) });
       } catch (e) { return res.writeHead(400).end(e.message); }
     }
-    if (req.method === 'POST' && sub === '/export') {   // body: { project, scale, tag }; the render log is streamed back, last line DONE, CANCELLED or ERROR
+    if (req.method === 'POST' && sub === '/export') {   // body: { project, scale, tag, parallel }; the render log is streamed back, last line DONE, CANCELLED or ERROR
       if (exporting) return res.writeHead(409).end('another export is still running');
       exporting = new AbortController();
       const started = Date.now(), { signal } = exporting, body = await readBody(req);
       res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
       try {
-        const { project, scale, tag } = JSON.parse(body), file = join(root, version(project));
+        const { project, scale, tag, parallel } = JSON.parse(body), file = join(root, version(project));
+        const at = Number.isInteger(parallel) && parallel >= 1 && parallel <= 8 ? parallel : undefined;   // none: as many as defaultParallel picks
         const rel = `out/${projectPaths(file).name}-${String(tag).replace(/\W/g, '')}.mp4`;   // out/example-tiktok-1080p.mp4
-        await renderProject({ dir: file, out: join(root, rel), scale: Number(scale) || 2, signal, log: line => { console.log(line); res.write(line + '\n'); } });
+        await renderProject({ dir: file, out: join(root, rel), scale: Number(scale) || 2, parallel: at, signal, log: line => { console.log(line); res.write(line + '\n'); } });
         res.end(`DONE ${rel} ${Math.round((Date.now() - started) / 1000)}\n`);
       } catch (e) {
         if (signal.aborted) { console.log('\nExport cancelled'); res.end('CANCELLED\n'); }
