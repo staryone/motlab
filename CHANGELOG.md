@@ -38,6 +38,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
+- `motlab stills` no longer overwrites earlier frames when requested timestamps round to the same two-decimal filename. Later collisions (including repeated timestamps) get `-2`, `-3`, etc.; non-colliding names stay unchanged. The contact sheet helper includes these files too. Regression tests cover PNG and JPEG output.
 - The viewer's hint under "Belum ada pilihan" (Nothing selected) had grown to four lines when the pencil came in. It is back to two: "Klik scene, audio, atau timeline. Klik atau tarik di preview untuk memberi catatan."
 - On a phone, dragging on the viewer's timeline with a finger often left the playhead behind, and a range dragged there stuck the same way: the browser took a move that was not quite sideways as a scroll of the page and stopped sending it. A finger that moves sideways on the timeline now always drags, and one that moves up or down scrolls its rows.
 - In full screen on a touch screen, once the player bar had hidden, nothing showed how to bring it back. A short white line now sits at the bottom edge, and a tap on it brings the bar up.
