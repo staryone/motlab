@@ -1349,7 +1349,7 @@ try {
   // leaving them out, sends only notes changed here, and takes in the file's notes after every save and on focus (sync).
   let saveTimer = 0, saving = Promise.resolve();
   const toggled = new Set(), deleted = new Set();   // done changed here (by number), and notes deleted here (by key)
-  const dirty = new Set();
+  const dirty = new Set(), inFlight = new Set();
   const key = m => m.id || `#${m.n}`, uid = () => crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36);
   let known = new Set();   // keys of this version's notes in the file at the last sync
   function save(m) { if (m) dirty.add(key(m)); clearTimeout(saveTimer); saveTimer = setTimeout(queueSave, 150); }
@@ -1360,10 +1360,12 @@ try {
   }
   async function send() {
     const png = Object.fromEntries(images), sent = [...toggled], gone = [...deleted], changed = [...dirty]; images.clear(); toggled.clear(); deleted.clear(); dirty.clear();
+    changed.forEach(k => inFlight.add(k));
     try {
       const r = await fetch('selection', { method: 'POST', body: JSON.stringify({ ...sel, range: rangeOut(range), project: '{{project}}', marks: notes.filter(m => changed.includes(key(m))), toggled: sent, deleted: gone, images: png }) });
       if (!r.ok) throw new Error(r.status);
       const res = await r.json();
+      changed.forEach(k => inFlight.delete(k));
       for (const [id, n] of res.renumbered) {   // another tab took this number first: the note moves to the next free one
         const m = notes.find(x => x.id === id); if (!m) continue;
         m.n = n; if (m.image) { m.image = `selection/${n}.png`; images.set(n, snapshot(m)); }
@@ -1371,19 +1373,20 @@ try {
         save(m);
       }
       sync(res.marks, res.others);
-    } catch { sent.forEach(n => toggled.add(n)); gone.forEach(k => deleted.add(k)); changed.forEach(k => dirty.add(k)); for (const [n, data] of Object.entries(png)) if (!images.has(+n)) images.set(+n, data); }
+    } catch { sent.forEach(n => toggled.add(n)); gone.forEach(k => deleted.add(k)); changed.forEach(k => { inFlight.delete(k); dirty.add(k); }); for (const [n, data] of Object.entries(png)) if (!images.has(+n)) images.set(+n, data); }
   }
   function sync(file, other) {   // this version's notes in the file, and the other versions'
     const inFile = new Map(file.map(m => [key(m), m]));
     let changed = false;
     notes = notes.filter(m => {   // in the file at the last sync and gone now: deleted in another tab
-      const gone = known.has(key(m)) && !inFile.has(key(m));
+      const gone = known.has(key(m)) && !inFile.has(key(m)) && !dirty.has(key(m)) && !inFlight.has(key(m));
       if (gone) { changed = true; if (m === active) { active = null; pop.hidden = true; } }
       return !gone;
     });
     for (const f of file) {
       const m = notes.find(x => key(x) === key(f));
       if (!m) { if (!deleted.has(key(f))) { const { project, ...n } = f; notes.push({ note: '', ...n }); changed = true; } continue; }   // made in another tab
+      if (inFlight.has(key(m))) continue;
       if (!dirty.has(key(m))) {
         const { project, ...n } = f;
         if (JSON.stringify(m) !== JSON.stringify(n)) {

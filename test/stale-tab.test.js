@@ -7,6 +7,39 @@ import { mergeNotes } from '../src/editor.js';
 const html = readFileSync(new URL('../src/editor.html', import.meta.url), 'utf8');
 const saving = html.slice(html.indexOf('  let saveTimer ='), html.indexOf('  function sync(file, other)'));
 
+test('focus sync preserves a note while its save is in flight', async () => {
+  const m = { id: 'a', n: 1, note: 'parallel edit A' };
+  let acknowledge;
+  const context = {
+    notes: [m], active: m, popText: { value: m.note }, others: [],
+    sel: { time: 0 }, range: null, rangeOut: r => r, images: new Map(), crypto: {},
+    clearTimeout() {}, setTimeout() { return 1; },
+    paint() {}, listNotes() {}, drawTimeline() {}, grow() {}, doneUI() {},
+    fetch: (_url, options) => {
+      const payload = JSON.parse(options.body);
+      return new Promise(resolve => acknowledge = () => resolve({
+        ok: true, json: async () => ({ marks: payload.marks, others: [], renumbered: [] }),
+      }));
+    },
+  };
+  const code = html.slice(html.indexOf('  let saveTimer ='), html.indexOf('  const reread ='));
+  const sent = runInNewContext(`${code}\nknown.add('a'); save(notes[0]); flush()`, context);
+  await Promise.resolve();
+  try {
+    runInNewContext("sync([{id:'a',n:1,note:'old text'}], [])", context);
+    assert.equal(m.note, 'parallel edit A');
+    assert.equal(context.popText.value, 'parallel edit A');
+    runInNewContext('sync([], [])', context);
+    assert.equal(context.notes.length, 1);
+  } finally {
+    acknowledge();
+    await sent;
+  }
+  assert.equal(m.note, 'parallel edit A');
+  runInNewContext("sync([{id:'a',n:1,note:'later remote edit'}], [])", context);
+  assert.equal(m.note, 'later remote edit');
+});
+
 test('overlapping saves keep newer text until both writes are acknowledged', async () => {
   const requests = [], pending = [];
   const m = { id: 'a', n: 1, note: 'first edit' };
