@@ -4,6 +4,10 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
+### Fixed
+
+- Opening a version file with `motlab edit` keeps its `?v=` in the viewer URL, both on startup and in an already running viewer. The startup project's `/` redirect keeps it too; folders and `project.json` keep their plain URLs.
+
 ### Added
 
 - `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".
