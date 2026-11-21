@@ -10,6 +10,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { createAccess } from './access.js';
+import { createLive } from './live.js';
 import { projectPaths, renderProject } from './project.js';
 import { pageLib, sendFile } from './server.js';
 
@@ -90,6 +91,7 @@ export function startEditor(target, port = 4173, { domain, password = process.en
   if (opened) remember(projects.get(opened).file);
 
   let exporting = false;
+  const live = createLive();   // file changes and the agent's work, to the open pages (src/live.js)
   const server = createServer(async (req, res) => {
     const url = new URL(req.url, 'http://x'), path = decodeURIComponent(url.pathname);
     if (access && await access.guard(req, res, path, readBody)) return;   // the login, when served on a domain
@@ -117,6 +119,13 @@ export function startEditor(target, port = 4173, { domain, password = process.en
       try { const { file } = JSON.parse(await readBody(req)), slug = register(file); remember(projects.get(slug).file); return json(res, { url: `/p/${slug}/` }); }
       catch (e) { return res.writeHead(400).end(e.message); }
     }
+    if (req.method === 'POST' && path === '/working') {   // body: { file, notes, scenes, text } or { file, done }, from motlab working
+      try {
+        const { file, notes = [], scenes = [], text = '', done } = JSON.parse(await readBody(req)), p = projects.get(register(file));
+        const pages = live.setWork(p.root, done ? null : { project: basename(projectPaths(file).file), notes, scenes, text: String(text).slice(0, 200) });
+        return json(res, { pages });
+      } catch (e) { return res.writeHead(400).end(e.message); }
+    }
     if (req.method === 'POST' && path === '/export/cancel') {   // stops the running export; its /export response then ends with CANCELLED
       if (exporting) exporting.abort();
       return res.writeHead(204).end();
@@ -135,6 +144,7 @@ export function startEditor(target, port = 4173, { domain, password = process.en
     const version = f => all.some(v => v.file === f) ? f : basename(p.file);
 
     if (sub === '/versions' && req.method === 'GET') return json(res, all);
+    if (sub === '/__events' && req.method === 'GET') return live.subscribe(root, req, res);   // live updates for the page
     if (sub === '/versions' && req.method === 'POST') {   // body: { from, name }; a copy of `from` as project-<name>.json
       try {
         const { from, name } = JSON.parse(await readBody(req)), slug = String(name || '').toLowerCase().trim().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');

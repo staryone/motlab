@@ -59,6 +59,13 @@
   #sel { padding: 12px 20px 14px; }
   #sel b { display: block; font-weight: 500; }
   #sel small { display: block; font-size: 12px; color: var(--muted); }
+  /* the tabs that open the panel as a sheet on a phone held upright: an icon over its label, the open one on a grey pill */
+  #tabs, #scrim { display: none; }
+  .tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 0; border-radius: 8px; font-size: 12px; color: var(--muted); }
+  .tab .ti { display: grid; place-items: center; width: 48px; height: 26px; border-radius: 13px; transition: background var(--fast) var(--ease); }
+  .tab .tl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tab[aria-expanded="true"] { color: var(--text); font-weight: 500; }
+  .tab[aria-expanded="true"] .ti { background: var(--sel); }
 
   /* canvas pane */
   main { grid-area: 2 / 2; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
@@ -85,7 +92,7 @@
   #canvas:fullscreen #stage { position: absolute; inset: 0; padding: 0; }
   #canvas:fullscreen #dock { position: absolute; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 3; display: flex; flex-direction: column; padding: 6px 6px 4px;
     background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.12); transition: opacity var(--slide) var(--ease); }
-  #canvas:fullscreen :is(#lane, #rangeBtn, #zout, #zin, #laneBtn, #rangeBar, #pillFull, #fullBar) { display: none; }
+  #canvas:fullscreen :is(#lane, #rangeBtn, #zout, #zin, #laneBtn, #rangeBar, #drawBar, #pillFull, #fullBar) { display: none; }
   #canvas:fullscreen #scrubWrap { display: block; position: relative; }
   #scrub { display: block; width: 100%; height: 34px; cursor: pointer; touch-action: none; }
   #scrubTip { position: absolute; bottom: calc(100% + 2px); translate: -50% 0; padding: 4px 6px; border-radius: 6px; background: var(--text); color: #fff; font-size: 12px; white-space: nowrap; pointer-events: none; }
@@ -99,6 +106,11 @@
   #canvas:fullscreen #fullExit { grid-area: 1 / 5; justify-self: end; display: flex; }
   #canvas.idle:fullscreen, #canvas.idle:fullscreen #view { cursor: none; }
   #canvas.bar-off:fullscreen #dock { opacity: 0; pointer-events: none; }
+  /* on a touch screen the hidden bar leaves a short line at the bottom edge, like a phone's home bar; a tap on it brings
+     the bar back. White with a dark edge, so it shows on a light frame and on a dark one */
+  #barHint { display: none; }
+  @media (pointer: coarse) { #canvas.bar-off:fullscreen #barHint { display: grid; place-items: center; position: absolute; left: 50%; bottom: env(safe-area-inset-bottom, 0px); translate: -50% 0; z-index: 3; width: 96px; height: 44px; } }
+  #barHint::before { content: ""; width: 44px; height: 5px; border-radius: 3px; background: rgba(255,255,255,.9); box-shadow: 0 0 0 1px rgba(0,0,0,.5), 0 1px 4px rgba(0,0,0,.3); }   /* the edge is #808080 on a white frame, 3.9:1 */
   /* notes on the preview, after the Claude canvas selection box: a 1 px blue line and a light blue fill, square
      corners, and the note's number in a small blue tag above the top left corner */
   #marks { position: absolute; inset: 0; pointer-events: none; }
@@ -134,7 +146,9 @@
   #doneBtn[aria-expanded="true"] svg { rotate: 180deg; }
   .row.done .ic.n, .row.done .name > span { color: var(--muted); }
   .row.done .name > span { text-decoration: line-through; text-decoration-color: rgba(0,0,0,.3); }
-  #popState { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+  .pop .end { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+  .pop .head .icon { width: 24px; height: 24px; margin: -4px -2px; }
+  #popState { display: flex; align-items: center; gap: 4px; }
   #popState svg { width: 14px; height: 14px; }
   .pop .foot2 span { flex: none; display: flex; gap: 6px; }
   #popDone { display: flex; align-items: center; gap: 6px; height: 30px; padding: 0 10px; white-space: nowrap; border-radius: 8px; font-size: 13px; font-weight: 500; color: var(--text); }
@@ -144,6 +158,9 @@
      with a faint halo in the other colour for edges between the two */
   #view { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23fff' stroke-opacity='.4' stroke-width='3.5'/%3E%3Cpath d='M12 3v18M3 12h18' stroke='%231f1f1e' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair; }
   #view.on-dark { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23000' stroke-opacity='.4' stroke-width='3.5'/%3E%3Cpath d='M12 3v18M3 12h18' stroke='%23fff' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair; }
+  /* with the pencil, the cursor is a small dot in the same two tones */
+  #view.pen { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='3' fill='%231f1f1e' stroke='%23fff' stroke-opacity='.5' stroke-width='2'/%3E%3C/svg%3E") 12 12, crosshair; }
+  #view.pen.on-dark { cursor: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='3' fill='%23fff' stroke='%23000' stroke-opacity='.4' stroke-width='2'/%3E%3C/svg%3E") 12 12, crosshair; }
   #view { max-width: 100%; max-height: 100%; touch-action: none; background: #fff; border-radius: 3px; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 2px 10px rgba(0,0,0,.06); }
   #canvas:fullscreen #view { border-radius: 0; box-shadow: none; }
   #bar { flex: none; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; padding: 0 12px; margin-bottom: 10px; }
@@ -173,21 +190,25 @@
   #time { padding: 0 10px 0 12px; font-size: 13px; }
   #lane { max-height: 35vh; margin: 0 12px 12px; background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 1px 2px rgba(0,0,0,.04); overflow: auto; }
   #laneIn { position: relative; }
-  #tl { position: sticky; left: 0; display: block; width: 100%; height: 144px; cursor: pointer; }
+  #tl { position: sticky; left: 0; display: block; width: 100%; height: 144px; cursor: pointer; touch-action: pan-y; }   /* a finger moving sideways scrubs instead of scrolling */
   #tl:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; border-radius: 12px; }
   .mark { position: absolute; top: 4px; bottom: 6px; left: 20px; width: 2px; margin-left: -1px; background: var(--text); pointer-events: none; }
   .mark::before { content: ""; position: absolute; top: 0; left: -4px; width: 10px; height: 12px; border-radius: 3px 3px 5px 5px; background: inherit; }
   #pick { background: var(--blue); width: 1px; margin-left: 0; }
   #pick::before { display: none; }
-  .toast { position: absolute; top: 56px; left: 50%; transform: translate(-50%, 0); transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease), display var(--fast) allow-discrete; z-index: 5; max-width: calc(100% - 24px); padding: 8px 12px; border-radius: 8px; background: var(--text); color: #fff; font-size: 13px; }
+  /* messages sit in one column at the top of the canvas, in the row of the full-screen pill and above the frame (the
+     stage keeps 60 px free there); the agent's work first, then a short message under it. On a phone they move, see below */
+  #notices { position: absolute; top: 12px; left: 50%; translate: -50% 0; z-index: 5; display: flex; flex-direction: column; align-items: center; gap: 6px; width: max-content; max-width: calc(100% - 136px); pointer-events: none; }
+  #notices > * { max-width: 100%; pointer-events: auto; }
+  .toast { transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease), display var(--fast) allow-discrete; padding: 8px 12px; border-radius: 8px; background: var(--text); color: #fff; font-size: 13px; text-align: center; box-shadow: 0 4px 14px rgba(0,0,0,.18); }
 
   /* menus */
   .menu { position: absolute; top: calc(100% + 6px); z-index: 10; max-height: calc(100dvh - 56px); overflow-y: auto; min-width: 220px; padding: 6px; background: #fff; border: 1px solid var(--edge); border-radius: 12px; box-shadow: 0 8px 28px rgba(0,0,0,.12); font-weight: 400; }
   .menu { transform-origin: top right; transition: opacity var(--fast) var(--ease), transform var(--fast) var(--ease), display var(--fast) allow-discrete; }
   .menu[hidden], .toast[hidden] { display: none; opacity: 0; }
   .menu[hidden] { transform: translateY(-4px) scale(.98); }
-  .toast[hidden] { transform: translate(-50%, -4px); }
-  @starting-style { .menu:not([hidden]) { opacity: 0; transform: translateY(-4px) scale(.98); } .toast:not([hidden]) { opacity: 0; transform: translate(-50%, -4px); } }
+  .toast[hidden] { transform: translateY(-4px); }
+  @starting-style { .menu:not([hidden]) { opacity: 0; transform: translateY(-4px) scale(.98); } .toast:not([hidden]) { opacity: 0; transform: translateY(-4px); } }
   .menu.r { right: 0; }
   .menu.c { left: 50%; translate: -50% 0; transform-origin: top center; }
   #projMenu { width: 300px; max-width: calc(100vw - 24px); }
@@ -224,9 +245,46 @@
   #xs .wrap { white-space: normal; }
   #xs a { color: var(--blue); text-decoration: none; font-weight: 500; }
   #xs a:hover { text-decoration: underline; }
-  .spin { width: 14px; height: 14px; border: 1.5px solid var(--edge); border-top-color: var(--text); border-radius: 50%; animation: spin .8s linear infinite; }
+  .spin { display: inline-block; flex: none; width: 14px; height: 14px; border: 1.5px solid var(--edge); border-top-color: var(--text); border-radius: 50%; animation: spin .8s linear infinite; }
   @keyframes spin { to { transform: rotate(360deg); } }
   #frames { position: fixed; left: -99999px; top: 0; visibility: hidden; }
+
+  /* the note tools, a pill next to the play toolbar: box or point (M) and the pencil (P); the one in use has the
+     selected-row grey */
+  #drawBar { height: 40px; padding: 0 6px; border-radius: 12px; }
+  #drawBar .lbl { display: none; }
+  #drawBar .on { background: var(--sel); }
+  #drawBar .on:hover { background: var(--press); }
+  /* pencil notes: blue strokes with a light halo over the preview, so they show on dark, light and blue frames; the
+     open one has an outline around its drawing */
+  #marks .ink { position: absolute; overflow: visible; }
+  .ink path { fill: none; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+  .ink .halo { stroke: #fff; stroke-opacity: .7; stroke-width: 4px; }
+  .ink .line { stroke: var(--blue); stroke-width: 2px; }
+  .mk.stroke { border-color: transparent; background: none; }
+  .mk.stroke.on { border-color: var(--blue); background: rgba(44,111,224,.06); }
+  /* a scene the agent works on is not shown: a blank pane takes the frame's place, in the viewer's own empty-state style
+     (white like the preview's background, Plus Jakarta Sans, no chip or shadow), with a small loader drawn from the
+     timeline above the words: four scene tiles and the dark playhead with its head sweeping across them, filling each tile
+     as it passes, every 1.8 s. It is the only moving sign of the agent's work; the scene list, the timeline and the notes
+     name it in still text. It stays while playing, and takes the pointer, so no note is drawn on a version about to
+     change. A scene that did not load gets the pane with the alert icon and the reason in muted text instead */
+  .workpane { position: absolute; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px; background: #fff; border-radius: 3px; color: var(--text); font-size: 14px; font-weight: 500; line-height: 1.4; text-align: center; pointer-events: auto; cursor: default; }
+  .workpane p { max-width: 40ch; }
+  .workpane.err { gap: 8px; color: var(--muted); font-size: 13px; font-weight: 400; }
+  .workpane.err svg { width: 18px; height: 18px; }
+  .loader { position: relative; display: flex; gap: 4px; padding-top: 6px; }
+  .loader i { width: 22px; height: 14px; border-radius: 4px; background: var(--line); animation: 1.8s linear var(--at, 0s) infinite; }
+  .loader i:nth-child(1) { animation-name: fill1; } .loader i:nth-child(2) { animation-name: fill2; } .loader i:nth-child(3) { animation-name: fill3; } .loader i:nth-child(4) { animation-name: fill4; }
+  .loader b { position: absolute; top: 0; bottom: -3px; left: 0; width: 2px; margin-left: -1px; background: var(--text); animation: sweep 1.8s linear var(--at, 0s) infinite; }
+  .loader b::before { content: ""; position: absolute; top: 0; left: -3px; width: 8px; height: 9px; border-radius: 2px 2px 4px 4px; background: inherit; }
+  /* the playhead crosses in 85% of the loop and rests; a tile fills when the playhead passes its middle */
+  @keyframes sweep { 0% { left: 0; } 85%, 100% { left: 100%; } }
+  @keyframes fill1 { 0%, 9.3% { background: var(--line); } 9.4%, 100% { background: #c9c9c7; } }
+  @keyframes fill2 { 0%, 31.4% { background: var(--line); } 31.5%, 100% { background: #c9c9c7; } }
+  @keyframes fill3 { 0%, 53.5% { background: var(--line); } 53.6%, 100% { background: #c9c9c7; } }
+  @keyframes fill4 { 0%, 75.6% { background: var(--line); } 75.7%, 100% { background: #c9c9c7; } }
+  .row .d svg { display: inline-block; vertical-align: -3px; }
 
   /* pressed state, after hover so it wins */
   .icon, .btn, .pick, .pill button, .row, .menu .opt, #go, #stop, #popDel, #popDone, #popOk { transition: background-color var(--fast) var(--ease), opacity var(--fast) var(--ease), transform var(--fast) var(--ease); }
@@ -239,6 +297,7 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before { transition-duration: 0s !important; transition-delay: 0s !important; }
     .spin { animation: none; border-color: var(--text); }
+    .loader i, .loader b { animation: none; }
   }
   /* short windows, as a phone held sideways: the panel floats over the canvas instead of squeezing it, and starts
      closed; the preview takes the room the full-screen pill and the timeline leave */
@@ -249,36 +308,48 @@
     body.closed aside { opacity: 1; transform: translateX(-100%); transition: visibility 0s var(--slide), transform var(--slide) var(--ease); }
     #stage { min-height: 0; padding: 8px 64px 6px; }
     #lane { max-height: 28vh; }
+    /* a message at the bottom of the screen, so it does not cover the small preview */
+    #notices .toast { position: fixed; left: 50%; translate: -50% 0; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); width: max-content; max-width: calc(100vw - 24px); }
   }
-  /* phones held upright: one column that scrolls, in the order a review on a phone needs, as in Frame.io's app: the
-     preview at the top across the width, the play toolbar with full screen in it, the timeline, then the notes, the
-     scenes and the audio. The header keeps the project and its version, and Export shows its icon only. Menus open
-     across the width under the header, and the open note's card sits at the bottom of what is visible, above the
-     on-screen keyboard */
+  /* phones held upright: the page fits the screen, so the preview stays in view, as in Frame.io's app: the preview at
+     the top across the width, the play toolbar with full screen in it, the timeline, and tabs along the bottom (#tabs)
+     that open the notes, the scenes, the audio or the selection in a sheet above them, one at a time. The open tab, the
+     dimmed area around the sheet, a row in it and Escape close it. The header keeps the project and its version, and
+     Export shows its icon only. Menus open across the width under the header, and the open note's card sits above the
+     tabs, or above the on-screen keyboard */
   @media (max-width: 719px) {
-    html, body { height: auto; }
-    body { display: flex; flex-direction: column; min-height: 100%; }
-    header { position: sticky; top: 0; z-index: 25; min-height: 44px; background: #fff; }
-    main { order: 1; }
-    aside, body.closed aside { order: 2; visibility: visible; opacity: 1; overflow: visible; box-shadow: none; border-top: .5px solid #ececeb; }
+    body { --nav: calc(56px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+    header { flex: none; min-height: 44px; }
+    main { order: 1; flex: 1; }
+    #tabs { order: 2; flex: none; position: relative; z-index: 23; display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; height: var(--nav); padding: 4px 6px env(safe-area-inset-bottom, 0px); background: #fff; border-top: .5px solid #ececeb; }
+    aside { position: fixed; left: 0; right: 0; bottom: var(--nav); z-index: 22; max-height: min(55dvh, calc(100dvh - var(--nav) - 184px)); border-radius: 14px 14px 0 0; box-shadow: 0 0 0 1px var(--edge), 0 -8px 28px rgba(0,0,0,.12); transition: visibility 0s, translate var(--slide) var(--ease); }
+    body.closed aside { opacity: 1; translate: 0 calc(100% + var(--nav)); transition: visibility 0s var(--slide), translate var(--slide) var(--ease); }
     aside > * { width: auto; }
-    #lists { display: flex; flex-direction: column; overflow: visible; }
-    #lists > h2:nth-of-type(3), #notes { order: -1; }   /* the notes first */
+    #lists { padding-top: 0; }
+    #lists > *, #sel { display: none; }
+    aside[data-tab="scenes"] :is(#lists > h2:nth-of-type(1), #scenes), aside[data-tab="audio"] :is(#lists > h2:nth-of-type(2), #audio),
+    aside[data-tab="notes"] :is(#lists > h2:nth-of-type(3), #notes), aside[data-tab="sel"] #sel { display: block; }
+    aside[data-tab="sel"] #lists { display: none; }
+    body:not(.closed) #scrim { display: block; position: fixed; left: 0; right: 0; top: 0; bottom: var(--nav); z-index: 21; background: rgba(31,31,30,.12); }
     #panel, #pillFull, #crumb, .sep:has(+ #crumb) { display: none; }
-    #canvas { overflow: visible; }
-    #stage { min-height: 0; padding: 8px 8px 0; }
-    #view { max-height: 62vh; }
-    #bar { margin: 10px 0; }
+    #stage { min-height: 120px; padding: 8px 8px 0; }
+    #bar { flex-direction: column; align-items: stretch; gap: 6px; margin: 10px 0; padding: 0 8px; }
+    #tools { justify-content: space-between; }
+    #drawBar .sq { flex: 1; width: auto; gap: 6px; font-size: 13px; }
+    #drawBar .lbl { display: inline; }
     #fullBar { display: flex; }
     #exportLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     #export { padding: 0 8px; }
     .menu, #projMenu, #verMenu, #exportMenu { position: fixed; top: 50px; left: 8px; right: 8px; width: auto; min-width: 0; max-width: none; translate: none; transform-origin: top center; }
     .pop { width: auto; max-width: none; }
+    #notices { position: static; translate: none; width: auto; max-width: none; align-items: stretch; }
+    .workpane { gap: 10px; font-size: 13px; }
+    #notices .toast { position: fixed; left: 12px; right: 12px; bottom: calc(var(--nav) + 12px); z-index: 30; }
   }
   @media (pointer: coarse) {
     .icon, .btn, .pick, .pill button, .row, .menu .opt, #go, #stop, #verGo, #verName, #popDel, #popDone, #popOk { min-height: 44px; }
     .icon, .pill .sq { min-width: 44px; }
-    .pill { height: auto; }
+    .pill, #tools, #rangeBar, #drawBar { height: auto; padding-block: 2px; }   /* the 44 px buttons stay inside their pill */
   }
   /* the smallest phones (360 px): the toolbar's buttons give up 6 px each so it fits, still 38 by 44 px */
   @media (max-width: 379px) { #tools .sq { min-width: 38px; } #tools { gap: 0; } #time { padding: 0 6px; } }
@@ -311,7 +382,7 @@
       </div>
   </div>
 </header>
-<aside>
+<aside data-tab="notes" id="side">
   <nav id="lists" data-t="aria-label=lists">
     <h2 data-t="scenes"></h2><ol id="scenes"></ol>
     <h2>Audio</h2><ul id="audio"></ul>
@@ -319,16 +390,24 @@
   </nav>
   <section id="sel" aria-live="polite" data-t="aria-label=selection"><b id="selText" class="muted" data-t="nothing"></b><small id="selSub" data-t="how"></small><small id="selRange" class="num" hidden></small><small data-t="saved"></small></section>
 </aside>
+<div id="scrim"></div>
+<div id="tabs" role="group" data-t="aria-label=panels">
+  <button class="tab" data-tab="notes" aria-expanded="false" aria-controls="side"><span class="ti" data-i="note"></span><span class="tl"><span data-t="notes"></span> <span id="tabCount" class="num"></span></span></button>
+  <button class="tab" data-tab="scenes" aria-expanded="false" aria-controls="side"><span class="ti" data-i="tiles"></span><span class="tl" data-t="scenes"></span></button>
+  <button class="tab" data-tab="audio" aria-expanded="false" aria-controls="side"><span class="ti" data-i="wave"></span><span class="tl">Audio</span></button>
+  <button class="tab" data-tab="sel" aria-expanded="false" aria-controls="side"><span class="ti" data-i="aim"></span><span class="tl" data-t="selection"></span></button>
+</div>
 <main>
   <div id="canvas">
     <div class="pill" id="pillFull"><button class="sq" id="full" data-i="full" data-label="full" data-key="F"></button></div>
-    <div class="toast" id="note" role="status" hidden></div>
+    <div id="notices"><div class="toast" id="note" role="status" hidden></div></div><div class="sr" id="workSr" role="status"></div>
     <div id="stage"><span id="msg" data-t="loadingProject"></span><canvas id="view" hidden></canvas><div id="marks"></div>
       <div class="pop" id="pop" role="dialog" aria-labelledby="popWhere" hidden>
-        <div class="head"><span class="tag" id="popN"></span><span id="popWhere" class="num"></span><span id="popState" hidden></span></div>
+        <div class="head"><span class="tag" id="popN"></span><span id="popWhere" class="num"></span><span class="end"><span id="popState" hidden></span><button class="icon" id="popUndo" data-i="undo2" data-label="undoStroke" data-key="Ctrl+Z" hidden></button></span></div>
         <textarea id="popText" rows="2" data-t="placeholder=noteHint aria-label=note"></textarea>
         <div class="foot2"><button id="popDel" data-t="del"></button><span><button id="popDone"></button><button id="popOk" data-t="save"></button></span></div>
       </div></div>
+    <button id="barHint" data-label="showControls"></button>
     <div id="dock">
     <div id="scrubWrap"><canvas id="scrub" aria-hidden="true"></canvas><div id="scrubTip" hidden></div></div>
     <div id="bar">
@@ -343,6 +422,10 @@
       <button class="sq" id="laneBtn" data-i="lane" data-label="hideTimeline" aria-expanded="true" aria-controls="lane"></button>
       <button class="sq" id="fullBar" data-i="full" data-label="full" data-key="F"></button>
       <button class="sq" id="fullExit" data-i="unfull" data-label="fullExit" data-key="F"></button>
+    </div>
+    <div class="pill" id="drawBar" role="group" data-t="aria-label=drawTools">
+      <button class="sq on" id="toolMark" data-i="mark" data-label="toolMark" data-key="M" aria-pressed="true"><span class="lbl" data-t="toolMark" aria-hidden="true"></span></button>
+      <button class="sq" id="toolPen" data-i="pen" data-label="toolPen" data-key="P" aria-pressed="false"><span class="lbl" data-t="toolPen" aria-hidden="true"></span></button>
     </div>
     <div class="pill" id="rangeBar" role="group" data-t="aria-label=range" hidden>
       <span class="ri" data-i="range"></span><span id="rangeText" class="num"></span>
@@ -394,15 +477,17 @@ const TEXT = {
   resolution: ['Resolusi', 'Resolution'],
   cancel: ['Batalkan', 'Cancel'],
   lists: ['Scene dan audio', 'Scenes and audio'],
+  panels: ['Panel', 'Panels'],
   scenes: ['Scene', 'Scenes'],
   notes: ['Catatan', 'Notes'],
   note: ['Catatan', 'Note'],
   selection: ['Seleksi', 'Selection'],
   nothing: ['Belum ada pilihan', 'Nothing selected'],
-  how: ['Klik scene, audio, atau timeline. Tarik kotak atau klik di preview untuk memberi catatan.', 'Click a scene, an audio file or the timeline. Drag a box or click on the preview to leave a note.'],
+  how: ['Klik scene, audio, atau timeline. Tarik kotak, klik, atau coret dengan pensil (P) di preview untuk memberi catatan.', 'Click a scene, an audio file or the timeline. Drag a box, click, or draw with the pencil (P) on the preview to leave a note.'],
   saved: ['Tersimpan di selection.json', 'Saved in selection.json'],
   full: ['Layar penuh', 'Full screen'],
   fullExit: ['Keluar dari layar penuh', 'Exit full screen'],
+  showControls: ['Tampilkan kontrol', 'Show the controls'],
   fullNone: ['Layar penuh tidak tersedia di browser ini', 'Full screen is not available in this browser'],
   fullRefused: ['Layar penuh ditolak browser', 'The browser refused full screen'],
   fullStuck: ['Layar penuh tidak terbuka. Coba di Chrome biasa.', 'Full screen did not open. Try it in regular Chrome.'],
@@ -450,7 +535,28 @@ const TEXT = {
   markDone: ['Tandai selesai', 'Mark done'],
   empty: ['Tanpa catatan', 'Empty note'],
   noteLabel: [(n, done, text, where) => `Catatan ${n}${done ? ', selesai' : ''}: ${text || 'tanpa catatan'}, ${where}`, (n, done, text, where) => `Note ${n}${done ? ', done' : ''}: ${text || 'empty note'}, ${where}`],
-  noNotes: ['Belum ada catatan. Tarik kotak atau klik di preview.', 'No notes yet. Drag a box or click on the preview.'],
+  noNotes: ['Belum ada catatan. Tarik kotak, klik, atau coret di preview.', 'No notes yet. Drag a box, click, or draw on the preview.'],
+  drawTools: ['Alat catatan', 'Note tools'],
+  toolMark: ['Kotak atau titik', 'Box or point'],
+  toolPen: ['Pensil', 'Pencil'],
+  penHow: ['Coret di preview. Satu catatan bisa berisi beberapa coretan.', 'Draw on the preview. One note can hold several strokes.'],
+  undoStroke: ['Urungkan coretan', 'Undo stroke'],
+  and: ['dan', 'and'],
+  working: [(list, n, text) => `Agent sedang memperbaiki scene ${list}${text ? `: ${text}` : ''}`, (list, n, text) => `The agent is working on scene${n > 1 ? 's' : ''} ${list}${text ? `: ${text}` : ''}`],
+  workingAny: [text => `Agent sedang bekerja${text ? `: ${text}` : ''}`, text => `The agent is working${text ? `: ${text}` : ''}`],
+  sceneWorking: ['diperbaiki', 'fixing'],
+  agentWorking: ['Agent sedang bekerja', 'The agent is working'],
+  sceneReloading: ['memuat ulang', 'loading again'],
+  sceneError: ['gagal dimuat', 'did not load'],
+  noteWorking: ['Dikerjakan', 'In progress'],
+  tlWorking: ['Diperbaiki', 'Fixing'],
+  tlLoading: ['Memuat', 'Loading'],
+  tlError: ['Error', 'Error'],
+  updated: [(list, n) => `Scene ${list} diperbarui`, (list, n) => `Scene${n > 1 ? 's' : ''} ${list} updated`],
+  reloadError: [(n, e) => `Scene ${n} gagal dimuat: ${e}.`, (n, e) => `Scene ${n} did not load: ${e}.`],
+  noRenderAt: ['halaman tidak memasang renderAt dan TOTAL, mungkin ada error (lihat console browser)', 'the page set no renderAt and TOTAL, so it may have an error (see the browser console)'],
+  projectChanged: ['Project berubah. Memuat ulang…', 'The project changed. Reloading…'],
+  projectChangedLater: ['Project berubah. Halaman dimuat ulang setelah catatan atau menu Export ditutup.', 'The project changed. The page reloads once the note or the Export menu is closed.'],
   allDone: ['Semua catatan sudah selesai.', 'All notes are done.'],
   clearDone: ['Hapus semua yang selesai', 'Delete all done notes'],
   clearSure: [n => `Klik lagi untuk menghapus ${n} catatan`, n => `Click again to delete ${n} note${n > 1 ? 's' : ''}`],
@@ -495,12 +601,18 @@ const ICON = {
   play: svg('<path d="M5 3.5v9L12.5 8z"/>', true),
   pause: svg('<path d="M5 3.5v9M11 3.5v9" stroke-width="2.5"/>'),
   wave: svg('<path d="M3 6.5v3M5.5 4v8M8 5.5v5M10.5 3v10M13 6.5v3"/>'),
+  tiles: svg('<rect x="2" y="4" width="5" height="8" rx="1.2"/><rect x="9" y="4" width="5" height="8" rx="1.2"/>'),   // scenes, as the tiles of the timeline
+  aim: svg('<circle cx="8" cy="8" r="5"/><path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3"/>'),   // the selection
   range: svg('<path d="M5 3H3v10h2M11 3h2v10h-2M6.5 8h3"/>'),
   note: svg('<path d="M3 3.5h10v7H8.5L5.5 13v-2.5H3z"/>'),
   x: svg('<path d="m4.5 4.5 7 7m0-7-7 7"/>'),
   arrow: svg('<path d="M3.5 8h9M8.5 4l4 4-4 4"/>'),   // Lucide arrow-right (ISC), in the 16 px box
   check: svg('<path d="M13 4.5 6.5 11 3 7.5"/>'),   // Lucide check (ISC), in the 16 px box
   undo: svg('<path d="M3 3v4h4"/><path d="M3.5 7A5 5 0 1 1 5 11.5"/>'),   // Lucide rotate-ccw (ISC), in the 16 px box
+  undo2: svg('<path d="M6 9.5 2.5 6 6 2.5"/><path d="M2.5 6h7a3.5 3.5 0 0 1 0 7H7"/>'),   // Lucide undo-2 (ISC), in the 16 px box
+  mark: svg('<path d="M13.5 7V4a1.5 1.5 0 0 0-1.5-1.5H4A1.5 1.5 0 0 0 2.5 4v8A1.5 1.5 0 0 0 4 13.5h3"/><path d="m8.5 8.5 5.5 2-2.4.9-.9 2.4z"/>'),   // Lucide square-mouse-pointer (ISC), in the 16 px box
+  pen: svg('<path d="M11.3 2.7a1.6 1.6 0 0 1 2.3 2.3l-8 8-3.1.9.9-3.1z"/><path d="m10 4 2.3 2.3"/>'),   // Lucide pencil (ISC), in the 16 px box
+  alert: svg('<circle cx="8" cy="8" r="5.5"/><path d="M8 5.3v3.2M8 10.7h.01"/>'),   // Lucide circle-alert (ISC), in the 16 px box
   zout: svg('<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3M5 7h4"/>'),
   zin: svg('<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3M5 7h4M7 5v4"/>'),
   lane: svg('<rect x="2" y="3" width="12" height="10" rx="2"/><path d="M2 9.5h12"/>'),
@@ -510,7 +622,7 @@ const label = (b, text, key = b.dataset.key) => {   // the accessible name and t
   b.setAttribute('aria-label', text); b.dataset.tip = text;
   if (key) { b.dataset.key = key; b.setAttribute('aria-keyshortcuts', key === '−' ? '-' : key); }
 };
-document.querySelectorAll('[data-i]').forEach(e => e.insertAdjacentHTML(e.id === 'export' || e.id === 'rangeNote' ? 'afterbegin' : 'beforeend', ICON[e.dataset.i]));
+document.querySelectorAll('[data-i]').forEach(e => e.insertAdjacentHTML(['export', 'rangeNote', 'toolMark', 'toolPen'].includes(e.id) ? 'afterbegin' : 'beforeend', ICON[e.dataset.i]));
 document.querySelectorAll('[data-label]').forEach(b => label(b, L(b.dataset.label)));
 // Tooltips: shown after 0.5 s of hover (at once while moving between controls, or on keyboard focus), above the control
 // or below it near the top of the window. The timeline's list of keys waits 1 s and goes away when the pointer moves on,
@@ -553,11 +665,16 @@ const fmt = t => `${String(Math.floor(t / 60)).padStart(2, '0')}:${(t % 60).toFi
 const name = f => f.split('/').pop().replace(/\.\w+$/, '');
 const hint = text => Object.assign(new Error(text), { hint: true });   // a message that already says what to do next
 let noteTimer;
-const note = text => { $('note').textContent = text; $('note').hidden = false; clearTimeout(noteTimer); noteTimer = setTimeout(() => $('note').hidden = true, 5000); };
+const note = text => {   // on a phone the message is a bar at the bottom of the screen, above an open note's card
+    const el = $('note'), pop = $('pop');
+    el.textContent = text; el.hidden = false; el.style.bottom = '';
+    if (matchMedia('(max-width: 719px)').matches && !pop.hidden) el.style.bottom = innerHeight - pop.getBoundingClientRect().top + 8 + 'px';
+    clearTimeout(noteTimer); noteTimer = setTimeout(() => el.hidden = true, 5000);
+  };
 
 // ---- menus, the side panel and full screen work before the project has loaded
 const menus = [[$('export'), $('exportMenu')], [$('proj'), $('projMenu')], [$('ver'), $('verMenu')]];
-const setMenu = (btn, menu, open) => { menu.hidden = !open; btn.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); if (open) btn.onopen?.(); };
+const setMenu = (btn, menu, open) => { const was = !menu.hidden; menu.hidden = !open; btn.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); if (open) btn.onopen?.(); else if (was) btn.onclose?.(); };
 for (const [btn, menu] of menus) btn.onclick = () => setMenu(btn, menu, menu.hidden);
 // The project menu lists the motlab projects the server finds, read again each time it opens, so a new one shows up.
 $('proj').onopen = async () => {
@@ -604,7 +721,19 @@ addEventListener('keydown', e => {
 const setPanel = open => {
   document.body.classList.toggle('closed', !open); $('panel').setAttribute('aria-expanded', open);
   label($('panel'), L(open ? 'hidePanel' : 'showPanel'));
+  for (const b of $('tabs').children) b.setAttribute('aria-expanded', open && b.dataset.tab === $('side').dataset.tab);
 };
+// On a phone held upright the panel is a sheet that the tabs open, one list at a time (see the CSS). The open tab, the
+// dimmed area, a row in the sheet (it has done its job: a scene, a clip or a note is picked) and Escape close it.
+const upright = matchMedia('(max-width: 719px)');
+const setSheet = tab => { if (tab) $('side').dataset.tab = tab; setPanel(!!tab); };
+for (const b of $('tabs').children) b.onclick = () => setSheet(b.getAttribute('aria-expanded') === 'true' ? null : b.dataset.tab);
+$('scrim').onclick = () => setSheet(null);
+$('lists').addEventListener('click', e => { if (upright.matches && e.target.closest('.row') && !e.target.closest('#doneBtn, #clearDone')) setSheet(null); });
+addEventListener('keydown', e => {
+  if (e.key !== 'Escape' || !upright.matches || document.body.classList.contains('closed') || e.defaultPrevented) return;
+  e.preventDefault(); const b = $('tabs').querySelector('[aria-expanded="true"]'); setSheet(null); b?.focus();
+});
 $('panel').onclick = () => setPanel(document.body.classList.contains('closed'));
 const narrow = matchMedia('(max-width: 719px), (max-height: 499px)');   // a narrow or short window hides the panel, also when it becomes one later
 if (narrow.matches) setPanel(false);
@@ -639,6 +768,12 @@ try {
   // Every scene is the real page in a hidden iframe, so the preview draws exactly what the render draws. Only a few
   // pages stay loaded (the one on screen and its neighbours); the rest are unloaded, so a long project stays light.
   const KEEP = 3, live = [];   // loaded scenes, least recently used first
+  // A file of the project by its path from the project folder, as the server's change events name it.
+  const base = new URL('.', location.href).pathname;
+  const rel = url => { const u = new URL(url, location.href); return u.origin === location.origin && u.pathname.startsWith(base) ? decodeURIComponent(u.pathname.slice(base.length)) : null; };
+  function usedBy(s) {   // the files a scene's page loaded, from its resource timing, so a change to one of them loads it again
+    try { for (const e of s.win.performance.getEntriesByType('resource')) { const f = rel(e.name); if (f) s.deps.add(f); } } catch {}
+  }
   let shown = null, rendering = [];
   // A scene is a path, or { file, transition } where the transition turns the scene before into this one. Its length
   // in frames (n) follows the renderer's rule in src/project.js.
@@ -650,6 +785,7 @@ try {
   const scenes = await Promise.all(project.scenes.map(async (x, i) => {
     const s = typeof x === 'string' ? { file: x } : { file: x.file, transition: x.transition };
     if (!s.file) throw hint(L('noFile', i + 1));
+    s.deps = new Set([rel(s.file)]);
     if (s.transition) {
       if (!i) throw hint(L('firstTransition'));
       try {
@@ -668,38 +804,65 @@ try {
     }
     return s;
   }));
-  function unload(s) { s.frame.remove(); s.frame = s.win = s.canvas = s.warm = null; live.splice(live.indexOf(s), 1); }
+  function unload(s) { usedBy(s); s.frame.remove(); s.frame = s.win = s.canvas = s.warm = null; live.splice(live.indexOf(s), 1); }
+  // A scene's page in a new hidden iframe, once its `ready` has resolved, or an error that says what is missing. `limit`
+  // (ms) bounds the wait for `ready`, which a half-written page may never resolve.
+  async function openPage(file, limit) {
+    const frame = document.createElement('iframe'); frame.src = `${file}?scale=1`; $('frames').append(frame);
+    try {
+      await new Promise(r => frame.onload = r);
+      const win = frame.contentWindow, canvas = win.document.getElementById('c');
+      if (!canvas) throw hint(L('noCanvas', file));
+      await (limit ? Promise.race([win.ready, new Promise((ok, no) => setTimeout(() => no(new Error(`ready did not resolve within ${limit / 1000} s`)), limit))]) : win.ready);
+      if (typeof win.renderAt !== 'function' || !(win.TOTAL > 0)) throw new Error(L('noRenderAt'));
+      return { frame, win, canvas };
+    } catch (e) { frame.remove(); throw e; }
+  }
+  const trim = keep => { for (const old of live.filter(x => x !== keep && x !== shown && !rendering.includes(x)).slice(0, Math.max(0, live.length - KEEP))) unload(old); };
   function load(s) {
     if (s.win) { live.push(...live.splice(live.indexOf(s), 1)); return s; }
     return s.loading ??= (async () => {
-      const frame = document.createElement('iframe'); frame.src = `${s.file}?scale=1`; $('frames').append(frame);
-      await new Promise(r => frame.onload = r);
-      const win = frame.contentWindow, canvas = win.document.getElementById('c');
-      if (!canvas) { frame.remove(); throw hint(L('noCanvas', s.file)); }
-      await win.ready;
-      Object.assign(s, { frame, win, canvas }); live.push(s);
-      for (const old of live.filter(x => x !== s && x !== shown && !rendering.includes(x)).slice(0, Math.max(0, live.length - KEEP))) unload(old);
+      Object.assign(s, await openPage(s.file, 60000)); live.push(s); usedBy(s); trim(s);
       return s;
     })().finally(() => s.loading = null);
   }
 
   // One pass through the scenes for their length and a few thumbnails (one per 2 s, at most 12).
   const thumbAt = async (s, time) => { await s.win.renderAt(time); return createImageBitmap(s.canvas, { resizeHeight: VH * 2, resizeQuality: 'high' }); };
+  // A scene that does not load is kept as a broken one, BROKEN seconds long with a blank thumbnail, so the rest of the
+  // project opens: the preview shows why in its place, and the save that fixes it loads it as usual.
+  const BROKEN = 2, blank = await (async () => {
+    const c = new OffscreenCanvas(Math.round(VH * 2 * 16 / 9), VH * 2), x = c.getContext('2d');
+    x.fillStyle = '#f0f0ee'; x.fillRect(0, 0, c.width, c.height); return createImageBitmap(c);
+  })();
   for (const [i, s] of scenes.entries()) {
     $('msg').textContent = L('loadingScene', i + 1, scenes.length);
-    await load(s);
-    Object.assign(s, { dur: Math.round(s.win.TOTAL * fps) / fps, w: s.canvas.width, h: s.canvas.height, thumbs: [] });
-    const n = Math.min(12, Math.max(1, Math.round(s.dur / 2)));
-    for (let k = 0; k < n; k++) s.thumbs.push(await thumbAt(s, (k + 0.5) / n * s.dur));
+    try {
+      await load(s);
+      Object.assign(s, { dur: Math.round(s.win.TOTAL * fps) / fps, w: s.canvas.width, h: s.canvas.height, thumbs: [] });
+      const n = Math.min(12, Math.max(1, Math.round(s.dur / 2)));
+      for (let k = 0; k < n; k++) s.thumbs.push(await thumbAt(s, (k + 0.5) / n * s.dur));
+    } catch (e) {
+      if (s.win) unload(s);
+      Object.assign(s, { state: 'error', err: String(e.message).replace(/\.$/, ''), dur: BROKEN, thumbs: [blank] });
+    }
   }
+  const good = scenes.find(s => s.state !== 'error');
+  if (!good) throw hint(L('reloadError', 1, scenes[0].err));   // nothing to show at all
+  for (const s of scenes) if (s.state === 'error') Object.assign(s, { w: good.w, h: good.h });
   // With a shader transition, a scene starts that many frames before the one before it ends: the two overlap. A layer
   // transition is drawn over a hard cut, so the scenes do not overlap.
   let total = 0;
-  for (const [i, s] of scenes.entries()) {
-    const n = transitionHead(s.transition), out = transitionTail(scenes[i + 1]?.transition);   // the renderer's rule: a scene keeps at least one frame of its own
-    if (n + out >= Math.round(s.dur * fps)) throw hint(L('tooShort', i + 1, Math.round(s.dur * fps), n, out));
-    s.start = total - transitionOverlap(s.transition) / fps; total = s.start + s.dur;
+  function lay() {   // where each scene starts, again after a scene changed length; the first scene too short for its transitions, or null
+    let bad = null; total = 0;
+    for (const [i, s] of scenes.entries()) {
+      const n = transitionHead(s.transition), out = transitionTail(scenes[i + 1]?.transition);   // the renderer's rule: a scene keeps at least one frame of its own
+      if (s.state !== 'error' && n + out >= Math.round(s.dur * fps)) bad ??= { s, text: L('tooShort', i + 1, Math.round(s.dur * fps), n, out) };
+      s.start = total - transitionOverlap(s.transition) / fps; total = s.start + s.dur;
+    }
+    return bad;
   }
+  { const bad = lay(); if (bad) throw hint(bad.text); }
   const sceneAt = time => scenes.findLast(s => s.start <= time + 1e-9);
   const pairAt = time => {   // inside a transition: the scene it comes from, and the frame of the transition
     const s = sceneAt(time), n = transitionOverlap(s.transition), k = frameIn(s, time);
@@ -725,10 +888,11 @@ try {
   }));
 
   const view = $('view'), tl = $('tl'), lane = $('lane'), g = tl.getContext('2d'), clean = document.createElement('canvas');
-  view.width = clean.width = scenes[0].w; view.height = clean.height = scenes[0].h;
+  view.width = clean.width = good.w; view.height = clean.height = good.h;
   $('msg').hidden = true; view.hidden = false;
   tl.setAttribute('aria-valuemax', total.toFixed(2));
   let notes = [], others = [], active = null, opening = null, draft = null, hits = [];   // this version's notes, other versions', the open one, one to open, a box being drawn, tags on the timeline
+  let tool = 'mark', ink = null, redo = [], strokeText = '', work = null, reloadAsked = false;   // M or P, a stroke being drawn, strokes taken back, the note text at the last stroke, the agent's work, a reload that waits
   const openNotes = () => notes.filter(m => !m.done || m === active);   // what the preview and the timeline show: done notes only while open
   const images = new Map();   // note number -> PNG data URL, sent with the next save
   let t = 0, sel = null, range = null, looping = false, playing = false, t0 = 0, ac0 = 0, sources = [], busy = false, pps = 1, zoom = 1, cur = null, luma = null;
@@ -740,10 +904,13 @@ try {
     b.className = 'row'; b.innerHTML = html; b.onclick = click; li.append(b); $(list).append(li); return b;
   };
   const current = (el, on) => on ? el.setAttribute('aria-current', 'true') : el.removeAttribute('aria-current');
-  scenes.forEach((s, i) => {
-    s.li = item('scenes', `<canvas aria-hidden="true"></canvas><span class="name">${name(s.file)}<small>Scene ${i + 1}</small></span><span class="d num">${s.dur.toFixed(2)} s</span>`, () => seek(s.start));
+  function sceneRow(s) {   // its thumbnail, number and length, or what is happening to it: fixed by the agent, loading again, or broken
     const th = s.li.firstElementChild, b = s.thumbs[s.thumbs.length >> 1]; th.width = b.width; th.height = b.height; th.getContext('2d').drawImage(b, 0, 0);
-  });
+    const state = s.state === 'error' ? L('sceneError') : s.state === 'loading' ? L('sceneReloading') : s.work ? L('sceneWorking') : '';
+    s.li.querySelector('small').textContent = `Scene ${scenes.indexOf(s) + 1}${state ? `, ${state}` : ''}`;
+    s.li.querySelector('.d').innerHTML = s.state === 'error' ? ICON.alert : `${s.dur.toFixed(2)} s`;
+  }
+  scenes.forEach(s => { s.li = item('scenes', `<canvas aria-hidden="true"></canvas><span class="name">${name(s.file)}<small></small></span><span class="d num"></span>`, () => seek(s.start)); sceneRow(s); });
   tracks.forEach(a => a.li = item('audio', `<span class="ic">${ICON.wave}</span><span class="name">${name(a.file)}<small class="num">${L('starts', a.start.toFixed(2))}</small></span><span class="d num">vol ${a.volume}</span>`, () => seek(a.start, a)));
   if (!tracks.length) $('audio').innerHTML = `<li class="empty">${L('noAudio')}</li>`;
 
@@ -789,8 +956,13 @@ try {
       }
       const ow = transitionOverlap(s.transition) / fps * pps;   // the overlap with the scene before, which holds the bowtie
       const bx = Math.min(Math.max(x + ow, 0), x + cw - 24);   // the scene number stays in view while the scene is
+      const badge = s.state === 'error' ? L('tlError') : s.state === 'loading' ? L('tlLoading') : s.work ? L('tlWorking') : '';
       g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.roundRect(bx + 6, RULER + 6, 18, 16, 5); g.fill();
       g.fillStyle = '#fff'; g.textAlign = 'center'; g.fillText(i + 1, bx + 15, RULER + 14.5); g.textAlign = 'left';
+      if (badge) {   // and says so next to its number
+        g.fillStyle = 'rgba(0,0,0,.55)'; g.beginPath(); g.roundRect(bx + 28, RULER + 6, g.measureText(badge).width + 12, 16, 5); g.fill();
+        g.fillStyle = '#fff'; g.fillText(badge, bx + 34, RULER + 14.5);
+      }
       g.restore();
       g.lineWidth = 2; g.strokeStyle = sel && !sel.audio && sel.sceneIndex === i + 1 ? BLUE : 'rgba(0,0,0,.08)';
       g.beginPath(); g.roundRect(x + 1, RULER + 1, cw - 2, VH - 2, 7); g.stroke();
@@ -890,23 +1062,76 @@ try {
     if ((active?.box || active?.point) && !onFrame(active)) return closeNote();   // moved to another frame
     const vis = openNotes().filter(onFrame); if (draft) vis.push(draft);
     const vr = view.getBoundingClientRect(), sr = $('stage').getBoundingClientRect(), k = vr.width / view.width;
-    $('marks').replaceChildren(...vis.map(m => {
-      const d = document.createElement('div'), b = m.box || { x: m.point.x - PT / 2 / k, y: m.point.y - PT / 2 / k, w: PT / k, h: PT / k };
-      d.className = 'mk' + (m.point ? ' point' : '') + (m === active ? ' on' : '');
-      Object.assign(d.style, { left: vr.left - sr.left + b.x * k + 'px', top: vr.top - sr.top + b.y * k + 'px', width: b.w * k + 'px', height: b.h * k + 'px' });
+    const els = vis.map(m => {   // a drawing's outline and number sit INK px outside it
+      const d = document.createElement('div'), b = m.box || { x: m.point.x - PT / 2 / k, y: m.point.y - PT / 2 / k, w: PT / k, h: PT / k }, pad = m.stroke ? INK : 0;
+      d.className = 'mk' + (m.point ? ' point' : '') + (m.stroke ? ' stroke' : '') + (m === active ? ' on' : '');
+      Object.assign(d.style, { left: vr.left - sr.left + b.x * k - pad + 'px', top: vr.top - sr.top + b.y * k - pad + 'px', width: b.w * k + 2 * pad + 'px', height: b.h * k + 2 * pad + 'px' });
       if (m.n) d.append(Object.assign(document.createElement('i'), { textContent: m.n }));
-      if (m === active && m.box) for (const [x, y] of [[0, 0], [1, 0], [0, 1], [1, 1]])
+      if (m === active && m.box && !m.stroke) for (const [x, y] of [[0, 0], [1, 0], [0, 1], [1, 1]])
         d.append(Object.assign(document.createElement('b'), { className: 'hd', style: `left: ${x * 100}%; top: ${y * 100}%` }));
       return d;
-    }));
+    });
+    const lines = [...vis.flatMap(m => m.stroke || []), ...(ink ? [ink.pts] : [])];
+    if (lines.length) els.unshift(inkLayer(lines, vr, sr));
+    const pane = workPane(vr, sr);
+    $('marks').replaceChildren(...els, ...(pane ? [pane] : []));
     if (active?.box || active?.point) place();
+  }
+  // The scene on screen while the agent works on it, or after it did not load again: a blank pane over the frame and its
+  // notes. While the agent works, a scene that breaks for a moment is expected, so the work pane wins. The loader keeps
+  // its phase when the preview is drawn again, which it is on every frame while playing.
+  function workPane(vr, sr) {
+    const s = cur?.s;
+    if (!s || !(s.work || s.state === 'error')) return null;
+    const d = document.createElement('div'); d.className = 'workpane'; d.setAttribute('aria-hidden', 'true');
+    Object.assign(d.style, { left: vr.left - sr.left + 'px', top: vr.top - sr.top + 'px', width: vr.width + 'px', height: vr.height + 'px' });
+    if (s.work) {
+      d.innerHTML = '<span class="loader"><i></i><i></i><i></i><i></i><b></b></span><p></p>';
+      d.firstChild.style.setProperty('--at', -(performance.now() % 1800) + 'ms');
+      d.lastChild.textContent = L('agentWorking');
+    } else {
+      d.classList.add('err'); d.innerHTML = ICON.alert + '<p></p>';
+      d.lastChild.textContent = L('reloadError', scenes.indexOf(s) + 1, s.err);
+    }
+    return d;
+  }
+  // Pencil strokes: one SVG over the preview in the scene's own pixels, all halos under all lines. A stroke is a list of
+  // [x, y] points; a single point is drawn as a dot.
+  const INK = 4, trace = l => 'M' + l.map(p => p.join(' ')).join('L') + (l.length === 1 ? 'h.01' : '');
+  function inkLayer(lines, vr, sr) {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); s.classList.add('ink'); s.setAttribute('aria-hidden', 'true');
+    s.setAttribute('viewBox', `0 0 ${view.width} ${view.height}`); s.setAttribute('preserveAspectRatio', 'none');
+    Object.assign(s.style, { left: vr.left - sr.left + 'px', top: vr.top - sr.top + 'px', width: vr.width + 'px', height: vr.height + 'px' });
+    s.innerHTML = ['halo', 'line'].map(c => lines.map(l => `<path class="${c}" d="${trace(l)}"/>`).join('')).join('');
+    return s;
+  }
+  const bbox = strokes => {   // the box around a drawing, in the scene's pixels
+    const xs = strokes.flat().map(p => p[0]), ys = strokes.flat().map(p => p[1]), x = Math.min(...xs), y = Math.min(...ys);
+    return { x, y, w: Math.max(2, Math.max(...xs) - x), h: Math.max(2, Math.max(...ys) - y) };
+  };
+  function simplify(pts, eps) {   // Ramer-Douglas-Peucker: the fewest points that stay within eps of the stroke, so selection.json stays small
+    if (pts.length < 3) return pts;
+    const [a, b] = [pts[0], pts.at(-1)], dx = b[0] - a[0], dy = b[1] - a[1], len = dx * dx + dy * dy;
+    let far = -1, at = 0;
+    for (let i = 1; i < pts.length - 1; i++) {
+      const [px, py] = pts[i], u = len ? Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / len)) : 0;
+      const d = Math.hypot(px - a[0] - u * dx, py - a[1] - u * dy);
+      if (d > far) { far = d; at = i; }
+    }
+    return far <= eps ? [a, b] : [...simplify(pts.slice(0, at + 1), eps).slice(0, -1), ...simplify(pts.slice(at), eps)];
   }
   function snapshot(m) {   // selection/<n>.png: the frame with this note's box or point and number, as on screen, scaled to the frame
     const c = document.createElement('canvas'), v = c.getContext('2d'), k = view.width / view.getBoundingClientRect().width;
     c.width = view.width; c.height = view.height; v.drawImage(clean, 0, 0);
     v.fillStyle = 'rgba(44,111,224,.14)'; v.strokeStyle = BLUE; v.lineWidth = k;
     let lx, ly;
-    if (m.box) { const { x, y, w, h } = m.box; v.fillRect(x, y, w, h); v.strokeRect(x + k / 2, y + k / 2, w - k, h - k); lx = x; ly = y - 2 * k; }
+    if (m.stroke) {   // halos, then lines, as on screen
+      v.lineCap = v.lineJoin = 'round';
+      const path = () => { v.beginPath(); for (const l of m.stroke) { v.moveTo(...l[0]); for (const p of l.length > 1 ? l : [[l[0][0] + 0.01, l[0][1]]]) v.lineTo(...p); } };
+      v.strokeStyle = 'rgba(255,255,255,.7)'; v.lineWidth = 4 * k; path(); v.stroke();
+      v.strokeStyle = BLUE; v.lineWidth = 2 * k; path(); v.stroke();
+      lx = m.box.x - INK * k; ly = m.box.y - (INK + 2) * k;
+    } else if (m.box) { const { x, y, w, h } = m.box; v.fillRect(x, y, w, h); v.strokeRect(x + k / 2, y + k / 2, w - k, h - k); lx = x; ly = y - 2 * k; }
     else {
       const { x, y } = m.point;
       v.beginPath(); v.arc(x, y, (PT / 2 - 0.5) * k, 0, Math.PI * 2); v.fill(); v.stroke();
@@ -931,14 +1156,16 @@ try {
     if (cur && cur.s === s && cur.frame === frame && s.win) return;
     busy = true;
     try {
-      const pair = pairAt(at);
+      const broken = x => x.state === 'error' && !x.win;   // never loaded: nothing to draw, and no point asking again
+      if (broken(s)) { cur = { s, frame }; luma = null; return paint(); }
+      const both = pairAt(at), pair = both && !broken(both.from) ? both : null;
       rendering = pair ? [s, pair.from] : [s];
       if (pair) await load(pair.from);
       await load(s); await s.warm;
       const next = scenes[scenes.indexOf(s) + 1];
       // Load the next scene before playback reaches it, and draw its first frame, so its footage has already sought to
       // the start and the cut does not stall (161 to 221 ms down to 10 to 17 ms on a scene with two clips, measured).
-      if (next) Promise.resolve(load(next)).then(n => { if (n !== shown && !n.warm) n.warm = n.win.renderAt(0).catch(() => {}); }).catch(() => {});
+      if (next && !broken(next)) Promise.resolve(load(next)).then(n => { if (n !== shown && !n.warm) n.warm = n.win.renderAt(0).catch(() => {}); }).catch(() => {});
       const c = clean.getContext('2d');
       if (pair) {   // the frames of both scenes, mixed by the same code as the render (src/page/transitions.js)
         const tr = s.transition, a = pair.from;
@@ -1027,6 +1254,7 @@ try {
   $('scrub').onpointermove = e => { if (scrubbing) seek(scrubTime(e.offsetX)); scrubTip(e.offsetX); };
   $('scrub').onpointerup = $('scrub').onpointercancel = e => { scrubbing = false; if (e.pointerType === 'touch') flashBar(); };
   $('dock').addEventListener('pointerdown', e => { if (e.pointerType === 'touch' && document.fullscreenElement) flashBar(); });   // a tap on the bar keeps it up
+  $('barHint').onclick = () => flashBar();
   $('scrub').onpointerleave = () => { if (!scrubbing) $('scrubTip').hidden = true; };
   new ResizeObserver(() => drawScrub()).observe($('scrub'));
   addEventListener('keydown', e => {
@@ -1037,7 +1265,7 @@ try {
   });
 
   // ---- playback: the audio clock drives the playhead; the button is blue only while it plays
-  const setPlay = on => { $('play').innerHTML = on ? ICON.pause : ICON.play; $('play').classList.toggle('hot', on); label($('play'), L(on ? 'pause' : 'play')); wake(); };
+  const setPlay = on => { $('play').innerHTML = on ? ICON.pause : ICON.play; $('play').classList.toggle('hot', on); label($('play'), L(on ? 'pause' : 'play')); wake(); paint(); };
   function play(jump = true) {   // with a range, Play starts at its start and goes round inside it
     const inside = range && t >= range.start && t < range.end - 1e-6;
     looping = !!range && (jump || inside);   // a click elsewhere while playing plays on from there
@@ -1098,27 +1326,30 @@ try {
   // selection.json while this page is open. The reply, and a read when the page gets focus back, bring those in.
   // Another tab of the viewer can save notes of the same project too, so the page names the notes it deleted instead of
   // leaving them out, and takes in the file's notes after every save and on focus (sync).
-  let saveTimer = 0;
+  let saveTimer = 0, saving = Promise.resolve();
   const toggled = new Set(), deleted = new Set();   // done changed here (by number), and notes deleted here (by key)
   const key = m => m.id || `#${m.n}`, uid = () => crypto.randomUUID?.() || Math.random().toString(36).slice(2) + Date.now().toString(36);
   let known = new Set();   // keys of this version's notes in the file at the last sync
-  function save() {
-    clearTimeout(saveTimer);
-    saveTimer = setTimeout(async () => {
-      const png = Object.fromEntries(images), sent = [...toggled], gone = [...deleted]; images.clear(); toggled.clear(); deleted.clear();
-      try {
-        const r = await fetch('selection', { method: 'POST', body: JSON.stringify({ ...sel, range: rangeOut(range), project: '{{project}}', marks: notes, toggled: sent, deleted: gone, images: png }) });
-        if (!r.ok) throw new Error(r.status);
-        const res = await r.json();
-        for (const [id, n] of res.renumbered) {   // another tab took this number first: the note moves to the next free one
-          const m = notes.find(x => x.id === id); if (!m) continue;
-          m.n = n; if (m.image) { m.image = `selection/${n}.png`; images.set(n, snapshot(m)); }
-          if (m === active) $('popN').textContent = n;
-          save();
-        }
-        sync(res.marks, res.others);
-      } catch { sent.forEach(n => toggled.add(n)); gone.forEach(k => deleted.add(k)); }
-    }, 150);
+  function save() { clearTimeout(saveTimer); saveTimer = setTimeout(() => saving = send(), 150); }
+  function flush() {   // a save that is waiting goes now; resolves once the last one is written
+    if (saveTimer) { clearTimeout(saveTimer); saving = send(); }
+    return saving;
+  }
+  async function send() {
+    saveTimer = 0;
+    const png = Object.fromEntries(images), sent = [...toggled], gone = [...deleted]; images.clear(); toggled.clear(); deleted.clear();
+    try {
+      const r = await fetch('selection', { method: 'POST', body: JSON.stringify({ ...sel, range: rangeOut(range), project: '{{project}}', marks: notes, toggled: sent, deleted: gone, images: png }) });
+      if (!r.ok) throw new Error(r.status);
+      const res = await r.json();
+      for (const [id, n] of res.renumbered) {   // another tab took this number first: the note moves to the next free one
+        const m = notes.find(x => x.id === id); if (!m) continue;
+        m.n = n; if (m.image) { m.image = `selection/${n}.png`; images.set(n, snapshot(m)); }
+        if (m === active) $('popN').textContent = n;
+        save();
+      }
+      sync(res.marks, res.others);
+    } catch { sent.forEach(n => toggled.add(n)); gone.forEach(k => deleted.add(k)); }
   }
   function sync(file, other) {   // this version's notes in the file, and the other versions'
     const inFile = new Map(file.map(m => [key(m), m]));
@@ -1152,7 +1383,8 @@ try {
     if (phone.matches && !document.fullscreenElement) {   // a phone: across the bottom of what is visible, above the keyboard
       const vv = visualViewport || { offsetLeft: 0, offsetTop: 0, width: innerWidth, height: innerHeight };
       pop.style.left = vv.offsetLeft + 8 + 'px'; pop.style.width = vv.width - 16 + 'px';
-      pop.style.top = vv.offsetTop + vv.height - pop.offsetHeight - 8 + 'px';
+      const floor = Math.min(vv.offsetTop + vv.height, $('tabs').getBoundingClientRect().top || Infinity);
+      pop.style.top = floor - pop.offsetHeight - 8 + 'px';
       return;
     }
     pop.style.width = '';
@@ -1171,8 +1403,8 @@ try {
   for (const ev of ['resize', 'scroll']) visualViewport?.addEventListener(ev, () => { if (!pop.hidden) place(); });   // the keyboard opening or closing
   const grow = () => { popText.style.height = 'auto'; popText.style.height = Math.min(160, popText.scrollHeight + 2) + 'px'; };
   function openNote(m) {
-    active = m; opening = null;
-    $('popN').textContent = m.n; $('popWhere').innerHTML = whereHTML(m); popText.value = m.note; doneUI(m);
+    active = m; opening = null; redo = []; strokeText = m.note;
+    $('popN').textContent = m.n; $('popWhere').innerHTML = whereHTML(m); popText.value = m.note; doneUI(m); undoUI();
     pop.hidden = false; grow(); paint(); place(); listNotes(); drawTimeline();
     popText.focus({ preventScroll: true });
   }
@@ -1188,7 +1420,25 @@ try {
   function closeNote() {
     if (!active) return;
     active = null; pop.hidden = true; paint(); listNotes(); drawTimeline(); save();
+    if (reloadAsked) askReload();
   }
+  // A pencil note takes more strokes while it is open. Its last one can be taken back (Urungkan, or Ctrl+Z) down to the
+  // first, and put back with Shift+Ctrl+Z or Ctrl+Y until a new stroke is drawn.
+  const undoUI = () => { $('popUndo').hidden = !active?.stroke; $('popUndo').disabled = !(active?.stroke?.length > 1); };
+  function restroke() {   // after a stroke was added, taken back or put back: a new box and picture
+    active.box = bbox(active.stroke); images.set(active.n, snapshot(active)); strokeText = popText.value;
+    paint(); undoUI(); save(); place();
+  }
+  const undoStroke = () => active?.stroke?.length > 1 && (redo.push(active.stroke.pop()), restroke(), true);
+  const redoStroke = () => !!active?.stroke && redo.length > 0 && (active.stroke.push(redo.pop()), restroke(), true);
+  $('popUndo').onclick = () => { undoStroke(); popText.focus({ preventScroll: true }); };
+  addEventListener('keydown', e => {   // in the note's text field only while its text is unchanged since the last stroke, else the field undoes its typing
+    if (!(e.ctrlKey || e.metaKey) || e.altKey || !active?.stroke) return;
+    const k = e.key.toLowerCase();
+    if (k !== 'z' && k !== 'y') return;
+    if (e.target.closest?.('input, textarea') && (e.target !== popText || popText.value !== strokeText)) return;
+    if (k === 'y' || e.shiftKey ? redoStroke() : undoStroke()) e.preventDefault();
+  });
   function deleteNote(m) {
     notes = notes.filter(x => x !== m); images.delete(m.n); deleted.add(key(m));
     if (m === active) { active = null; pop.hidden = true; }
@@ -1196,7 +1446,7 @@ try {
   }
   const nextN = () => Math.max(0, ...notes.map(m => m.n), ...others.map(m => m.n)) + 1;
   function addNote(extra, time = t) {
-    const m = { id: uid(), n: nextN(), note: '', ...spot(time), box: null, point: null, range: null, image: null, ...extra };
+    const m = { id: uid(), n: nextN(), note: '', ...spot(time), box: null, point: null, stroke: null, range: null, image: null, ...extra };
     if (m.box || m.point) { m.image = `selection/${m.n}.png`; images.set(m.n, snapshot(m)); }
     notes.push(m); openNote(m); save();
   }
@@ -1211,14 +1461,15 @@ try {
   let doneOpen = false; try { doneOpen = localStorage.motlabDone === '1'; } catch {}
   function listNotes() {
     const open = notes.filter(m => !m.done), done = notes.filter(m => m.done);
-    $('noteCount').textContent = open.length || '';
+    $('noteCount').textContent = $('tabCount').textContent = open.length || '';
     const row = m => {
       const li = document.createElement('li'), b = document.createElement('button');
       b.className = 'row' + (m.done ? ' done' : ''); b.innerHTML = '<span class="ic n num" aria-hidden="true"></span><span class="name"><span></span><small class="num"></small></span>';
       b.firstChild.textContent = m.n;
       const text = b.querySelector('.name > span'); text.textContent = m.note.trim() || L('empty'); text.classList.toggle('none', !m.note.trim());
-      b.querySelector('small').innerHTML = whereHTML(m);
-      b.setAttribute('aria-label', L('noteLabel', m.n, m.done, m.note.trim(), where(m)));
+      const doing = !m.done && work?.notes?.includes(m.n);   // the agent said it is working on this one
+      b.querySelector('small').innerHTML = (doing ? `${L('noteWorking')}: ` : '') + whereHTML(m);   // first, so a long place is what gets cut
+      b.setAttribute('aria-label', L('noteLabel', m.n, m.done, m.note.trim(), where(m)) + (doing ? `, ${L('noteWorking')}` : ''));
       b.onclick = () => goTo(m); current(b, m === active);
       li.append(b); return li;
     };
@@ -1303,7 +1554,7 @@ try {
     const tag = tagAt(e);
     if (tag) return goTo(tag);
     const edge = edgeAt(e);
-    if (!e.shiftKey && !edge && !rangeMode) return scrub(e);
+    if (!e.shiftKey && !edge && !rangeMode) { tl.setPointerCapture(e.pointerId); return scrub(e); }
     tl.setPointerCapture(e.pointerId);
     rangeDrag = edge ? (edge === 'start' ? range.end : range.start) : timeAt(e);
     setRange(rangeDrag, timeAt(e), false);
@@ -1351,26 +1602,32 @@ try {
   };
   const hit = p => {   // the note on this frame under the pointer, the last made first
     const k = view.getBoundingClientRect().width / view.width;
-    return openNotes().filter(onFrame).findLast(m => m.box ? p.x >= m.box.x && p.x <= m.box.x + m.box.w && p.y >= m.box.y && p.y <= m.box.y + m.box.h
+    const e = m => m.stroke ? (INK + 2) / k : 0;   // a drawing is hit a little outside its box too
+    return openNotes().filter(onFrame).findLast(m => m.box ? p.x >= m.box.x - e(m) && p.x <= m.box.x + m.box.w + e(m) && p.y >= m.box.y - e(m) && p.y <= m.box.y + m.box.h + e(m)
       : Math.hypot(p.x - m.point.x, p.y - m.point.y) <= (PT / 2 + 2) / k);
   };
   // The open note's box can be moved (drag inside it) and resized (drag a corner or an edge), and its point moved. What a
   // drag there would change: 'move', or the edges as compass letters ('n', 'se', ...), or null.
   const EDGE = 6;   // CSS px either side of an edge
-  const grab = e => {
-    if (!active || !onFrame(active)) return null;
+  const grab = e => {   // with the pencil a drag always draws, so nothing is moved
+    if (tool === 'pen' || !active || !onFrame(active)) return null;
     const r = view.getBoundingClientRect(), k = r.width / view.width, x = e.clientX - r.left, y = e.clientY - r.top;
     if (active.point) return Math.hypot(x - active.point.x * k, y - active.point.y * k) <= PT / 2 + 2 ? 'move' : null;
     const { box: b } = active, l = b.x * k, t = b.y * k, rt = (b.x + b.w) * k, bt = (b.y + b.h) * k;
     if (x < l - EDGE || x > rt + EDGE || y < t - EDGE || y > bt + EDGE) return null;
+    if (active.stroke) return 'move';   // a drawing moves, it is not resized
     const v = Math.abs(y - t) <= EDGE ? 'n' : Math.abs(y - bt) <= EDGE ? 's' : '', h = Math.abs(x - l) <= EDGE ? 'w' : Math.abs(x - rt) <= EDGE ? 'e' : '';
     return v + h || (x > l && x < rt && y > t && y < bt ? 'move' : null);
   };
   const CURSOR = { move: 'move', n: 'ns-resize', s: 'ns-resize', e: 'ew-resize', w: 'ew-resize', ne: 'nesw-resize', sw: 'nesw-resize', nw: 'nwse-resize', se: 'nwse-resize' };
-  function reshape(d, p) {   // the open note's box or point after dragging from d.a to p, kept inside the frame
-    const dx = p.x - d.a.x, dy = p.y - d.a.y, W = view.width, H = view.height, f = d.from;
-    if (d.m.point) return void (d.m.point = { x: Math.round(Math.min(W, Math.max(0, f.x + dx))), y: Math.round(Math.min(H, Math.max(0, f.y + dy))) });
-    if (d.edit === 'move') return void (d.m.box = { ...f, x: Math.round(Math.min(W - f.w, Math.max(0, f.x + dx))), y: Math.round(Math.min(H - f.h, Math.max(0, f.y + dy))) });
+  function reshape(d, p) {   // the open note's box, point or drawing after dragging from d.a to p, kept inside the frame
+    const dx = p.x - d.a.x, dy = p.y - d.a.y, W = view.width, H = view.height, { point, stroke } = d.from, f = d.from.box || point;
+    if (point) return void (d.m.point = { x: Math.round(Math.min(W, Math.max(0, f.x + dx))), y: Math.round(Math.min(H, Math.max(0, f.y + dy))) });
+    if (d.edit === 'move') {
+      d.m.box = { ...f, x: Math.round(Math.min(W - f.w, Math.max(0, f.x + dx))), y: Math.round(Math.min(H - f.h, Math.max(0, f.y + dy))) };
+      if (stroke) d.m.stroke = stroke.map(l => l.map(([x, y]) => [x + d.m.box.x - f.x, y + d.m.box.y - f.y]));
+      return;
+    }
     let l = f.x, t = f.y, r = f.x + f.w, b = f.y + f.h;
     if (d.edit.includes('w')) l += dx; if (d.edit.includes('e')) r += dx;
     if (d.edit.includes('n')) t += dy; if (d.edit.includes('s')) b += dy;
@@ -1389,10 +1646,23 @@ try {
     if (document.fullscreenElement && !tapBar) { clearTimeout(barTimer); setBar(false); inZone = false; }   // out of the way of a note near the bottom
     view.setPointerCapture(e.pointerId);
     const edit = grab(e);
-    drag = { a: onView(e), x: e.clientX, y: e.clientY, moved: false, open: !!active, tapBar, ...(edit && { edit, m: active, from: { ...(active.box || active.point) } }) };
+    const a = onView(e), pen = tool === 'pen';
+    drag = { a, x: e.clientX, y: e.clientY, moved: false, open: !!active, tapBar, pen, ...(pen && { pts: [[Math.round(a.x), Math.round(a.y)]] }),
+      ...(edit && { edit, m: active, from: structuredClone({ box: active.box, point: active.point, stroke: active.stroke }) }) };
   };
   view.onpointermove = e => {
     if (!drag) { view.style.cursor = CURSOR[grab(e)] || ''; return; }   // over the open note: a move or resize cursor
+    if (drag.pen) {   // every point the pointer passed, also those between two events
+      const all = e.getCoalescedEvents?.();
+      for (const c of all?.length ? all : [e]) {
+        const p = onView(c), q = [Math.round(p.x), Math.round(p.y)], last = drag.pts.at(-1);
+        if (q[0] !== last[0] || q[1] !== last[1]) drag.pts.push(q);
+      }
+      if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
+      if (drag.tapBar && !drag.moved) { if (playing) pause(); clearTimeout(barTimer); setBar(false); }
+      if (!drag.moved && active && !(active.stroke && onFrame(active))) closeNote();   // it goes into the open pencil note, else into a new one
+      drag.moved = true; ink = drag; return paint();
+    }
     if (!drag.moved && Math.hypot(e.clientX - drag.x, e.clientY - drag.y) < 4) return;
     if (drag.tapBar && !drag.moved) { if (playing) pause(); clearTimeout(barTimer); setBar(false); }   // a drag after all: a note
     if (drag.edit) { drag.moved = true; reshape(drag, onView(e)); return paint(); }
@@ -1405,6 +1675,12 @@ try {
     if (!drag) return;
     const d = drag; drag = null;
     if (d.tapBar && !d.moved) return flashBar();
+    if (d.pen && d.moved) {   // a stroke: into the open pencil note on this frame, else a new note
+      ink = null;
+      const line = simplify(d.pts, 0.75 * view.width / view.getBoundingClientRect().width);
+      if (active?.stroke && onFrame(active)) { active.stroke.push(line); redo = []; restroke(); return popText.focus({ preventScroll: true }); }
+      select(t, null); addNote({ stroke: [line], box: bbox([line]) }); return showSelection();
+    }
     if (d.edit && d.moved) {   // the note keeps its number and frame; its picture is drawn again
       images.set(d.m.n, snapshot(d.m)); save(); place();
       return popText.focus({ preventScroll: true });
@@ -1417,13 +1693,26 @@ try {
     const m = hit(d.a);
     if (m) return m === active ? undefined : openNote(m);
     if (d.open) return closeNote();
+    if (d.pen) return;   // a click with the pencil marks nothing
     select(t, null); addNote({ point: { x: Math.round(d.a.x), y: Math.round(d.a.y) } }); showSelection();
   };
-  view.onpointercancel = () => { if (drag?.edit) Object.assign(drag.m, drag.m.box ? { box: drag.from } : { point: drag.from }); drag = draft = null; paint(); };
+  view.onpointercancel = () => { if (drag?.edit) Object.assign(drag.m, drag.from); drag = draft = ink = null; paint(); };
+  // The note tools: M for a box or a point (as Photoshop's marquee), P for the pencil (as Frame.io's annotation key).
+  function setTool(to) {
+    tool = to; view.classList.toggle('pen', to === 'pen');
+    for (const [b, on] of [[$('toolMark'), to === 'mark'], [$('toolPen'), to === 'pen']]) { b.classList.toggle('on', on); b.setAttribute('aria-pressed', on); }
+    if (to === 'pen') note(L('penHow')); else if ($('note').textContent === L('penHow')) $('note').hidden = true;
+  }
+  $('toolMark').onclick = () => setTool('mark'); $('toolPen').onclick = () => setTool('pen');
+  addEventListener('keydown', e => {
+    if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'p') setTool('pen'); else if (k === 'm') setTool('mark');
+  });
   // Escape (unless it just closed a menu) closes the open note, else leaves range marking, else takes the range off. A click on the empty grey
   // space around the preview closes the note. Notes are only deleted with Hapus.
   const unrange = () => { if (!range) return; range = null; save(); showSelection(); };
-  addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented) active ? closeNote() : rangeMode ? setRangeMode(false) : unrange(); });
+  addEventListener('keydown', e => { if (e.key === 'Escape' && !e.defaultPrevented) active ? closeNote() : rangeMode ? setRangeMode(false) : tool === 'pen' ? setTool('mark') : unrange(); });
   $('canvas').addEventListener('pointerdown', e => { if (e.button === 0 && (e.target === $('stage') || e.target === $('canvas'))) closeNote(); });
 
   $('play').onclick = () => playing ? pause() : play();
@@ -1505,6 +1794,76 @@ try {
   await document.fonts.load(`11px ${FONT}`).catch(() => {});   // the canvas cannot redraw itself when the web font arrives
   setLane(!lane.hidden); setPlay(false); listNotes(); showSelection(); show();
   new ResizeObserver(() => { layout(); drawTimeline(); }).observe(lane);
+
+  // ---- live: the server watches the project folder while this page is open (src/live.js). A saved scene, or a file a
+  // scene uses, loads that scene again in the background, and the preview keeps showing the old page until the new one
+  // is ready, or for good when the new one does not load. A file this page itself loaded (the project file, its audio, a
+  // transition) loads the whole page again, once no note is open and the Export menu is closed; the selection brings
+  // back the time. `motlab working` says which notes and scenes the agent is working on.
+  const PROJECT = '{{project}}';
+  let refreshing = null;
+  const queued = new Set();
+  const pageUses = () => new Set(performance.getEntriesByType('resource').filter(e => e.initiatorType !== 'iframe').map(e => rel(e.name)).filter(f => f && f !== 'selection.json'));   // not the scene pages
+  function askReload() {
+    if (active || $('go').disabled || !$('exportMenu').hidden) { if (!reloadAsked) note(L('projectChangedLater')); reloadAsked = true; return; }
+    reloadAsked = false; note(L('projectChanged')); flush().finally(() => location.reload());
+  }
+  $('export').onclose = () => { if (reloadAsked) askReload(); };
+  function changed(files) {
+    if (files.includes('selection.json')) reread();   // a note the agent marked done
+    const uses = pageUses();
+    if (files.some(f => uses.has(f))) return askReload();
+    live.forEach(usedBy);
+    const hit = scenes.filter(s => files.some(f => s.deps.has(f)));
+    if (hit.length) refresh(hit);
+  }
+  const and = list => list.length < 2 ? String(list[0]) : `${list.slice(0, -1).join(', ')} ${L('and')} ${list.at(-1)}`;
+  function refresh(list) {   // the scenes one at a time, as on opening; a scene saved again meanwhile is loaded once more
+    for (const s of list) { queued.add(s); s.state = 'loading'; }
+    stateUI();
+    refreshing ??= (async () => {
+      const done = [];
+      while (queued.size) {
+        const s = queued.values().next().value; queued.delete(s);
+        try {
+          const page = await openPage(s.file, 20000);
+          const dur = Math.round(page.win.TOTAL * fps) / fps, n = Math.min(12, Math.max(1, Math.round(dur / 2))), thumbs = [];
+          for (let k = 0; k < n; k++) thumbs.push(await thumbAt(page, (k + 0.5) / n * dur));
+          if (queued.has(s)) { page.frame.remove(); continue; }
+          while (busy || s.loading) await new Promise(requestAnimationFrame);   // not while the preview draws from it
+          if (s.win) { s.frame.remove(); live.splice(live.indexOf(s), 1); }
+          Object.assign(s, page, { dur, w: page.canvas.width, h: page.canvas.height, thumbs, warm: null, state: null, err: null, deps: new Set([rel(s.file)]) });
+          live.push(s); usedBy(s); trim(s); if (!done.includes(s)) done.push(s);
+        } catch (e) { if (!queued.has(s)) { Object.assign(s, { state: 'error', err: String(e.message).replace(/\.$/, '') }); if (sceneAt(t) !== s) note(L('reloadError', scenes.indexOf(s) + 1, s.err)); } }   // on screen, the frame says it
+      }
+      const bad = lay();
+      if (bad) Object.assign(bad.s, { state: 'error', err: bad.text.replace(/\.$/, '') });
+      tl.setAttribute('aria-valuemax', total.toFixed(2)); $('len').textContent = fmt(total);
+      t = Math.min(t, total); cur = null; layout(); stateUI(); show();
+      const ok = done.filter(s => !s.state).map(s => scenes.indexOf(s) + 1).sort((a, b) => a - b);
+      if (ok.length) note(L('updated', and(ok), ok.length));
+    })().finally(() => refreshing = null);
+  }
+  function workScenes() {   // the scene numbers the agent works on in this version: the ones it named, and those of its notes
+    const set = new Set();
+    if (!work) return set;
+    if (work.project === PROJECT) for (const n of work.scenes || []) if (scenes[n - 1]) set.add(n);
+    for (const n of work.notes || []) { const m = notes.find(x => x.n === n && !x.done); if (m) for (const i of m.range ? m.range.scenes : [m.sceneIndex]) set.add(i); }
+    return set;
+  }
+  function stateUI() {   // the scene list, the timeline, the notes and the preview; a screen reader hears the whole sentence
+    const fixing = workScenes(), list = [...fixing].sort((a, b) => a - b);
+    scenes.forEach((s, i) => { s.work = fixing.has(i + 1); sceneRow(s); });
+    const text = list.length ? L('working', and(list), list.length, work.text) : work?.project === PROJECT ? L('workingAny', work.text) : '';
+    if ($('workSr').textContent !== text) $('workSr').textContent = text;
+    listNotes(); drawTimeline(); paint();
+  }
+  const events = new EventSource('__events');
+  events.addEventListener('change', e => changed(JSON.parse(e.data).files));
+  events.addEventListener('work', e => {   // work on no scene of this version shows as a message, as there is nothing to veil
+    work = JSON.parse(e.data); stateUI();
+    if (work?.project === PROJECT && !workScenes().size) note(L('workingAny', work.text));
+  });
 } catch (e) {
   $('view').hidden = $('lane').hidden = $('bar').hidden = true; $('msg').hidden = false;
   $('msg').textContent = e.hint ? e.message : L('loadFailed', e.message);

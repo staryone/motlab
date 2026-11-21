@@ -5,6 +5,7 @@ motlab render <project> [out.mp4] [--scale 2] [--only 3] [--parallel 3] [--qp 22
 motlab start [--domain viewer.example.com]       the viewer in the background at http://127.0.0.1:4173, one for all projects
 motlab edit   [project]                           open a project in the viewer, starting it first if needed
 motlab stop | restart                             end the viewer, or start it again from the same folder
+motlab working <project> [text] [--note 3,5] [--scene 2] [--done]  show in the open viewer what the agent is working on
 motlab stills <page.html> <outDir> <t1> <t2> ...  single frames as PNG or JPEG
 motlab video  <page.html> <out.mp4> [options]     one page as an MP4
 motlab events <page.html> <out.json>              the page's EVENTS, for syncing sound
@@ -15,7 +16,7 @@ motlab update [--dry-run]                         the newest motlab (from GitHub
 motlab uninstall [--dry-run] [--yes]              remove the skills, ~/.motlab, the encoder cache and a clone's command
 ```
 
-The viewer commands are described in [the viewer](viewer.md), `--domain` in [On a VPS with a domain](viewer.md#on-a-vps-with-a-domain), `motlab setup` in [From npm](install.md#from-npm), `motlab update` in [Updating](install.md#updating) and `motlab uninstall` in [Removing](install.md#removing).
+The viewer commands are described in [the viewer](viewer.md), `motlab working` in [Live updates](viewer.md#live-updates), `--domain` in [On a VPS with a domain](viewer.md#on-a-vps-with-a-domain), `motlab setup` in [From npm](install.md#from-npm), `motlab update` in [Updating](install.md#updating) and `motlab uninstall` in [Removing](install.md#removing).
 
 `<project>` is a folder with `project.json`, or a project file in it such as `video/project-tiktok.json` (a [version](projects.md#versions)). `motlab help` (or `motlab --help`) prints the same list and the engine folder.
 

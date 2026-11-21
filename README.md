@@ -32,6 +32,7 @@ The ad above (19 seconds, 7 scenes) was made with motlab and its skill, reviewed
 - Versions of a project sit side by side in the viewer, so a second cut does not overwrite the first.
 - Export renders 720p, 1080p, 1440p or 4K MP4, with the scenes' transitions, music and voice mixed in. Scenes render three at a time (fewer on a small machine), which took a project of 12 short scenes from 93 to 53 s at 4K, and `"qp"` in `project.json` makes the file smaller (about 30% at `22`) when you need that.
 - The viewer can run on your own server behind a domain and a password, so you can review and export from your phone.
+- Notes are a box, a point or a pencil drawing on the frame. The viewer loads a scene again by itself when the agent saves it, and marks the scenes the agent says it is working on.
 - A long talking-head take is cut at its pauses and can be split into one scene per section, with captions placed from a transcript.
 - Frames are encoded with WebCodecs inside the page, so they never leave Chrome as images. On a GPU that made it 2 to 4 times as fast as Remotion and HyperFrames on the [benchmark scene](#speed).
 - A second skill, `motlab-assets`, builds reusable asset kits the same way: icons, illustrations, 2D characters with a rig, transitions, 3D objects and textures, rendered to transparent PNG plus SVG, or GLB, FBX and OBJ with PBR textures. Every video that uses the kit shares one look.
@@ -93,7 +94,7 @@ Later, `motlab update` tells you when a new version is out and how to get it (fr
    Make a 20 second portrait promo for my app with motlab. The references are in ./promo-refs.
    ```
 
-3. The agent plans the shots, writes the scenes and starts the viewer. Click the frame you mean, or drag a box over the part and type a note right on it. Notes can be left all over the video and handed over at once, so "this one" or "all the notes" is enough.
+3. The agent plans the shots, writes the scenes and starts the viewer. Click the frame you mean, drag a box over the part, or circle it with the pencil (`P`), and type a note right on it. Notes can be left all over the video and handed over at once, so "this one" or "all the notes" is enough.
 4. When you are happy, press Export in the top right. The video goes to the project's `out/` folder.
 
 The viewer keeps running in the background for every project: `motlab stop` ends it, `motlab restart` starts it again, and `motlab start` starts it without opening a project. `motlab help` lists every command. Its text is in English or Indonesian, following your browser, and the project menu switches it. You can also render from the command line:
@@ -122,7 +123,7 @@ This is one scene on one machine; macOS and Linux were not measured. The other s
 
 1. A project is a `project.json` that lists scene pages and audio files.
 2. A scene page is plain HTML with a `<canvas id="c">`, `window.renderAt(t)`, `window.TOTAL` and `window.ready`. Everything visible is a function of time, so the preview, the stills and the render draw the same frames.
-3. The viewer (`motlab start`, or `motlab edit` to open a project in it) shows the real pages in iframes with their audio through WebAudio, and saves your clicks and notes to `selection.json`.
+3. The viewer (`motlab start`, or `motlab edit` to open a project in it) shows the real pages in iframes with their audio through WebAudio, saves your clicks and notes to `selection.json`, and loads a scene again when its file is saved.
 4. `motlab render` opens headless Chrome for each scene and transition, three at a time, and encodes the frames with `VideoEncoder` inside the page. ffmpeg only copies streams, joins the parts, sets the colour tags and adds the audio.
 
 ```text

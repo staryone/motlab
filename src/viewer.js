@@ -71,6 +71,18 @@ export async function restartViewer() {
   return startViewer({ cwd: old?.workspace || process.cwd(), domain: old?.domain });
 }
 
+// motlab working <project>: tells the open viewer pages what the agent is working on, so they mark those notes and
+// scenes until `done`. Without a running viewer there is nobody to tell, and that is not an error.
+export async function workInViewer(target, { notes = [], scenes = [], text = '', done = false } = {}) {
+  if (!target) throw new Error('working needs the project folder or project file');
+  const file = projectPaths(target).file, v = await findViewer();
+  if (!v) { console.log('No viewer is running, so nobody sees it.'); return; }
+  const r = await fetch(`${v.url}/working`, { method: 'POST', headers: headers(), body: JSON.stringify({ file, notes, scenes, text, done }) });
+  if (!r.ok) throw new Error(await r.text());
+  const { pages } = await r.json(), what = done ? 'Done' : 'Working';
+  console.log(pages ? `${what}: shown in ${pages} open viewer page${pages === 1 ? '' : 's'}.` : `${what}: no viewer page is open on this project, so nobody sees it.`);
+}
+
 // motlab edit [project]: the project in the running viewer, after starting one if needed. Ends once the address is printed.
 export async function openInViewer(target) {
   const file = target ? projectPaths(target).file : null;   // fails here, before starting anything, if it is not a project
