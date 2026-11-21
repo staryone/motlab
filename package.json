@@ -49,6 +49,6 @@
     "doctor": "node bin/motlab.js doctor"
   },
   "dependencies": {
-    "mediabunny": "1.65.2"
+    "mediabunny": "1.66.0"
   }
 }
