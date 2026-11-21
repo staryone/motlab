@@ -85,8 +85,8 @@ export function createAccess({ domain, password, tokenFile = TOKEN_FILE } = {}) 
 const safeNext = n => typeof n === 'string' && /^\/(?!\/)[^\s\\]*$/.test(n) ? n : '/';
 
 const TEXT = {
-  id: { title: 'Masuk ke motlab', password: 'Kata sandi', go: 'Masuk', wrong: 'Kata sandi salah.', wait: 'Terlalu banyak percobaan. Coba lagi sebentar lagi.' },
-  en: { title: 'Sign in to motlab', password: 'Password', go: 'Sign in', wrong: 'Wrong password.', wait: 'Too many tries. Try again in a minute.' },
+  id: { title: 'Masuk ke motlab', field: 'Kata sandi', go: 'Masuk', wrong: 'Kata sandi salah.', wait: 'Terlalu banyak percobaan. Coba lagi sebentar lagi.' },
+  en: { title: 'Sign in to motlab', field: 'Password', go: 'Sign in', wrong: 'Wrong password.', wait: 'Too many tries. Try again in a minute.' },
 };
 const esc = s => String(s).replace(/[&<>"']/g, c => `&#${c.charCodeAt(0)};`);
 
@@ -112,7 +112,7 @@ function page(res, req, code, problem, next) {
 <h1>${t.title}</h1>
 <form method="post" action="/login">
   <input type="hidden" name="next" value="${esc(next)}">
-  <label for="pw">${t.password}</label>
+  <label for="pw">${t.field}</label>
   <input id="pw" name="password" type="password" autocomplete="current-password" required autofocus${problem ? ' aria-describedby="problem"' : ''}>
   <button type="submit">${t.go}</button>
   ${problem ? `<p id="problem" role="alert">${t[problem]}</p>` : ''}
