@@ -228,7 +228,17 @@
   #verGo { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 500; background: var(--text); color: #fff; }
   #verGo:active:not(:disabled) { background: #000; }
   .menu h3 { font-size: 12px; font-weight: 500; color: var(--muted); padding: 6px 10px; }
-  #exportMenu { width: 232px; }
+  #exportMenu { width: 256px; }
+  /* how many scenes render at once: a segmented control, Auto then 1 to 4, on the hover grey with the picked one a white
+     key; the line under it says what the pick does, in red with the alert icon above the suggested number */
+  .seg { display: grid; grid-template-columns: 1.7fr repeat(4, 1fr); gap: 2px; margin: 0 4px; padding: 2px; border-radius: 9px; background: var(--hover); }
+  .seg button { height: 28px; border-radius: 7px; font-size: 13px; color: var(--muted); }
+  .seg button:hover { color: var(--text); }
+  .seg button[aria-pressed="true"] { background: #fff; color: var(--text); font-weight: 500; box-shadow: 0 0 0 1px var(--edge); }
+  .seg button:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
+  #parHint { display: flex; gap: 6px; min-height: 2.9em; padding: 6px 10px 0; font-size: 12px; line-height: 1.45; color: var(--muted); }
+  #parHint.warn { color: var(--red); }
+  #parHint svg { width: 14px; height: 14px; margin-top: 1px; }
   .menu .opt { display: flex; align-items: center; justify-content: space-between; width: 100%; height: 32px; padding: 0 10px; border-radius: 8px; font-size: 13px; text-align: left; }
   .menu .opt:hover { background: var(--hover); }
   .menu .opt.on { background: var(--sel); font-weight: 500; }
@@ -347,7 +357,7 @@
     #notices .toast { position: fixed; left: 12px; right: 12px; bottom: calc(var(--nav) + 12px); z-index: 30; }
   }
   @media (pointer: coarse) {
-    .icon, .btn, .pick, .pill button, .row, .menu .opt, #go, #stop, #verGo, #verName, #popDel, #popDone, #popOk { min-height: 44px; }
+    .icon, .btn, .pick, .pill button, .row, .menu .opt, .seg button, #go, #stop, #verGo, #verName, #popDel, #popDone, #popOk { min-height: 44px; }
     .icon, .pill .sq { min-width: 44px; }
     .pill, #tools, #rangeBar, #drawBar { height: auto; padding-block: 2px; }   /* the 44 px buttons stay inside their pill */
   }
@@ -377,6 +387,10 @@
       <div class="menu r" id="exportMenu" hidden>
         <h3 data-t="resolution"></h3>
         <div id="res" role="group" data-t="aria-label=resolution"></div>
+        <div class="div"></div>
+        <h3 id="parLabel" data-t="atOnce"></h3>
+        <div class="seg" id="par" role="group" aria-labelledby="parLabel"></div>
+        <p id="parHint" role="status"></p>
         <div class="acts"><button id="go">Export</button><button id="stop" data-t="cancel" hidden></button></div>
         <div id="xs" role="status" hidden></div>
       </div>
@@ -475,6 +489,13 @@ const TEXT = {
   badName: ['Nama versi pakai huruf atau angka.', 'Use letters or numbers in the name.'],
   nameTaken: ['Sudah ada versi dengan nama itu.', 'A version with that name already exists.'],
   resolution: ['Resolusi', 'Resolution'],
+  atOnce: ['Scene yang dirender bersamaan', 'Scenes rendered at once'],
+  auto: ['Otomatis', 'Auto'],
+  parAuto: [n => `${n}, dipilih untuk komputer ini.`, n => `${n}, picked for this computer.`],
+  parOne: ['Satu per satu. Paling ringan, paling lama.', 'One at a time. Lightest, slowest.'],
+  parLess: ['Lebih ringan, sedikit lebih lama.', 'Lighter, a little slower.'],
+  parSame: ['Sama dengan otomatis.', 'Same as auto.'],
+  parMore: [n => `Di atas saran (${n}). Bisa lebih lambat atau gagal.`, n => `Above the suggested ${n}. It may be slower or fail.`],
   cancel: ['Batalkan', 'Cancel'],
   lists: ['Scene dan audio', 'Scenes and audio'],
   panels: ['Panel', 'Panels'],
@@ -483,7 +504,7 @@ const TEXT = {
   note: ['Catatan', 'Note'],
   selection: ['Seleksi', 'Selection'],
   nothing: ['Belum ada pilihan', 'Nothing selected'],
-  how: ['Klik scene, audio, atau timeline. Tarik kotak, klik, atau coret dengan pensil (P) di preview untuk memberi catatan.', 'Click a scene, an audio file or the timeline. Drag a box, click, or draw with the pencil (P) on the preview to leave a note.'],
+  how: ['Klik scene, audio, atau timeline. Klik atau tarik di preview untuk memberi catatan.', 'Click a scene, an audio file or the timeline. Click or drag on the preview to leave a note.'],
   saved: ['Tersimpan di selection.json', 'Saved in selection.json'],
   full: ['Layar penuh', 'Full screen'],
   fullExit: ['Keluar dari layar penuh', 'Exit full screen'],
@@ -1739,6 +1760,25 @@ try {
     $('go').textContent = `Export ${RES.find(r => r[0] === p)[1]}`;
   }
   choose(pick);
+  // How many scenes render at once: Auto (the server's own pick for its machine, asked each time the menu opens) or 1 to 4.
+  // The pick is remembered in this browser; Auto sends nothing, so the server decides.
+  let par = 'auto', autoPar = null; try { par = localStorage.motlabPar || 'auto'; } catch {}
+  if (!['auto', '1', '2', '3', '4'].includes(par)) par = 'auto';
+  for (const n of ['auto', '1', '2', '3', '4']) {
+    const b = document.createElement('button'); b.dataset.n = n; b.textContent = n === 'auto' ? L('auto') : n;
+    b.onclick = () => { par = n; try { localStorage.motlabPar = n; } catch {} showPar(); };
+    $('par').append(b);
+  }
+  function showPar() {
+    for (const b of $('par').children) b.setAttribute('aria-pressed', b.dataset.n === par);
+    const n = +par, a = autoPar, more = a && n > a;
+    const text = par === 'auto' ? (a ? L('parAuto', a) : '') : n === 1 ? L('parOne') : !a ? '' : n < a ? L('parLess') : n === a ? L('parSame') : L('parMore', a);
+    $('parHint').classList.toggle('warn', !!more);
+    $('parHint').innerHTML = (more ? ICON.alert : '') + '<span></span>'; $('parHint').lastChild.textContent = text;
+  }
+  const askPar = () => fetch('parallel').then(r => r.json()).then(r => { autoPar = r.auto; showPar(); }).catch(() => {});
+  showPar(); askPar();
+  $('export').onopen = askPar;
   const status = (main, sub, link) => {   // one line, an optional muted second line, an optional link at the end of the first
     $('xs').hidden = false; $('xs').replaceChildren();
     const line = document.createElement('span'); line.className = 'line'; line.append(main);
@@ -1752,13 +1792,13 @@ try {
   };
   $('go').onclick = async () => {
     const [p, text] = RES.find(r => r[0] === pick), icon = $('export').firstElementChild;
-    $('res').inert = true; $('go').disabled = true; $('go').setAttribute('aria-busy', 'true');
+    $('res').inert = $('par').inert = true; $('go').disabled = true; $('go').setAttribute('aria-busy', 'true');
     $('go').innerHTML = `<span class="spin" aria-hidden="true"></span><span>${L('exporting', text)}…</span>`;
     $('stop').hidden = false; $('stop').disabled = false; $('stop').textContent = L('cancel');
     $('exportLabel').textContent = L('exporting', text);
     icon.outerHTML = '<span class="spin" aria-hidden="true"></span>'; status(L('preparing'));
     try {
-      const res = await fetch('export', { method: 'POST', body: JSON.stringify({ project: '{{project}}', scale: p / short, tag: p + 'p' }) });
+      const res = await fetch('export', { method: 'POST', body: JSON.stringify({ project: '{{project}}', scale: p / short, tag: p + 'p', ...(par === 'auto' ? {} : { parallel: +par }) }) });
       if (!res.ok) throw new Error(res.status === 409 ? L('busy') : await res.text());
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader(); let log = '';
       for (;;) {
@@ -1775,7 +1815,7 @@ try {
         status(L('doneIn', secs), file, file);
       }
     } catch (e) { status(L('failed'), L('seeLog', e.message)); }
-    $('res').inert = false; $('stop').hidden = true;
+    $('res').inert = $('par').inert = false; $('stop').hidden = true;
     $('go').disabled = false; $('go').removeAttribute('aria-busy'); choose(pick); $('exportLabel').textContent = 'Export';
     $('export').firstElementChild.outerHTML = ICON.export;
     setMenu($('export'), $('exportMenu'), true);

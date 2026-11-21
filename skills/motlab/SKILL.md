@@ -88,7 +88,8 @@ ask; never stash, reset or discard their changes. The new skills load in a new s
    scene again by itself, so there is no reload to ask for. Report what changed in plain words.
    Before a round that changes a lot, copy `scenes/` to `backup/<n>/`. Never delete or edit the user's reference files.
    Many rounds are normal; keep going until the user is happy.
-9. **The render is the user's.** They press Export in the viewer and pick 720p, 1080p, 1440p or 4K. The file lands in
+9. **The render is the user's.** They press Export in the viewer and pick 720p, 1080p, 1440p or 4K. If their computer
+   is busy or slows down while it renders, the same menu sets "Scene yang dirender bersamaan" to 1. The file lands in
    `<video>/out/<folder>-<resolution>.mp4` (4K as `-2160p`). After fixing one scene, they can re-render just that scene
    from the command line instead of a full export: `motlab render <project> --only N`, where N is the scene's number
    in `project.json`; the rest comes from the cache of the last render, so give the same `--scale` as that render
