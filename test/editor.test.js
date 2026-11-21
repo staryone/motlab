@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { test } from 'node:test';
 
 const editor = new URL('../src/editor.js', import.meta.url).href;
@@ -18,7 +18,7 @@ for (const target of ['', 'project.json', 'project-alt.json']) test(`editor URLs
       child.on('error', no);
       child.on('exit', code => no(new Error(`editor exited: ${code}`)));
     });
-    const base = 'http://127.0.0.1:4199', path = `/p/${dir.split('/').pop().toLowerCase()}/`;
+    const base = 'http://127.0.0.1:4199', path = `/p/${basename(dir).toLowerCase()}/`;
     const expected = path + (target === 'project-alt.json' ? '?v=project-alt.json' : '');
     assert.ok(output.includes(base + expected + '  ('), output);
     assert.equal((await fetch(base, { redirect: 'manual' })).headers.get('location'), expected);
