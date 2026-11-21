@@ -32,6 +32,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Changed
 
+- mediabunny, the MP4 muxer the render uses inside the page, is 1.66.0 instead of 1.65.2 (Dependabot, #18). The example project rendered at 1080p on the test laptop gave the same frames (the same MD5 of the decoded video), the same 270 frames and size, and the same encode speed with both versions.
 - The viewer held upright on a phone fits the screen instead of scrolling. Before, the notes, scenes, audio and selection came after the timeline on one long page, and scrolling to them took the preview out of view. Now four tabs along the bottom open each of them in a sheet over the toolbars and the timeline, and picking a scene or a note there closes it.
 - Dependabot checks the npm packages and the pinned GitHub Actions once a month (`.github/dependabot.yml`). Three lines that the HOL plugin scanner read as a hardcoded secret, dynamic code and shell injection now read plainly: the login page's "Password" label is the key `field`, the text test reads `TEXT` with `node:vm`, and `motlab update` asks npm with one fixed command. The scan of the repository went from 62 to 100 of 100 (plugin-scanner 3.60.0).
 - docs/rendering.md no longer says WebCodecs probably skips NVENC. It encodes on the RTX 3060's NVENC: `nvidia-smi` showed the encoder at up to 51% during a 4K encode, on the same adapter that draws. The session count it showed as zero does not include Media Foundation sessions. The roadmap question is removed.

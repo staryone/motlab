@@ -30,7 +30,7 @@ The ad above (19 seconds, 7 scenes) was made with motlab and its skill, reviewed
 - The viewer plays the real pages with their audio, frame by frame, with a timeline you can zoom and step through.
 - You point at what to change: click a frame, drag a box over a part of it, or mark a time range, and type a note on it. The agent reads every note from `selection.json` and works through them by number.
 - Versions of a project sit side by side in the viewer, so a second cut does not overwrite the first.
-- Export renders 720p, 1080p, 1440p or 4K MP4, with the scenes' transitions, music and voice mixed in. Scenes render three at a time (fewer on a small machine), which took a project of 12 short scenes from 93 to 53 s at 4K, and `"qp"` in `project.json` makes the file smaller (about 30% at `22`) when you need that.
+- Export renders 720p, 1080p, 1440p or 4K MP4, with the scenes' transitions, music and voice mixed in. Scenes render three at a time by default (fewer on a small machine, and the Export menu lets you pick 1 to 4), which took a project of 12 short scenes from 93 to 53 s at 4K, and `"qp"` in `project.json` makes the file smaller (about 30% at `22`) when you need that.
 - The viewer can run on your own server behind a domain and a password, so you can review and export from your phone.
 - Notes are a box, a point or a pencil drawing on the frame. The viewer loads a scene again by itself when the agent saves it, and marks the scenes the agent says it is working on.
 - A long talking-head take is cut at its pauses and can be split into one scene per section, with captions placed from a transcript.
@@ -189,7 +189,7 @@ Footage is decoded inside the page with Mediabunny, so a scene can cut and trim 
 
 <br>
 
-> Yes, with the viewer on a server of yours: `motlab start --domain viewer.example.com` behind a reverse proxy such as Caddy, with a password you set, as described in [the viewer docs](docs/viewer.md#on-a-vps-with-a-domain). An agent can set it up from [its install steps](docs/install-for-agents.md). On the same Wi-Fi without a server, there is no option yet. The login has been tested on the Windows laptop, not yet on a real VPS.
+> Yes, with the viewer on a server of yours: `motlab start --domain viewer.example.com` behind a reverse proxy such as Caddy, with a password you set, as described in [the viewer docs](docs/viewer.md#on-a-vps-with-a-domain). An agent can set it up from [its install steps](docs/install-for-agents.md). Without a domain, `tailscale serve` on the server keeps the viewer private to your own devices; that setup has opened the viewer on a Linux VPS from a laptop and a phone ([Tailscale](docs/viewer.md#on-a-vps-with-a-domain)). On the same Wi-Fi without a server, there is no option yet. The login behind Caddy has been tested on the Windows laptop, not yet on a real VPS.
 
 </details>
 
