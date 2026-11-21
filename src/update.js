@@ -16,7 +16,7 @@ const git = (...args) => {
 };
 
 function updateFromNpm() {
-  const r = spawnSync(`npm view ${PKG.name} version`, { encoding: 'utf8', shell: true });   // one string: npm is npm.cmd on Windows
+  const r = spawnSync('npm view @motlab/cli version', { encoding: 'utf8', shell: true });   // npm is npm.cmd on Windows, which needs a shell, so the command is one fixed string
   const latest = r.status === 0 ? r.stdout.trim() : null;
   const newer = (a, b) => { const [x, y] = [a, b].map(v => v.split(/[.-]/).map(Number)); for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] > y[i]; return false; };
   if (latest && !newer(latest, PKG.version)) { console.log(`motlab is up to date (${PKG.version}).`); return 0; }

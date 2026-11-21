@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { runInNewContext } from 'node:vm';
 import { test } from 'node:test';
 
 // The viewer's text is one table, TEXT, with the Indonesian and the English side by side. A key the page asks for that
@@ -7,7 +8,7 @@ import { test } from 'node:test';
 test('every viewer text is in TEXT, in Indonesian and English', () => {
   const html = readFileSync('src/editor.html', 'utf8');
   const src = html.slice(html.indexOf('const TEXT = {') + 13, html.indexOf('\n};', html.indexOf('const TEXT = {')) + 2);
-  const TEXT = new Function(`return ${src}`)();
+  const TEXT = runInNewContext(`(${src})`);
   for (const [k, v] of Object.entries(TEXT)) {
     assert.ok(Array.isArray(v) && v.length === 2, `${k}: needs [Indonesian, English]`);
     assert.equal(typeof v[0], typeof v[1], `${k}: both or neither are functions`);
