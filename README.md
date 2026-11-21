@@ -81,6 +81,18 @@ The installer runs `npm ci`, puts a `motlab` command in `~/.local/bin` and copie
 
 </details>
 
+<details><summary>The skills first, with npx skills (skills.sh)</summary>
+
+<br>
+
+```bash
+npx skills add staryone/motlab -g
+```
+
+This installs only the two skills, for the agents it finds on your machine. The first time the motlab skill runs, it sees that the engine is missing and asks before installing it with npm. To install the engine yourself, run `npm install -g @motlab/cli` and then `npx @motlab/cli setup --skill none`, so setup adds only the command. Setup and `motlab uninstall` leave skills that came from npx skills alone; update them with `npx skills update -g`. Without `-g`, npx skills puts the skills in the current project only.
+
+</details>
+
 Later, `motlab update` tells you when a new version is out and how to get it (from a clone it pulls it from GitHub itself), and `motlab uninstall` removes the skills and motlab's own files again.
 
 [Install guide and per-OS notes](docs/install.md) · [Instructions for an agent doing the install](docs/install-for-agents.md)

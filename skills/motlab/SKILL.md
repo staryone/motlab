@@ -1,6 +1,6 @@
 ---
 name: motlab
-description: Make and edit videos as code with the motlab engine, with no AI video or image generation: product and app ads, logo animations, explainers, tutorials, screen-recording and footage edits, social clips. The agent builds every scene from the user's references and opens the motlab viewer; the user leaves notes there and exports the video. Use whenever someone asks for a video, animation, motion ad, promo, explainer, reel or short, mentions motlab, or gives notes on one.
+description: "Make and edit videos as code with the motlab engine, with no AI video or image generation: product and app ads, logo animations, explainers, tutorials, screen-recording and footage edits, social clips. The agent builds every scene from the user's references and opens the motlab viewer; the user leaves notes there and exports the video. Use whenever someone asks for a video, animation, motion ad, promo, explainer, reel or short, mentions motlab, or gives notes on one."
 ---
 
 # motlab
@@ -24,18 +24,28 @@ your own work) and `motlab events` are fine. Render only if the user asks for it
 
 ## The engine
 
-`motlab` is a command on PATH. Run `motlab --help` once at the start: it lists the commands and prints the engine
-folder (its README, the `example/` project and `src/page/footage.js`).
+This skill drives the motlab engine, a command-line tool, and can do nothing without it. Before anything else, run
+`motlab --version`:
 
-If `motlab` is not found, ask the user how they installed it. From npm (`npm install -g @motlab/cli`), run
-`npx @motlab/cli setup --skill none`; it adds the command when npm's folder is not on PATH. From a clone (the
-folder with `install.js` and `bin/motlab.js`), run `node install.js --skill none` there; it puts the command on PATH.
-If they have neither, follow `docs/install-for-agents.md` from https://github.com/staryone/motlab. Until the command is on PATH, call
-`node <engine>/bin/motlab.js`. Never hard-code the engine path anywhere else. If a render or still fails because Chrome
-or ffmpeg is missing, run `motlab doctor` and show the user what it reports. When the user asks to update motlab or
-its skills, run `motlab update`. For an npm install it prints the two commands that update it; run them if the user
-agrees. If it stops because the engine folder has local changes or commits of its own, show the user its message and
-ask; never stash, reset or discard their changes. The new skills load in a new session.
+- **It prints a version.** Run `motlab --help` once: it lists the commands and prints the engine folder (its README,
+  the `example/` project and `src/page/footage.js`).
+- **`motlab` is not found.** The skill may have been installed on its own, for example with
+  `npx skills add staryone/motlab`. Tell the user that it needs the engine, which needs Node 24 or newer, Google Chrome
+  or Chromium, and ffmpeg, and ask before you install anything. With their yes, run `npm install -g @motlab/cli`, then
+  `npx @motlab/cli setup --skill none`: the skills are already here, so it adds only the command (where npm's folder
+  is not on PATH) and checks the machine. Show the user what it marks FAIL. If they installed motlab from a clone (the
+  folder with `install.js` and `bin/motlab.js`), run `node install.js --skill none` there instead. If npm is missing or
+  the install fails, follow `docs/install-for-agents.md` from https://github.com/staryone/motlab.
+- **It prints an error or the help instead of a version.** The engine is older than this skill. Tell the user, and
+  update it as below if they agree.
+
+Until the command is on PATH, call `node <engine>/bin/motlab.js`. Never hard-code the engine path anywhere else. If a
+render or still fails because Chrome or ffmpeg is missing, run `motlab doctor` and show the user what it reports.
+When the user asks to update motlab or its skills, run `motlab update`. For an npm install it prints the two commands
+that update it; run them if the user agrees. Skills that came from `npx skills add` are left alone by setup, which
+says so; update them with `npx skills update -g`. If `motlab update` stops because the engine folder has local changes
+or commits of its own, show the user its message and ask; never stash, reset or discard their changes. The new skills
+load in a new session.
 
 ## The workflow
 

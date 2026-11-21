@@ -7,6 +7,7 @@ import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { createInterface } from 'node:readline/promises';
 import { cacheFile } from './probe.js';
+import { skillsCliSkills } from './skillslock.js';
 import { FROM_NPM, PKG, ROOT } from './update.js';
 import { stopViewer } from './viewer.js';
 
@@ -24,8 +25,10 @@ function targets() {
     const f = join(bin, name);
     try { if (readFileSync(f, 'utf8').includes('motlab.js')) out.push({ path: f, what: 'launcher' }); } catch {}
   }
+  const fromCli = skillsCliSkills();   // `npx skills remove` removes those
   for (const dir of new Set([...(record.skillDirs || []), ...KNOWN])) for (const name of ['motlab', 'motlab-assets']) {
     const d = join(dir, name);
+    if (fromCli.has(name)) continue;
     let stat = null; try { stat = lstatSync(d); } catch {}
     if (stat?.isSymbolicLink()) out.push({ path: d, what: 'skill link', link: true });   // removed as a link, never through it
     else if (stat && existsSync(join(d, 'SKILL.md'))) out.push({ path: d, what: 'skill' });
@@ -39,6 +42,8 @@ function targets() {
 }
 
 export async function uninstall({ dryRun = false, yes = false } = {}) {
+  const cli = ['motlab', 'motlab-assets'].filter(n => skillsCliSkills().has(n));
+  if (cli.length) console.log(`${cli.join(' and ')} came from npx skills and stay. Remove ${cli.length > 1 ? 'them' : 'it'} with: npx skills remove ${cli.join(' ')} -g\n`);
   const list = targets();
   if (!list.length) { console.log(`Nothing from motlab is installed here${FROM_NPM ? `. To remove the command, ${REST}` : ''}.`); return 0; }
   console.log('motlab uninstall removes:');

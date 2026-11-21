@@ -85,7 +85,7 @@ Options:
 | `--link` | link the skill folders to this checkout instead of copying them, so edits under `skills/` apply at once (a junction on Windows) |
 | `--bin <dir>` | put the launcher somewhere else |
 | `--update` | the skills again in every folder from `~/.motlab/install.json`, and in any folder from the table below that already has the motlab skill (an install from before that file). `--skill` and `--skill-dir` add folders. `motlab update` runs this |
-| `--force` | replace a folder at a skill path that has no `SKILL.md` |
+| `--force` | replace a folder at a skill path that has no `SKILL.md`, and copy over a skill that npx skills installed ([below](#the-skills-from-npx-skills)) |
 | `--skills-only` | the skills and `motlab doctor`, no `npm ci`, and a launcher only for an npm install whose command folder is not on PATH. `motlab setup` runs this |
 | `--dry-run` | print every step and change nothing |
 
@@ -120,6 +120,23 @@ Then either run `node /path/to/motlab/bin/motlab.js` directly, or make a launche
 
 To install the skills by hand, copy or link `skills/motlab/` and `skills/motlab-assets/` to your agent's skill folder (see the table above), side by side. Both call `motlab` and find the engine folder through `motlab --help`; `motlab-assets` also uses scripts from the motlab skill there.
 
+## The skills from npx skills
+
+The skills CLI behind [skills.sh](https://skills.sh) installs skills from a GitHub repository:
+
+```bash
+npx skills add staryone/motlab -g
+npx skills add staryone/motlab -g --skill motlab
+```
+
+The first line installs both skills and the second only `motlab`. With `-g` they go to `~/.agents/skills/`, and by default the CLI links them from there into the user skill folder of each agent it finds, such as `~/.claude/skills/`. Without `-g` they go to the current project only (`.agents/skills/`, `.claude/skills/`), and an agent that also has a copy from `motlab setup` in its user folder then finds motlab twice. So use `-g`.
+
+This installs no engine. The first time the motlab skill runs, it runs `motlab --version`; when the command is missing, it tells the user what the engine needs and, with their yes, runs `npm install -g @motlab/cli` and `npx @motlab/cli setup --skill none`. `--skill none` makes setup add only the command, because the skills are already there.
+
+The skills CLI lists what it installed with `-g` in `~/.agents/.skill-lock.json` (`$XDG_STATE_HOME/skills/.skill-lock.json` when that is set). A skill listed there belongs to it: `motlab setup`, `motlab setup --update` and `node install.js` leave that skill where it is and say so, and `motlab uninstall` leaves it too. Otherwise setup would put its own copy over the link and the two installers would each update a different copy. Update those skills with `npx skills update -g` and remove them with `npx skills remove motlab motlab-assets -g`. `--force` makes setup copy over them anyway.
+
+Tried on Windows 11 with skills 1.9.0: `npx skills add <the motlab folder> --list` found both skills. Before this, it skipped both, because their `description` held `: ` without quotes, which its YAML parser reads as a new key; the descriptions are quoted now, and `test/skills.test.js` checks that. Not tried yet: a real `npx skills add staryone/motlab -g` followed by the skill installing the engine in a new session.
+
 ## Updating
 
 ```bash
@@ -133,7 +150,7 @@ npm install -g @motlab/cli@latest
 motlab setup --update
 ```
 
-The second copies the skills again to every folder they went to before, since npm only replaces the engine.
+The second copies the skills again to every folder they went to before, since npm only replaces the engine. Skills that came from npx skills are left out; `npx skills update -g` updates them.
 
 From a clone, it works in the clone the `motlab` command runs from:
 

@@ -1,6 +1,6 @@
 ---
 name: motlab-assets
-description: Make reusable assets as code for motlab videos, without any AI image, video or 3D generator: icons, illustrations, vector logos, rigged 2D characters, 3D objects, transitions, textures and backgrounds, kept in one kit so every video looks the same. Outputs transparent PNG plus SVG, or GLB, FBX and OBJ with PBR textures. Use whenever someone asks for assets, an asset kit, a mascot, an icon set, a 3D model or textures, even if they never say motlab.
+description: "Make reusable assets as code for motlab videos, without any AI image, video or 3D generator: icons, illustrations, vector logos, rigged 2D characters, 3D objects, transitions, textures and backgrounds, kept in one kit so every video looks the same. Outputs transparent PNG plus SVG, or GLB, FBX and OBJ with PBR textures. Use whenever someone asks for assets, an asset kit, a mascot, an icon set, a 3D model or textures, even if they never say motlab."
 ---
 
 # motlab-assets
@@ -21,7 +21,9 @@ one. Don't draw a logo or a real product from memory.
 ## Tools
 
 - This skill's folder: `scripts/` and `templates/` below.
-- The motlab engine: run `motlab --help` once; it prints the engine folder. The motlab skill's scripts are in
+- The motlab engine: run `motlab --help` once; it prints the engine folder. If `motlab` is not found, this skill was
+  installed without the engine: tell the user, and with their yes run `npm install -g @motlab/cli`, then
+  `npx @motlab/cli setup --skill none`. The motlab skill's scripts are in
   `<engine>/skills/motlab/scripts/`: `blender/kit.py` and `blender/mesh_from_sdf.py` (3D), `grid.py` (read coordinates
   off a reference), `get_font.py` (Google Fonts). `motlab stills` renders every PNG on the 2D and light 3D paths.
 - Python 3 with numpy, scipy and Pillow (the motlab skill's `requirements.txt`). Commands say `python`; on macOS and

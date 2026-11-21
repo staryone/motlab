@@ -22,6 +22,7 @@ import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { skillsCliSkills } from './src/skillslock.js';
 import { onUserPath } from './src/userpath.js';
 
 const HERE = dirname(fileURLToPath(import.meta.url)), WIN = process.platform === 'win32', HOME = homedir();
@@ -97,7 +98,15 @@ if (!onPath) console.log(`\n${bin} is not on PATH yet. Add it, then open a new t
 
 // 3. the skills
 if (o.update && !skillDirs.length) say('no skill folders from an earlier install; pass --skill to add the skills');
-for (const dir of skillDirs) for (const name of ['motlab', 'motlab-assets']) {
+// A skill that `npx skills add -g` installed belongs to that CLI. Copying ours over it would give it two owners and put
+// a second copy next to the one it links into each agent folder, so it is left alone. --force copies it anyway.
+const fromCli = skillsCliSkills();
+const names = ['motlab', 'motlab-assets'].filter(name => {
+  if (!skillDirs.length || o.force || !fromCli.has(name)) return true;
+  say(`skill ${name} was installed with npx skills, so it is left alone. Update it with: npx skills update -g`);
+  return false;
+});
+for (const dir of skillDirs) for (const name of names) {
   const src = join(HERE, 'skills', name), dest = join(dir, name);
   let stat = null; try { stat = lstatSync(dest); } catch {}
   const isLink = stat?.isSymbolicLink();
