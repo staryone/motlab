@@ -1,6 +1,6 @@
 """Put a folder of stills on one labelled sheet, in time order, for reviewing a video frame by frame.
 
-The stills are the files `motlab stills` writes: <seconds>.png or <seconds>.jpg.
+The stills are the files `motlab stills` writes: <seconds>[-<occurrence>].png or .jpg.
 
     python3 contact_sheet.py <stills dir> <out.jpg> [--cols 4] [--width 640]
 """
@@ -11,7 +11,7 @@ import re
 
 from PIL import Image, ImageDraw
 
-NAME = re.compile(r'^(\d+(?:\.\d+)?)\.(png|jpe?g)$', re.I)
+NAME = re.compile(r'^(\d+(?:\.\d+)?)(?:-\d+)?\.(png|jpe?g)$', re.I)
 
 
 def main():
