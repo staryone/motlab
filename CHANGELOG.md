@@ -12,6 +12,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
+- `cut_pauses.py` took the end of a take from its shortest stream, subtitles included, so a 1 s subtitle track over 4 s of picture and sound gave a 1 s cut list without an error. It now uses the shorter of the audio and the video, or the file's duration when the streams give none. `test/cut-pauses.test.js` runs it on files made with ffmpeg.
 - A scene with `#`, `?` or `%` in its path, such as `scene #2.html`, rendered on a hard cut but failed with "does not keep the page contract" next to a transition, and did not load in the viewer. Transitions and the viewer now encode each part of the path, as hard cuts already did, and still take `\` between folders. A `?` in a file name was tested off Windows only, as Windows does not allow it.
 - With a dissolve, `edit.captions()` could return a line that ended before it started, such as 1.9 s to 1.51 s: a word in the outgoing part's faded tail was placed after the first word of the incoming part. A part's words now stop where the next part starts, as its picture does. Words in the faded tail are left out like cut words, a word that crosses the start ends there, and `edit.toOut()` maps the tail to the next part's start. Not tried with a real Whisper transcript.
 - `motlab edit <folder>/project-alt.json` opened `project.json`: the address it printed, the redirect from `/` and a second `motlab edit` into a running viewer all left out `?v=`. They keep it now. A folder or `project.json` still opens the plain address.

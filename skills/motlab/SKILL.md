@@ -310,6 +310,7 @@ and how to install it before you start.
   captions from a transcript).
 - `cut_pauses.py`: cuts the pauses out of a talking-head recording into `cuts.json`, with `--audio-out` writes the
   voice with the same cuts, and with `--sections` splits the take into one scene per section.
+  The take ends at the shorter audio/video duration (container duration if unavailable), ignoring subtitle and data tracks.
 - `mix.py`: puts library sounds on the page's events at a level set by their role, lowers them under a voiceover,
   reports how close each landed and which moments to listen to. `synth_sfx.py`: builds a free sound kit. `get_sfx.py`: finds openly licensed sounds on
   Openverse and downloads them with a `CREDITS.md`. If the user has earshot (`earshot --help` runs, or its MCP tools
