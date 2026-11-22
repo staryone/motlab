@@ -22,6 +22,13 @@ def duration(path):   # the shortest stream: a recording's sound often ends a fe
     out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=duration:format=duration', '-of', 'csv=p=0', path], capture_output=True, text=True)
     return min(float(x) for x in out.stdout.split() if re.fullmatch(r'[\d.]+', x.strip(',')))
 
+def filter_file_option():
+    with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8') as g: g.write('anullsrc,atrim=end=0.01[out]')
+    try:
+        probe = subprocess.run(['ffmpeg', '-hide_banner', '-v', 'error', '-/filter_complex', g.name, '-map', '[out]', '-f', 'null', '-'], capture_output=True)
+        return '-/filter_complex' if probe.returncode == 0 else '-filter_complex_script'
+    finally: os.unlink(g.name)
+
 def pauses(path, noise, min_pause):
     err = subprocess.run(['ffmpeg', '-hide_banner', '-i', path, '-map', '0:a:0', '-af', f'highpass=f=80,silencedetect=noise={noise}dB:d={min_pause}',
                           '-f', 'null', '-'], capture_output=True, text=True).stderr
@@ -78,7 +85,7 @@ def main():
         with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8') as g: g.write(graph)
         try:
             os.makedirs(os.path.dirname(os.path.abspath(audio)), exist_ok=True)
-            subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', src, '-filter_complex_script', g.name, '-map', '[out]', '-ar', '48000', '-ac', '2', audio], check=True)
+            subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', src, filter_file_option(), g.name, '-map', '[out]', '-ar', '48000', '-ac', '2', audio], check=True)
         finally: os.unlink(g.name)
         print(f'voice with the same cuts -> {audio} ({duration(audio):.2f} s)')
 

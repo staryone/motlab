@@ -6,7 +6,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
-- `cut_pauses.py --audio-out` works with FFmpeg 4.4 again: it reads the filter graph with `-filter_complex_script` instead of the `-/filter_complex` syntax added in FFmpeg 7.0. Checked with FFmpeg 4.4.2 and 7.0.2, with hard cuts and dissolves.
+- `cut_pauses.py --audio-out` probes support for the file-loading `-/filter_complex` syntax and falls back to `-filter_complex_script` on older FFmpeg. This keeps the filter graph in a file and works after current FFmpeg removed the deprecated fallback. Checked with FFmpeg 4.4.2, 7.0.2 and current master, with hard cuts and dissolves.
 
 ### Added
 
