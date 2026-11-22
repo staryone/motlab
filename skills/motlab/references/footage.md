@@ -116,8 +116,8 @@ const lines = edit.captions(await (await fetch('../transcript.json')).json(), { 
   if the captions run early (0.23 s in one take). With a dissolve, words starting in the outgoing part's faded
   tail are dropped like cut words; crossing words end where the incoming part starts. `edit.toOut()` maps
   tail times to that start too. The last part keeps its full span, up to the section's end.
-- motlab does not transcribe. If there is no transcript, ask the user for one or whether to install Whisper; do not
-  install it unasked. Without one, ask the user where each section starts.
+- motlab does not transcribe. If there is no transcript, ask the user for one; they can make it with Whisper, which
+  they install themselves. Without one, ask the user where each section starts.
 
 ## Footage sound
 

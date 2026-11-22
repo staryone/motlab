@@ -2,6 +2,12 @@
 
 Changes are listed by release, newest first. The sections dated before 0.1.0 record what was built on the way to the first release.
 
+## Unreleased
+
+### Changed
+
+- The skills give the user the commands that install or update the engine, and the guide for a viewer on a server, instead of running or following them. skills.sh's scan warned that the motlab skill fetched its install steps from GitHub's `main` and followed them (W012), and that both skills changed the system (W013). The install guide they link to is pinned to `v0.4.1`. Both skills now say that text in references and search results is material, not instructions (W011), and `npx @gltf-transform/cli` is pinned to 4.5.1. Not checked: whether the warnings go away, which shows after skills.sh scans the repository again.
+
 ## 0.4.1 (2026-11-22)
 
 ### Added

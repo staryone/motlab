@@ -7,9 +7,10 @@ import { basename, join } from 'node:path';
 import { test } from 'node:test';
 import { renderVideo } from '../src/render.js';
 
+// A deadline that only keeps a broken test from hanging. message may be a function, read when the time runs out.
 function within(promise, ms, message) {
   const { promise: deadline, reject } = Promise.withResolvers();
-  const timer = setTimeout(reject, ms, new Error(message));
+  const timer = setTimeout(() => reject(new Error(typeof message === 'function' ? message() : message)), ms);
   return Promise.race([promise, deadline]).finally(() => clearTimeout(timer));
 }
 
@@ -43,13 +44,14 @@ test('viewer cancellation releases a scene waiting for ready before accepting an
     });
     const viewer = await fetch(`${base}/p/${basename(dir).toLowerCase()}/`);
     assert.equal(viewer.status, 200);
-    const post = (path, ms = 15000) => fetch(base + path, {
+    // Generous: on a Windows runner busy with the other test files, Chrome took more than 15 s to load the scene.
+    const post = (path, ms = 30000) => fetch(base + path, {
       method: 'POST', body: JSON.stringify({ scale: 1, tag: 'cancel', parallel: 1 }), signal: AbortSignal.timeout(ms),
     });
     const path = `/p/${basename(dir).toLowerCase()}/export`;
-    const first = await post(path, 45000);
+    const first = await post(path, 120000);
     assert.equal(first.status, 200);
-    await within(waiting, 15000, 'scene did not reach ready');
+    await within(waiting, 60000, () => `scene did not reach ready in 60 s. Viewer output:\n${logs}`);
     assert.equal((await post('/export/cancel')).status, 204);
     const next = await post(path);
     assert.equal(next.status, 200, 'follow-up export must not be busy after cancel responds');
