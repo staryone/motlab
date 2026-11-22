@@ -6,7 +6,7 @@ import { runInNewContext } from 'node:vm';
 test('viewer: audio requests preserve filename characters and folder separators', async () => {
   const html = readFileSync(new URL('../src/editor.html', import.meta.url), 'utf8');
   const start = html.indexOf('const tracks = await Promise.all(files.map');
-  const src = html.slice(start, html.indexOf('\n\n  const view =', start));
+  const src = html.slice(start, html.indexOf('\n  const view =', start));
   for (const file of ['voice.wav', 'voice #1.wav', 'takes #1/voice %23.wav', 'takes #1\\voice %23.wav', 'voice ?2.wav']) {
     let url;
     const tracks = await runInNewContext(`(async () => { ${src}; return tracks; })()`, {
