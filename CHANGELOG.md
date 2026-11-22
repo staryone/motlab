@@ -4,15 +4,15 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
-### Fixed
-
-- `cut_pauses.py` ignores subtitle and data track durations when finding the end of a take. A 1 s subtitle over 4 s of picture and sound no longer silently truncates the cut list to 1 s. It still uses the shorter audio/video duration to keep picture and sound in step, falling back to the container duration when stream durations are unavailable. `test/cut-pauses.test.js` runs the helper on generated media.
-
 ### Added
 
 - `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".
 - The skills can be installed on their own with `npx skills add staryone/motlab -g`, the skills CLI behind skills.sh (README, docs/install.md). The motlab skill now starts with `motlab --version`: when the command is missing, it tells the user what the engine needs and, with their yes, runs `npm install -g @motlab/cli` and `npx @motlab/cli setup --skill none`; when it prints no version, the engine is older than the skill. The asset skill says the same in one line.
 - `motlab setup`, `motlab setup --update`, `node install.js` and `motlab uninstall` leave a skill that the skills CLI installed with `-g`, which it lists in `~/.agents/.skill-lock.json`, and print the `npx skills` command that updates or removes it. Before, setup copied over the CLI's link, so the skill had two owners and two copies. `--force` copies over it anyway. `test/install.test.js` checks setup, `--force` and uninstall with a faked lock file.
+
+### Fixed
+
+- `cut_pauses.py` took the end of a take from its shortest stream, subtitles included, so a 1 s subtitle track over 4 s of picture and sound gave a 1 s cut list without an error. It now uses the shorter of the audio and the video, or the file's duration when the streams give none. `test/cut-pauses.test.js` runs it on files made with ffmpeg.
 
 ### Changed
 
