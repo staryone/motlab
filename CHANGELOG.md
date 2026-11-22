@@ -12,6 +12,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
+- On macOS and Linux, setup recognizes a symlink to the npm bin directory on PATH. Previously it could write a second launcher even when the npm command was already reachable.
 - An apostrophe in a version filename, such as `project-client's.json`, left the viewer blank. The viewer now opens that version and shows its name as written. `test/editor-version.test.js` opens it in Chrome, and in the viewer on Windows a note saved in that version kept its file name.
 - `compose_into_clip.py` played each PNG for one frame and ignored `--end`, so two PNGs with `--end 2` at 25 fps gave 2 frames of animation, the clip from 0.08 s, and the clip's sound 1.9 s after its picture. The animation now lasts `--end` (50 frames here), with the PNGs spread evenly over it, and the clip starts at `--end` with its sound. Not tried with a real Blender render.
 - An audio file like `voice #1.wav` stopped the viewer from opening the project with "Unable to decode audio data". The viewer now loads the file and opens the project. Not tried: listening to the sound.
@@ -29,6 +30,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Changed
 
+- Documented the [macOS render check](docs/install.md#macos-render-check): the bundled example rendered from the npm package on an Apple M5 at 1920×1080, with 270 frames and 9 s of audio.
 - `bench/package.json` no longer lists `@remotion/bundler` and `@remotion/renderer`, which nothing in `bench/` imports. `@remotion/cli` 4.0.543 depends on both at that same version, so `npm ci` still installs them.
 - Both skills' `description` is in double quotes. The skills CLI's YAML parser read the `: ` inside it as a new key and skipped both skills with "No valid skills found"; Claude Code read them either way. `test/skills.test.js` now fails on a plain value with `: ` or ` #`. Checked with skills 1.9.0 on Windows: `npx skills add <folder> --list` found both after the change.
 

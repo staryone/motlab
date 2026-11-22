@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { delimiter, join } from 'node:path';
 import { test } from 'node:test';
@@ -116,6 +116,7 @@ test('setup from an npm install adds the command only when npm put it off PATH',
     const pkg = win ? join(root, 'prefix', 'node_modules', '@motlab', 'cli') : join(root, 'prefix', 'lib', 'node_modules', '@motlab', 'cli');
     const npmBin = win ? join(root, 'prefix') : join(root, 'prefix', 'bin');
     mkdirSync(pkg, { recursive: true });
+    mkdirSync(npmBin, { recursive: true });
     cpSync('install.js', join(pkg, 'install.js')); mkdirSync(join(pkg, 'src'));
     for (const f of ['userpath.js', 'skillslock.js']) cpSync(join('src', f), join(pkg, 'src', f));
     const run = path => spawnSync(process.execPath, [join(pkg, 'install.js'), '--skills-only', '--skill', 'none', '--dry-run'],
@@ -126,6 +127,13 @@ test('setup from an npm install adds the command only when npm put it off PATH',
     const on = run([process.env.PATH, npmBin].join(delimiter));
     assert.equal(on.status, 0, on.stderr);
     assert.ok(!/write|not on PATH/.test(on.stdout), on.stdout);
+    if (!win) {
+      const alias = join(root, 'npm-bin');
+      symlinkSync(npmBin, alias, 'dir');
+      const linked = run([process.env.PATH, alias].join(delimiter));
+      assert.equal(linked.status, 0, linked.stderr);
+      assert.ok(!/write|not on PATH/.test(linked.stdout), linked.stdout);
+    }
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
