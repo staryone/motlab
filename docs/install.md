@@ -56,7 +56,20 @@ npm config set prefix "%APPDATA%\npm"
 
 In PowerShell write `"$env:APPDATA\npm"`. `%APPDATA%\npm` is npm's usual global folder on Windows and is often on PATH from an earlier Node install; `where npm` lists it if so, otherwise add it to PATH. This changes where every global package goes, not only motlab, and the packages there are shared by all Node versions. `motlab update` keeps working, because its `npm install -g` follows the same setting. The clone below also works there, since its installer writes its own launcher.
 
-This was tested on Windows 11, from the registry and from a packed tarball, each installed into a separate npm folder: `setup`, `update`, `uninstall` and a render of the example. It was also installed globally with nvm for Windows 2.0: `npx @motlab/cli` ran the installed package from the nvm folder, setup wrote the launcher when that folder was off PATH and none when it was on PATH, and with the prefix in `%APPDATA%\npm` the command was found without one. On a Linux VPS (Ubuntu, 2 cores, no GPU, npm's prefix in `~/.npm-global`), a packed tarball installed globally ran `setup` without writing a launcher, `which motlab` found npm's own command, `motlab doctor` was ready and the example rendered. It has not been tried on macOS.
+This was tested on Windows 11, from the registry and from a packed tarball, each installed into a separate npm folder: `setup`, `update`, `uninstall` and a render of the example. It was also installed globally with nvm for Windows 2.0: `npx @motlab/cli` ran the installed package from the nvm folder, setup wrote the launcher when that folder was off PATH and none when it was on PATH, and with the prefix in `%APPDATA%\npm` the command was found without one. On a Linux VPS (Ubuntu, 2 cores, no GPU, npm's prefix in `~/.npm-global`), a packed tarball installed globally ran `setup` without writing a launcher, `which motlab` found npm's own command, `motlab doctor` was ready and the example rendered.
+
+### macOS render check
+
+On an Apple M5 running macOS 26.7.4, a local install of `@motlab/cli@0.4.0` from the npm registry rendered the bundled example with Node 26.12.1, Google Chrome 158.0.8127.37 and FFmpeg 9.0.1. To repeat in an empty directory:
+
+```sh
+npm install @motlab/cli@0.4.0
+cp -R node_modules/@motlab/cli/example ./example
+./node_modules/.bin/motlab render example --scale 1
+ffprobe -v error -count_frames -show_entries stream=codec_name,width,height,nb_read_frames,duration example/out/example.mp4
+```
+
+Chrome reported the ANGLE Metal renderer and motlab selected hardware H.264. The output contained 270 frames at 1920×1080 and 30 fps. The video and AAC audio streams each lasted 9.000 s, and FFmpeg decoded the whole file without an error. When the global npm bin directory is on PATH through a symlink, setup now recognizes it and skips the extra launcher. This was checked with a separate npm prefix and `setup --dry-run --skill none`. A full global setup, update and uninstall remain untested on macOS.
 
 ## With the installer
 
@@ -197,5 +210,5 @@ Windows
 
 macOS and Linux
 
-- The code has the macOS and Linux Chrome paths and uses ANGLE on Metal on macOS. On Linux, CI runs the tests and their end-to-end renders on an Ubuntu runner with Google Chrome and the distribution's ffmpeg. A real video has been made there now: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, rendered in about 82 s with the Chromium Playwright downloads (`CHROME` set to `~/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`), and an install from a clone with `install.js` worked too (issue #8). An install from the npm registry on Linux has not been tried, and macOS has not been tested at all. Reports are welcome.
+- The code has the macOS and Linux Chrome paths and uses ANGLE on Metal on macOS. On Linux, CI runs the tests and their end-to-end renders on an Ubuntu runner with Google Chrome and the distribution's ffmpeg. A real video has been made there now: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, rendered in about 82 s with the Chromium Playwright downloads (`CHROME` set to `~/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome`), and an install from a clone with `install.js` worked too (issue #8). An install from the npm registry on Linux has not been tried. For macOS, see the [Apple M5 render check](#macos-render-check).
 - A machine without a GPU renders through Chrome's software drawing and software H.264 encoder, only slower: the Linux render above took about 82 s for 42 s of video at 1080x1920, and on the Windows test laptop with Chrome drawing on SwiftShader, the benchmark scene took 2.8 times as long at 1080p and 4.5 times at 4K ([rendering](rendering.md#without-a-gpu)). No 3D (WebGL) scene has been rendered on a machine without a GPU yet.
