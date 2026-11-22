@@ -6,6 +6,8 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
+- Transition and viewer scene URLs retain support for Windows-style backslash folder separators when encoding paths; backslashes are normalized to `/`, not encoded as filename characters. The viewer URL regression test includes a backslash-separated nested scene.
+
 - Scenes with `#`, `%`, `?` or spaces in their file paths now load in transitions and the viewer. Their iframe URLs encode each path segment, as hard-cut renders already did, instead of treating filename characters as URL syntax. `test/render.test.js` covers transitions into and out of nested scene paths, and `test/scene-url.test.js` checks viewer URLs. `?` filenames are tested only off Windows, which does not permit them.
 
 ### Added

@@ -13,7 +13,7 @@ How `motlab render`, `motlab video` and Export turn scene pages into an MP4, how
 
 A project (`motlab render`, Export) runs these steps once for each scene and transition, three at a time after the first scene by default (`--parallel`, or the number picked in the Export menu), and joins the parts with one more `-c copy` pass ([Rendering a project](projects.md#rendering-a-project)).
 
-Scene paths in `project.json` are literal file paths, not URLs: leave spaces, `#`, `%` and `?` as written in the filename (where the operating system permits them). The renderer, including transition iframes, and the viewer encode each path segment when loading the page, preserving folder separators and the separate `scale` query.
+Scene paths in `project.json` are literal file paths, not URLs: leave spaces, `#`, `%` and `?` as written in the filename (where the operating system permits them). The renderer, including transition iframes, and the viewer encode each path segment when loading the page, preserving folder separators and the separate `scale` query. Transition and viewer iframes accept both `/` and Windows-style `\` folder separators, as browser URLs did before path encoding.
 
 Temporary files go to the system temp folder and are removed afterwards. The output is written as `.part` and renamed at the end.
 
