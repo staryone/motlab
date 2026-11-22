@@ -52,6 +52,8 @@ the pose in which its change is first visible.
 - `pitch` varies a repeated sound (a run of clicks climbing from 0.9 to 1.3), `lp` and `hp` soften it, `dur` cuts a long
   tail, `pan` places it left or right.
 - Beds (`"type": "bed"`) are long layers: looped if short, faded in and out, with an `env` of level changes over time.
+  The default fades are 0.5 s in and 1 s out. Each fade is capped at the bed's span; when they overlap, their gain
+  curves multiply, so a short bed fades at both ends without needing to reach full level.
 
 ### 4. Mix
 

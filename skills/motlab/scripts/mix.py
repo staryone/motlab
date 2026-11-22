@@ -26,6 +26,7 @@ A bed, looped if the file is shorter than the span:
     {"type": "bed", "file": ..., "event"/"at": start, "to_event"/"to": end, "db": -26, "from": 0,
      "fade_in": 0.5, "fade_out": 1.0, "lp", "hp", "env": [["event name or seconds", dB], ...]}
   from    where to start reading the file, in seconds. env: level changes over time, relative to db.
+  fades   each is capped at the bed's span; overlapping fade curves multiply.
 """
 import argparse
 import json
@@ -179,7 +180,8 @@ def add_bed(out, cue, sound, level, when, length):
         points = sorted((when.time(t), d) for t, d in cue['env'])
         times = start + np.arange(n) / RATE
         gain *= db(np.interp(times, [p[0] for p in points], [p[1] for p in points]))
-    fade_in, fade_out = int(cue.get('fade_in', 0.5) * RATE), int(cue.get('fade_out', 1.0) * RATE)
+    fade_in = min(n, int(cue.get('fade_in', 0.5) * RATE))
+    fade_out = min(n, int(cue.get('fade_out', 1.0) * RATE))
     if fade_in:
         gain[:fade_in] *= np.linspace(0, 1, fade_in) ** 2
     if fade_out:
