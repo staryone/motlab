@@ -83,6 +83,26 @@ test('stills: PNG at the scaled page size, exact colour', async () => {
   assert.deepEqual([p.width, p.height], [1280, 720]);
   assert.deepEqual(meanRgb(files[1], '200:200:60:80'), [0x30, 0xE2, 0xA8]);
 });
+test('stills: rounded and repeated timestamps each get a distinct file', async () => {
+  for (const format of ['png', 'jpg']) {
+    const outDir = join(dir, `collisions-${format}`);
+    const files = await renderStills({ page, outDir, times: [1.001, 1.004, 2, 1.001], format, ...quiet });
+    assert.equal(new Set(files).size, 4);
+    assert.deepEqual(readdirSync(outDir).sort(), [`1.00-2.${format}`, `1.00-3.${format}`, `1.00.${format}`, `2.00.${format}`].sort());
+    for (const file of files) assert.ok(readFileSync(file).length > 0);
+  }
+});
+test('stills: no requested timestamps writes no files', async () => {
+  const outDir = join(dir, 'empty-stills');
+  assert.deepEqual(await renderStills({ page, outDir, times: [], ...quiet }), []);
+  assert.deepEqual(readdirSync(outDir), []);
+});
+test('stills: an output path that is a file rejects', async () => {
+  const outDir = join(dir, 'not-a-directory');
+  writeFileSync(outDir, 'keep');
+  await assert.rejects(renderStills({ page, outDir, times: [0, 0], ...quiet }), { code: 'EEXIST' });
+  assert.equal(readFileSync(outDir, 'utf8'), 'keep');
+});
 test('events: window.EVENTS is written as JSON', async () => {
   const out = join(dir, 'events.json');
   await dumpEvents({ page, out, ...quiet });
