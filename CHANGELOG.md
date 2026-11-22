@@ -4,15 +4,15 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
-### Fixed
-
-- Captions over a dissolve could end before they started: a word in the outgoing part's faded tail landed after a word in the incoming part. Caption words now belong to a part only until the next part starts, matching the active picture; tail words are dropped like cut words, crossing words end at the boundary, and `edit.toOut()` maps the tail to the next part's start. Checked with a synthetic two-part transcript before and after, `test/cuts.test.js` (line order, nonnegative durations, tail and boundary words, empty captions and monotonic source mapping), `npm test` and `motlab doctor` on Ubuntu with Node 24. Not tried: a real Whisper transcript or a visual caption render.
-
 ### Added
 
 - `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".
 - The skills can be installed on their own with `npx skills add staryone/motlab -g`, the skills CLI behind skills.sh (README, docs/install.md). The motlab skill now starts with `motlab --version`: when the command is missing, it tells the user what the engine needs and, with their yes, runs `npm install -g @motlab/cli` and `npx @motlab/cli setup --skill none`; when it prints no version, the engine is older than the skill. The asset skill says the same in one line.
 - `motlab setup`, `motlab setup --update`, `node install.js` and `motlab uninstall` leave a skill that the skills CLI installed with `-g`, which it lists in `~/.agents/.skill-lock.json`, and print the `npx skills` command that updates or removes it. Before, setup copied over the CLI's link, so the skill had two owners and two copies. `--force` copies over it anyway. `test/install.test.js` checks setup, `--force` and uninstall with a faked lock file.
+
+### Fixed
+
+- With a dissolve, `edit.captions()` could return a line that ended before it started, such as 1.9 s to 1.51 s: a word in the outgoing part's faded tail was placed after the first word of the incoming part. A part's words now stop where the next part starts, as its picture does. Words in the faded tail are left out like cut words, a word that crosses the start ends there, and `edit.toOut()` maps the tail to the next part's start. Not tried with a real Whisper transcript.
 
 ### Changed
 
