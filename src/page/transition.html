@@ -21,7 +21,7 @@ const readText = async path => {
 };
 
 const open = path => new Promise((ok, fail) => {
-  const f = document.createElement('iframe'); f.src = `/${path}?scale=${scale}`;
+  const f = document.createElement('iframe'); f.src = `/${path.split('/').map(encodeURIComponent).join('/')}?scale=${scale}`;
   f.onload = async () => {
     try {
       const w = f.contentWindow, c = w.document.getElementById('c');

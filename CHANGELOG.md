@@ -4,6 +4,10 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
+### Fixed
+
+- Scenes with `#`, `%`, `?` or spaces in their file paths now load in transitions and the viewer. Their iframe URLs encode each path segment, as hard-cut renders already did, instead of treating filename characters as URL syntax. `test/render.test.js` covers transitions into and out of nested scene paths, and `test/scene-url.test.js` checks viewer URLs. `?` filenames are tested only off Windows, which does not permit them.
+
 ### Added
 
 - `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".
