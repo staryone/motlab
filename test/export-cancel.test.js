@@ -45,7 +45,6 @@ test('viewer cancellation releases a scene waiting for ready before accepting an
     const next = await post(path);
     const nextMs = performance.now() - start;
     const text = await finished, releaseMs = performance.now() - start;
-    console.log(`REAL cancel=${cancelled.status} (${cancelMs.toFixed(0)} ms), next=${next.status} (${nextMs.toFixed(0)} ms), release=${releaseMs.toFixed(0)} ms`);
     if (next.status === 200) { await post('/export/cancel'); await next.text(); }
     else await next.text();
     assert.match(text, /CANCELLED/);
