@@ -8,8 +8,8 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-export const TOKEN_FILE = join(homedir(), '.motlab', 'viewer-token');
-export const MIN_PASSWORD = 12;
+const TOKEN_FILE = join(homedir(), '.motlab', 'viewer-token');
+const MIN_PASSWORD = 12;
 const COOKIE = 'motlab_session', DAYS = 30, TRIES = 5;   // 5 wrong passwords a minute, then wait
 
 // The token for motlab commands on this machine, or null when the viewer runs without a domain.
