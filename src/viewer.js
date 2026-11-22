@@ -9,7 +9,7 @@ import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as sleep } from 'node:timers/promises';
-import { readToken } from './access.js';
+import { readToken, validateDomainAccess } from './access.js';
 import { projectPaths } from './project.js';
 
 const FIRST_PORT = 4173, LAST_PORT = 4190;
@@ -54,20 +54,30 @@ export async function startViewer({ cwd = process.cwd(), say = true, domain } = 
 export async function stopViewer({ say = true } = {}) {
   const v = await findViewer();
   if (!v) { if (say) console.log('No viewer is running.'); return null; }
+  await stopRunningViewer(v);
+  if (say) console.log(`Stopped the viewer on ${v.url}.`);
+  return v;
+}
+
+async function stopRunningViewer(v) {
   if (!v.pid) throw new Error(`the viewer on ${v.url} is from an older motlab and cannot be stopped from here. Stop it with Ctrl+C where it runs`);
   // Asked first, so a running export closes its Chrome; killed if it does not go.
   await fetch(`${v.url}/__motlab/stop`, { method: 'POST', headers: headers(), signal: AbortSignal.timeout(3000) }).catch(() => {});
   for (const until = Date.now() + 10000; Date.now() < until; await sleep(200)) {
     const still = await findViewer();
-    if (!still || still.pid !== v.pid) { if (say) console.log(`Stopped the viewer on ${v.url}.`); return v; }
+    if (!still || still.pid !== v.pid) return;
     if (Date.now() > until - 5000) try { process.kill(v.pid); } catch {}
   }
   throw new Error(`the viewer on ${v.url} (process ${v.pid}) did not stop within 10 s`);
 }
 
 export async function restartViewer() {
-  const old = await stopViewer({ say: false });
-  if (old) console.log(`Stopped the viewer on ${old.url}.`);
+  const old = await findViewer();
+  if (old) {
+    validateDomainAccess(old.domain, process.env.MOTLAB_VIEWER_PASSWORD);
+    await stopRunningViewer(old);
+    console.log(`Stopped the viewer on ${old.url}.`);
+  }
   return startViewer({ cwd: old?.workspace || process.cwd(), domain: old?.domain });
 }
 
