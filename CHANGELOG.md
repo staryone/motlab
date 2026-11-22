@@ -4,6 +4,10 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
+### Fixed
+
+- `cut_pauses.py --audio-out` works with FFmpeg 4.4 again: it reads the filter graph with `-filter_complex_script` instead of the `-/filter_complex` syntax added in FFmpeg 7.0. Checked with FFmpeg 4.4.2 and 7.0.2, with hard cuts and dissolves.
+
 ### Added
 
 - `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".
