@@ -829,7 +829,7 @@ try {
   // A scene's page in a new hidden iframe, once its `ready` has resolved, or an error that says what is missing. `limit`
   // (ms) bounds the wait for `ready`, which a half-written page may never resolve.
   async function openPage(file, limit) {
-    const frame = document.createElement('iframe'); frame.src = `${file}?scale=1`; $('frames').append(frame);
+    const frame = document.createElement('iframe'); frame.src = `${file.split(/[\\/]/).map(encodeURIComponent).join('/')}?scale=1`; $('frames').append(frame);
     try {
       await new Promise(r => frame.onload = r);
       const win = frame.contentWindow, canvas = win.document.getElementById('c');

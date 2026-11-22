@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { probeVideo } from '../src/ffmpeg.js';
@@ -16,6 +16,21 @@ const dir = mkdtempSync(join(tmpdir(), 'motlab-test-'));
 process.env.MOTLAB_CACHE_DIR = join(dir, 'cache');   // keep test probes out of the real cache
 after(() => rmSync(dir, { recursive: true, force: true }));
 const quiet = { log: () => {} };
+
+test('project: transitions preserve reserved characters in scene paths', async () => {
+  const proj = join(dir, 'scene-paths'), folder = join(proj, 'nested # % space');
+  mkdirSync(folder, { recursive: true });
+  const files = ['scene space.html', 'scene #2.html', 'scene %23.html'].map(name => join(folder, name));
+  if (process.platform !== 'win32') files.push(join(folder, 'scene ?4.html'));
+  for (const file of files) writeFileSync(file, readFileSync(page));
+  const scenes = files.map((file, i) => ({ file: `${basename(folder)}/${basename(file)}`, ...(i ? { transition: { type: 'fade', duration: 0.2 } } : {}) }));
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes }));
+  const out = join(dir, 'scene-paths.mp4');
+  await renderProject({ dir: proj, out, scale: 1, ...quiet });
+  const v = await probeVideo(out);
+  assert.equal(v.frames, files.length * 30 - (files.length - 1) * 6);
+  assert.ok(Math.abs(v.duration - v.frames / 30) < 1e-3);
+});
 
 // Mean RGB of a region of a decoded frame (the first one by default).
 function meanRgb(file, crop, frame = 0) {
@@ -67,6 +82,26 @@ test('stills: PNG at the scaled page size, exact colour', async () => {
   const p = JSON.parse(spawnSync('ffprobe', ['-v', 'error', '-show_entries', 'stream=width,height', '-of', 'json', files[1]], { encoding: 'utf8' }).stdout).streams[0];
   assert.deepEqual([p.width, p.height], [1280, 720]);
   assert.deepEqual(meanRgb(files[1], '200:200:60:80'), [0x30, 0xE2, 0xA8]);
+});
+test('stills: rounded and repeated timestamps each get a distinct file', async () => {
+  for (const format of ['png', 'jpg']) {
+    const outDir = join(dir, `collisions-${format}`);
+    const files = await renderStills({ page, outDir, times: [1.001, 1.004, 2, 1.001], format, ...quiet });
+    assert.equal(new Set(files).size, 4);
+    assert.deepEqual(readdirSync(outDir).sort(), [`1.00-2.${format}`, `1.00-3.${format}`, `1.00.${format}`, `2.00.${format}`].sort());
+    for (const file of files) assert.ok(readFileSync(file).length > 0);
+  }
+});
+test('stills: no requested timestamps writes no files', async () => {
+  const outDir = join(dir, 'empty-stills');
+  assert.deepEqual(await renderStills({ page, outDir, times: [], ...quiet }), []);
+  assert.deepEqual(readdirSync(outDir), []);
+});
+test('stills: an output path that is a file rejects', async () => {
+  const outDir = join(dir, 'not-a-directory');
+  writeFileSync(outDir, 'keep');
+  await assert.rejects(renderStills({ page, outDir, times: [0, 0], ...quiet }), { code: 'EEXIST' });
+  assert.equal(readFileSync(outDir, 'utf8'), 'keep');
 });
 test('events: window.EVENTS is written as JSON', async () => {
   const out = join(dir, 'events.json');
