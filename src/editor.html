@@ -901,7 +901,8 @@ try {
 
   const ac = new AudioContext();
   const tracks = await Promise.all(files.map(async a => {
-    const buf = await ac.decodeAudioData(await (await fetch(a.file)).arrayBuffer()), data = buf.getChannelData(0);
+    const path = a.file.split(/[\\/]/).map(encodeURIComponent).join('/');
+    const buf = await ac.decodeAudioData(await (await fetch(path)).arrayBuffer()), data = buf.getChannelData(0);
     const peaks = new Float32Array(Math.ceil(buf.duration * PEAKS));
     for (let i = 0; i < data.length; i++) { const k = Math.floor(i / buf.sampleRate * PEAKS), v = Math.abs(data[i]); if (v > peaks[k]) peaks[k] = v; }
     const from = a.from || 0, len = Math.max(0, Math.min(a.duration ?? Infinity, buf.duration - from));   // the part of the file that is used

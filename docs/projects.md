@@ -22,7 +22,7 @@ A project is a folder with scene pages, audio files and a `project.json`:
 - Audio that runs past the end of the video is cut.
 - `qp` and `codec` trade file size against quality, for `motlab render` and the viewer's Export alike: `"qp": 22` makes a file about 30% smaller than the default 18 at nearly the same quality, and `"codec": "hevc"` asks for HEVC. `--qp` and `--codec` on `motlab render` override them. The measurements are in [File size](rendering.md#file-size).
 
-Paths are relative to the folder that holds the project file. [`example/`](../example) is a sample with three scenes, music and three sound effects, all generated with ffmpeg (`sine` and `anoisesrc`).
+Paths are relative to the folder that holds the project file. For audio names like `audio/voice #1.wav`, write the filename as it appears on disk, with the space and `#`. [`example/`](../example) is a sample with three scenes, music and three sound effects, all generated with ffmpeg (`sine` and `anoisesrc`).
 
 ## Versions
 
