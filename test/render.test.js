@@ -4,7 +4,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { basename, join } from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { probeVideo } from '../src/ffmpeg.js';
@@ -16,6 +16,21 @@ const dir = mkdtempSync(join(tmpdir(), 'motlab-test-'));
 process.env.MOTLAB_CACHE_DIR = join(dir, 'cache');   // keep test probes out of the real cache
 after(() => rmSync(dir, { recursive: true, force: true }));
 const quiet = { log: () => {} };
+
+test('project: transitions preserve reserved characters in scene paths', async () => {
+  const proj = join(dir, 'scene-paths'), folder = join(proj, 'nested # % space');
+  mkdirSync(folder, { recursive: true });
+  const files = ['scene space.html', 'scene #2.html', 'scene %23.html'].map(name => join(folder, name));
+  if (process.platform !== 'win32') files.push(join(folder, 'scene ?4.html'));
+  for (const file of files) writeFileSync(file, readFileSync(page));
+  const scenes = files.map((file, i) => ({ file: `${basename(folder)}/${basename(file)}`, ...(i ? { transition: { type: 'fade', duration: 0.2 } } : {}) }));
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes }));
+  const out = join(dir, 'scene-paths.mp4');
+  await renderProject({ dir: proj, out, scale: 1, ...quiet });
+  const v = await probeVideo(out);
+  assert.equal(v.frames, files.length * 30 - (files.length - 1) * 6);
+  assert.ok(Math.abs(v.duration - v.frames / 30) < 1e-3);
+});
 
 // Mean RGB of a region of a decoded frame (the first one by default).
 function meanRgb(file, crop, frame = 0) {
