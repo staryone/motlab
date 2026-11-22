@@ -76,7 +76,8 @@ export function startEditor(target, port = 4173, { domain, password = process.en
   };
   function register(target) {   // the slug of a project, added if it is new; throws if there is no project file
     const { root, file } = projectPaths(target);
-    for (const [slug, p] of projects) if (p.root.toLowerCase() === root.toLowerCase()) return slug;
+    const key = path => process.platform === 'win32' || process.platform === 'darwin' ? path.toLowerCase() : path;
+    for (const [slug, p] of projects) if (key(p.root) === key(root)) return slug;
     const base = basename(root).toLowerCase().replace(/[^a-z0-9._-]+/g, '-') || 'project';
     let slug = base; for (let i = 2; projects.has(slug); i++) slug = `${base}-${i}`;
     projects.set(slug, { root, file });
@@ -88,6 +89,8 @@ export function startEditor(target, port = 4173, { domain, password = process.en
       .sort((a, b) => a.name.localeCompare(b.name) || a.path.localeCompare(b.path));
   }
   const opened = target ? register(target) : null;
+  const projectUrl = (slug, file) => `/p/${slug}/` + (basename(file) === 'project.json' ? '' : `?v=${encodeURIComponent(basename(file))}`);
+  const openedUrl = opened ? projectUrl(opened, projectPaths(target).file) : null;
   if (opened) remember(projects.get(opened).file);
 
   let exporting = false;
@@ -111,12 +114,12 @@ export function startEditor(target, port = 4173, { domain, password = process.en
     }
     if (path === '/') {
       const first = opened || list()[0]?.slug;
-      if (first) return res.writeHead(302, { Location: `/p/${first}/` }).end();
+      if (first) return res.writeHead(302, { Location: openedUrl || `/p/${first}/` }).end();
       return res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8' }).end(`No motlab project in ${workspace} yet. Run motlab edit <project folder>.`);
     }
     if (path === '/projects') return json(res, { workspace: show(workspace), projects: list() });
     if (req.method === 'POST' && path === '/open') {   // body: { file }, from a second `motlab edit`
-      try { const { file } = JSON.parse(await readBody(req)), slug = register(file); remember(projects.get(slug).file); return json(res, { url: `/p/${slug}/` }); }
+      try { const { file } = JSON.parse(await readBody(req)), slug = register(file), project = projectPaths(file).file; remember(project); return json(res, { url: projectUrl(slug, project) }); }
       catch (e) { return res.writeHead(400).end(e.message); }
     }
     if (req.method === 'POST' && path === '/working') {   // body: { file, notes, scenes, text } or { file, done }, from motlab working
@@ -225,7 +228,7 @@ export function startEditor(target, port = 4173, { domain, password = process.en
     });
     server.on('listening', () => {
       const n = list().length;
-      console.log(`Editor: http://127.0.0.1:${port}${opened ? `/p/${opened}/  (${projects.get(opened).file})` : ''}`);
+      console.log(`Editor: http://127.0.0.1:${port}${opened ? `${openedUrl}  (${projects.get(opened).file})` : ''}`);
       if (access) console.log(`  also on https://${access.domain}/ through the reverse proxy, behind the password in MOTLAB_VIEWER_PASSWORD`);
       console.log(`  ${n} project${n === 1 ? '' : 's'} in the menu: ${workspace}, and the ones opened before`);
     });
