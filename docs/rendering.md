@@ -13,6 +13,8 @@ How `motlab render`, `motlab video` and Export turn scene pages into an MP4, how
 
 A project (`motlab render`, Export) runs these steps once for each scene and transition, three at a time after the first scene by default (`--parallel`, or the number picked in the Export menu), and joins the parts with one more `-c copy` pass ([Rendering a project](projects.md#rendering-a-project)).
 
+Scene paths in `project.json` are file paths, not URLs: write `scene #2.html` as the file is named, with its spaces, `#`, `%` or `?`. The renderer, transitions and the viewer encode each part of the path when they load the page, and take `\` between folders as well as `/`.
+
 Temporary files go to the system temp folder and are removed afterwards. The output is written as `.part` and renamed at the end.
 
 The code is plain JavaScript ESM with JSDoc and no TypeScript. Half of it runs inside Chrome and is served straight from disk, so TypeScript would mean two languages or a build step. CDP uses Node's built-in `WebSocket`.
