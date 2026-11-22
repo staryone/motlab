@@ -38,6 +38,8 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
+- Cancelling an export interrupts scene startup and `window.ready`, rather than waiting for readiness before closing Chrome. The cancel endpoint waits for cleanup before returning 204, so an immediately following export no longer receives a spurious 409. `test/export-cancel.test.js` exercises the real viewer and Chrome with a delayed scene.
+
 - The viewer's hint under "Belum ada pilihan" (Nothing selected) had grown to four lines when the pencil came in. It is back to two: "Klik scene, audio, atau timeline. Klik atau tarik di preview untuk memberi catatan."
 - On a phone, dragging on the viewer's timeline with a finger often left the playhead behind, and a range dragged there stuck the same way: the browser took a move that was not quite sideways as a scroll of the page and stopped sending it. A finger that moves sideways on the timeline now always drags, and one that moves up or down scrolls its rows.
 - In full screen on a touch screen, once the player bar had hidden, nothing showed how to bring it back. A short white line now sits at the bottom edge, and a tap on it brings the bar up.

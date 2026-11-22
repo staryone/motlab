@@ -127,7 +127,7 @@ export function startEditor(target, port = 4173, { domain, password = process.en
       } catch (e) { return res.writeHead(400).end(e.message); }
     }
     if (req.method === 'POST' && path === '/export/cancel') {   // stops the running export; its /export response then ends with CANCELLED
-      if (exporting) exporting.abort();
+      if (exporting) { const job = exporting; job.abort(); await job.done; }
       return res.writeHead(204).end();
     }
     const lib = pageLib(path);
@@ -178,9 +178,12 @@ export function startEditor(target, port = 4173, { domain, password = process.en
     if (req.method === 'POST' && sub === '/export') {   // body: { project, scale, tag, parallel }; the render log is streamed back, last line DONE, CANCELLED or ERROR
       if (exporting) return res.writeHead(409).end('another export is still running');
       exporting = new AbortController();
-      const started = Date.now(), { signal } = exporting, body = await readBody(req);
-      res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
+      let release;
+      exporting.done = new Promise(r => { release = r; });
+      const started = Date.now(), { signal } = exporting;
       try {
+        const body = await readBody(req);
+        res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
         const { project, scale, tag, parallel } = JSON.parse(body), file = join(root, version(project));
         const at = Number.isInteger(parallel) && parallel >= 1 && parallel <= 8 ? parallel : undefined;   // none: as many as defaultParallel picks
         const rel = `out/${projectPaths(file).name}-${String(tag).replace(/\W/g, '')}.mp4`;   // out/example-tiktok-1080p.mp4
@@ -189,8 +192,7 @@ export function startEditor(target, port = 4173, { domain, password = process.en
       } catch (e) {
         if (signal.aborted) { console.log('\nExport cancelled'); res.end('CANCELLED\n'); }
         else { console.error(e); res.end(`ERROR ${e.message.split('\n')[0]}\n`); }
-      }
-      exporting = false;
+      } finally { exporting = false; release(); }
       return;
     }
     if (sub === '/') {   // read on every request, so a reload picks up edits to the editor itself

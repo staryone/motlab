@@ -15,6 +15,8 @@ A project (`motlab render`, Export) runs these steps once for each scene and tra
 
 Temporary files go to the system temp folder and are removed afterwards. The output is written as `.part` and renamed at the end.
 
+Cancelling an export closes its Chrome processes even while a scene is loading or waiting for `window.ready`. The cancel endpoint responds after the render has released its resources, so a new export can start as soon as cancellation returns.
+
 The code is plain JavaScript ESM with JSDoc and no TypeScript. Half of it runs inside Chrome and is served straight from disk, so TypeScript would mean two languages or a build step. CDP uses Node's built-in `WebSocket`.
 
 ## Encoder choice
