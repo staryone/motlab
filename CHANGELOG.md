@@ -12,6 +12,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Changed
 
+- `bench/package.json` no longer lists `@remotion/bundler` and `@remotion/renderer`, which nothing in `bench/` imports. `@remotion/cli` 4.0.543 depends on both at that same version, so `npm ci` still installs them.
 - Both skills' `description` is in double quotes. The skills CLI's YAML parser read the `: ` inside it as a new key and skipped both skills with "No valid skills found"; Claude Code read them either way. `test/skills.test.js` now fails on a plain value with `: ` or ` #`. Checked with skills 1.9.0 on Windows: `npx skills add <folder> --list` found both after the change.
 
 - The README's demo video is a new recording.
