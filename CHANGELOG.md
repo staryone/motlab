@@ -16,6 +16,10 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 - The README's demo video is a new recording.
 
+### Fixed
+
+- `motlab restart` checks the domain and `MOTLAB_VIEWER_PASSWORD` before stopping a domain viewer, so a missing or too-short password no longer takes the viewer offline.
+
 ## 0.4.0 (2026-11-21)
 
 ### Added
