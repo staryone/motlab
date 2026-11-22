@@ -29,7 +29,7 @@ motlab video page.html out.mp4 --fps 25 --scale 2
 motlab events page.html events.json
 ```
 
-`stills` writes files named after the time with two decimals, for example `0.50.png`, `2.00.png` and `4.25.png`, or JPEG with `--format jpg`. When requested times round to the same name (including repeated timestamps), later files get `-2`, `-3`, etc. before the extension: `1.001 1.004 2` writes `1.00.png`, `1.00-2.png` and `2.00.png`. Existing files with those names are replaced on another run. Its default scale is 1.
+`stills` writes files named after the time with two decimals, for example `0.50.png`, `2.00.png` and `4.25.png`, or JPEG with `--format jpg`. Times that round to the same name, or the same time twice, get `-2`, `-3` and so on: `1.001 1.004 2` writes `1.00.png`, `1.00-2.png` and `2.00.png`. Another run replaces files of the same name. Its default scale is 1.
 
 `stills`, `events` and `video` serve the nearest folder above the page that has a `project.json`, the same folder the viewer serves, so a scene can load `../` files. A page outside a project is served from its own folder. Pass `--root` to serve another folder.
 
