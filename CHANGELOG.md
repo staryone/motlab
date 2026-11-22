@@ -10,6 +10,10 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 - The skills can be installed on their own with `npx skills add staryone/motlab -g`, the skills CLI behind skills.sh (README, docs/install.md). The motlab skill now starts with `motlab --version`: when the command is missing, it tells the user what the engine needs and, with their yes, runs `npm install -g @motlab/cli` and `npx @motlab/cli setup --skill none`; when it prints no version, the engine is older than the skill. The asset skill says the same in one line.
 - `motlab setup`, `motlab setup --update`, `node install.js` and `motlab uninstall` leave a skill that the skills CLI installed with `-g`, which it lists in `~/.agents/.skill-lock.json`, and print the `npx skills` command that updates or removes it. Before, setup copied over the CLI's link, so the skill had two owners and two copies. `--force` copies over it anyway. `test/install.test.js` checks setup, `--force` and uninstall with a faked lock file.
 
+### Fixed
+
+- Seeking in an older viewer tab wrote its old copy of every note back, over a note edited in another tab since. A tab now saves only the notes changed in it, one save after the other, and takes in edits that another tab made to notes it has not changed. `test/stale-tab.test.js` runs the page's save code with delayed and failed saves; two tabs in Chrome on a copy of the example project kept the other tab's edit.
+
 ### Changed
 
 - Both skills' `description` is in double quotes. The skills CLI's YAML parser read the `: ` inside it as a new key and skipped both skills with "No valid skills found"; Claude Code read them either way. `test/skills.test.js` now fails on a plain value with `: ` or ` #`. Checked with skills 1.9.0 on Windows: `npx skills add <folder> --list` found both after the change.
@@ -38,7 +42,6 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
-- Seeking in an older viewer tab no longer overwrites notes edited in another tab. Saves send only changed notes, and sync reads back edits to existing notes while preserving unsaved local edits. Writes wait for the previous save to settle, so an older reply cannot replace newer edits during overlapping saves. Focus and live refresh also preserve notes whose save has not been acknowledged yet.
 - The viewer's hint under "Belum ada pilihan" (Nothing selected) had grown to four lines when the pencil came in. It is back to two: "Klik scene, audio, atau timeline. Klik atau tarik di preview untuk memberi catatan."
 - On a phone, dragging on the viewer's timeline with a finger often left the playhead behind, and a range dragged there stuck the same way: the browser took a move that was not quite sideways as a scroll of the page and stopped sending it. A finger that moves sideways on the timeline now always drags, and one that moves up or down scrolls its rows.
 - In full screen on a touch screen, once the player bar had hidden, nothing showed how to bring it back. A short white line now sits at the bottom edge, and a tap on it brings the bar up.
