@@ -175,6 +175,7 @@ promo/
 - When the user wants to review from their phone or anywhere else, with the viewer on a server of theirs, follow
   "The viewer on a VPS" in the engine's `docs/install-for-agents.md`. It runs behind a domain and a password the user
   sets themselves; never handle, print or store the password, and never open the viewer's port to the internet.
+  For a viewer on a domain, `motlab restart` needs the password in its environment; without it the viewer stays running.
 - A click writes `<video>/selection.json`:
 
   ```json

@@ -12,6 +12,26 @@ const transcript = { segments: [{ words: [
   { word: ' is', start: 3.0, end: 3.2 }, { word: ' um', start: 4.3, end: 4.6 }, { word: ' kept', start: 5.2, end: 5.5 },
 ] }, { words: [{ word: ' Next', start: 10.2, end: 10.5 }, { word: ' part', start: 10.6, end: 11.0 }] }] };
 
+test('captions: dissolve tails cannot put lines out of order or end before they start', () => {
+  const edit = cutList({ segments: [{ from: 0, to: 2 }, { from: 3, to: 5 }], dissolve: 0.5 }, null, { clip2: {} });
+  const words = [{ text: 'Keep.', start: 1.4, end: 1.8 }, { text: 'Tail.', start: 1.9, end: 2 }, { text: 'Next.', start: 3.01, end: 3.2 }, { text: 'Last.', start: 4.9, end: 5 }];
+  const lines = edit.captions(words);
+  assert.ok(lines.every(l => l.end >= l.start), JSON.stringify(lines));
+  assert.ok(lines.every((l, i) => !i || l.start >= lines[i - 1].start));
+  assert.deepEqual(lines.map(l => l.text), ['Keep.', 'Next.', 'Last.']);
+  near(lines[0].words[0].end, 1.5);
+  assert.deepEqual(edit.captions([words[1]]), []);
+  assert.deepEqual(edit.captions([]), []);
+  assert.deepEqual(edit.captions([{ text: 'Boundary.', start: 1.5, end: 1.6 }]), []);
+  const times = [1.4, 1.5, 1.9, 2, 2.5, 3, 3.01, 4.9, 5].map(t => edit.toOut(t));
+  assert.ok(times.every((t, i) => !i || t >= times[i - 1]));
+  assert.deepEqual(times.map(ms), [1.4, 1.5, 1.5, 1.5, 1.5, 1.5, 1.51, 3.4, 3.5]);
+  const section = cutList({ segments: [{ from: 0, to: 2 }, { from: 3, to: 5 }], dissolve: 0.5, sections: [{ name: 'first', from: 0 }, { name: 'last', from: 3 }] }, null, { clip2: {}, section: 'first' });
+  assert.deepEqual(section.captions(words).map(l => [l.text, ms(l.end)]), [['Keep.', 1.5]]);
+  near(section.toOut(1.9), section.duration);
+  assert.throws(() => cutList({ segments: [{ from: 0, to: 2 }], dissolve: 0.5 }, null), /a dissolve needs clip2/);
+});
+
 test('cut list sections: each starts at the cut nearest its time, and the sections add up to the whole edit', () => {
   const whole = cutList({ segments }, null), hook = cutList({ segments, sections }, null, { section: 'hook' }), rest = cutList({ segments, sections }, null, { section: 1 });
   assert.equal(whole.duration, 16);

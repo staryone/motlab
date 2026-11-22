@@ -13,9 +13,15 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 ### Fixed
 
 - `cut_pauses.py` took the end of a take from its shortest stream, subtitles included, so a 1 s subtitle track over 4 s of picture and sound gave a 1 s cut list without an error. It now uses the shorter of the audio and the video, or the file's duration when the streams give none. `test/cut-pauses.test.js` runs it on files made with ffmpeg.
+- A scene with `#`, `?` or `%` in its path, such as `scene #2.html`, rendered on a hard cut but failed with "does not keep the page contract" next to a transition, and did not load in the viewer. Transitions and the viewer now encode each part of the path, as hard cuts already did, and still take `\` between folders. A `?` in a file name was tested off Windows only, as Windows does not allow it.
+- With a dissolve, `edit.captions()` could return a line that ended before it started, such as 1.9 s to 1.51 s: a word in the outgoing part's faded tail was placed after the first word of the incoming part. A part's words now stop where the next part starts, as its picture does. Words in the faded tail are left out like cut words, a word that crosses the start ends there, and `edit.toOut()` maps the tail to the next part's start. Not tried with a real Whisper transcript.
+- `motlab edit <folder>/project-alt.json` opened `project.json`: the address it printed, the redirect from `/` and a second `motlab edit` into a running viewer all left out `?v=`. They keep it now. A folder or `project.json` still opens the plain address.
+- `motlab stills` named each file after its time with two decimals, so times that round the same, such as `1.001 1.004 2`, wrote one file and the later frame replaced the earlier one. Each time now gets its own file: `1.00.png`, `1.00-2.png` and `2.00.png`. `contact_sheet.py` reads the new names.
+- `motlab restart` on a viewer with a domain stopped the viewer before it checked `MOTLAB_VIEWER_PASSWORD`, so a missing or short password left no viewer running. It checks first now, and leaves the running viewer alone when the password is wrong.
 
 ### Changed
 
+- `bench/package.json` no longer lists `@remotion/bundler` and `@remotion/renderer`, which nothing in `bench/` imports. `@remotion/cli` 4.0.543 depends on both at that same version, so `npm ci` still installs them.
 - Both skills' `description` is in double quotes. The skills CLI's YAML parser read the `: ` inside it as a new key and skipped both skills with "No valid skills found"; Claude Code read them either way. `test/skills.test.js` now fails on a plain value with `: ` or ` #`. Checked with skills 1.9.0 on Windows: `npx skills add <folder> --list` found both after the change.
 
 - The README's demo video is a new recording.
