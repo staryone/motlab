@@ -12,6 +12,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
+- `compose_into_clip.py` played each PNG for one frame and ignored `--end`, so two PNGs with `--end 2` at 25 fps gave 2 frames of animation, the clip from 0.08 s, and the clip's sound 1.9 s after its picture. The animation now lasts `--end` (50 frames here), with the PNGs spread evenly over it, and the clip starts at `--end` with its sound. Not tried with a real Blender render.
 - An audio file like `voice #1.wav` stopped the viewer from opening the project with "Unable to decode audio data". The viewer now loads the file and opens the project. Not tried: listening to the sound.
 - `mix.py` stopped with a NumPy error on a bed shorter than its fades, such as 0.25 s with the default 0.5 s in and 1 s out. When the fades do not fit, both are shortened in proportion so the bed still reaches its level. A 1.25 s bed, which mixed before, stayed 5 dB under its level where the fades met (-31.0 dBFS for -26) and now reaches it. `test/mix-beds.test.js` checks the gain curve, on Windows and Linux. Not tried: listening by ear, macOS.
 - Cancelling an export while a scene was still loading waited for the scene's `ready`, and an export started in the meantime got "another export is still running". Cancel now closes Chrome while a scene loads too, and answers once the export has stopped, so the next one can start. `test/export-cancel.test.js` checks it with a scene whose `ready` takes 8 s.
