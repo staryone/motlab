@@ -465,6 +465,7 @@
   <span class="k"><kbd>Ctrl</kbd> + scroll</span><span class="dim">zoom</span>
 </div></template>
 <script type="module">
+const { file: PROJECT, title: VERSION_LABEL, slug: SLUG } = {{pageData}};
 const $ = id => document.getElementById(id);
 // ---- UI text, in Indonesian and English. The language is the one picked in the project menu, else the browser's:
 // Indonesian when one of its languages is, English otherwise. Picking one reloads the page, so text is set once.
@@ -603,7 +604,7 @@ document.documentElement.lang = LANG;
 // data-t="key" is the element's text, data-t="attribute=key" an attribute; several are separated by spaces
 for (const el of [document, $('tlKeys').content].flatMap(root => [...root.querySelectorAll('[data-t]')]))
   for (const part of el.dataset.t.split(' ')) { const [attr, key] = part.includes('=') ? part.split('=') : [null, part]; attr ? el.setAttribute(attr, L(key)) : el.textContent = L(key); }
-const VERSION = '{{project}}' === 'project.json' ? L('main') : '{{version}}';   // the server names project.json "Utama"
+const VERSION = PROJECT === 'project.json' ? L('main') : VERSION_LABEL;   // the server names project.json "Utama"
 $('ver').firstElementChild.textContent = VERSION; document.title = `${$('proj').textContent} / ${VERSION} · motlab`;
 $('lang').firstChild.textContent = L('otherLang'); $('lang').lastChild.textContent = LANG === 'id' ? 'EN' : 'ID'; $('lang').firstChild.lang = LANG === 'id' ? 'en' : 'id';
 $('lang').onclick = () => { try { localStorage.motlabLang = LANG === 'id' ? 'en' : 'id'; } catch {} location.reload(); };
@@ -704,7 +705,7 @@ $('proj').onopen = async () => {
     $('projList').replaceChildren(...projects.map(p => {
       const a = document.createElement('a'); a.className = 'opt two'; a.href = `/p/${p.slug}/`;
       a.innerHTML = '<span class="nm"></span><span class="dim"></span>'; a.firstChild.textContent = p.name; a.lastChild.textContent = p.path;
-      if (p.slug === '{{slug}}') { a.classList.add('on'); a.setAttribute('aria-current', 'page'); }
+      if (p.slug === SLUG) { a.classList.add('on'); a.setAttribute('aria-current', 'page'); }
       return a;
     }));
     $('projFoot').textContent = L('projectsHint');
@@ -719,7 +720,7 @@ $('ver').onopen = async () => {
     $('verList').replaceChildren(...list.map(v => {
       const a = document.createElement('a'); a.className = 'opt'; a.href = '?v=' + encodeURIComponent(v.file);
       a.innerHTML = '<span></span><span class="dim"></span>'; a.firstChild.textContent = v.file === 'project.json' ? L('main') : v.label; a.lastChild.textContent = v.file;
-      if (v.file === '{{project}}') { a.classList.add('on'); a.setAttribute('aria-current', 'page'); }
+      if (v.file === PROJECT) { a.classList.add('on'); a.setAttribute('aria-current', 'page'); }
       return a;
     }));
   } catch { $('verList').innerHTML = `<p class="foot">${L('versionsFailed')}</p>`; }
@@ -730,7 +731,7 @@ $('verForm').onsubmit = async e => {
   if (!/[a-z0-9]/i.test($('verName').value)) { $('verFoot').textContent = L('badName'); return $('verName').focus(); }   // the server keeps only a to z and 0 to 9
   $('verGo').disabled = true;
   try {
-    const r = await fetch('versions', { method: 'POST', body: JSON.stringify({ from: '{{project}}', name: $('verName').value }) });
+    const r = await fetch('versions', { method: 'POST', body: JSON.stringify({ from: PROJECT, name: $('verName').value }) });
     if (!r.ok) throw new Error(r.status === 409 ? L('nameTaken') : await r.text());
     location.search = '?v=' + encodeURIComponent((await r.json()).file);
   } catch (err) { $('verFoot').textContent = err.message; $('verGo').disabled = false; $('verName').focus(); }
@@ -781,7 +782,7 @@ document.addEventListener('fullscreenchange', () => {
 });
 
 try {
-  const project = await (await fetch(encodeURIComponent('{{project}}'))).json(), fps = project.fps, files = project.audio || [];
+  const project = await (await fetch(encodeURIComponent(PROJECT))).json(), fps = project.fps, files = project.audio || [];
   if (!project.scenes?.length) throw hint(L('noScenes'));
   $('tl').style.height = laneHeight(files.length) + 'px';   // hold the timeline's final height while the scenes load
   try { if (localStorage.motlabTimeline === '0') $('lane').hidden = true; } catch {}   // hidden last time: stays hidden from the start
@@ -1362,7 +1363,7 @@ try {
     const png = Object.fromEntries(images), sent = [...toggled], gone = [...deleted], changed = [...dirty]; images.clear(); toggled.clear(); deleted.clear(); dirty.clear();
     changed.forEach(k => inFlight.add(k));
     try {
-      const r = await fetch('selection', { method: 'POST', body: JSON.stringify({ ...sel, range: rangeOut(range), project: '{{project}}', marks: notes.filter(m => changed.includes(key(m))), toggled: sent, deleted: gone, images: png }) });
+      const r = await fetch('selection', { method: 'POST', body: JSON.stringify({ ...sel, range: rangeOut(range), project: PROJECT, marks: notes.filter(m => changed.includes(key(m))), toggled: sent, deleted: gone, images: png }) });
       if (!r.ok) throw new Error(r.status);
       const res = await r.json();
       changed.forEach(k => inFlight.delete(k));
@@ -1405,7 +1406,7 @@ try {
     notes.sort((a, b) => a.n - b.n); paint(); listNotes(); drawTimeline(); if (active) doneUI(active);
   }
   const reread = () => document.visibilityState === 'visible' && fetch('selection.json', { cache: 'no-store' }).then(r => r.ok ? r.json() : null)
-    .then(s => s && sync((s.marks || []).filter(m => m.project === '{{project}}'), (s.marks || []).filter(m => m.project !== '{{project}}'))).catch(() => {});
+    .then(s => s && sync((s.marks || []).filter(m => m.project === PROJECT), (s.marks || []).filter(m => m.project !== PROJECT))).catch(() => {});
   addEventListener('focus', reread); document.addEventListener('visibilitychange', reread);
 
   // ---- notes: a box or point drawn on the preview, or a range, with a line about what is wrong there. They stay in
@@ -1814,7 +1815,7 @@ try {
     $('exportLabel').textContent = L('exporting', text);
     icon.outerHTML = '<span class="spin" aria-hidden="true"></span>'; status(L('preparing'));
     try {
-      const res = await fetch('export', { method: 'POST', body: JSON.stringify({ project: '{{project}}', scale: p / short, tag: p + 'p', ...(par === 'auto' ? {} : { parallel: +par }) }) });
+      const res = await fetch('export', { method: 'POST', body: JSON.stringify({ project: PROJECT, scale: p / short, tag: p + 'p', ...(par === 'auto' ? {} : { parallel: +par }) }) });
       if (!res.ok) throw new Error(res.status === 409 ? L('busy') : await res.text());
       const reader = res.body.pipeThrough(new TextDecoderStream()).getReader(); let log = '';
       for (;;) {
@@ -1840,11 +1841,11 @@ try {
   // ---- first paint: the last saved selection if there is one
   sel = await fetch('selection.json').then(r => r.ok ? r.json() : null).catch(() => null);
   const saved = Array.isArray(sel?.marks) ? sel.marks : [];   // notes of every version in this folder
-  others = saved.filter(m => m.project !== '{{project}}');
-  notes = saved.filter(m => m.project === '{{project}}').map(({ project, ...m }) => ({ note: '', ...m }));
+  others = saved.filter(m => m.project !== PROJECT);
+  notes = saved.filter(m => m.project === PROJECT).map(({ project, ...m }) => ({ note: '', ...m }));
   known = new Set(notes.map(key));
   if (sel) { delete sel.marks; delete sel.box; delete sel.point; }   // box and point are from before notes
-  if (sel?.project && sel.project !== '{{project}}') sel = null;   // the last click was in another project file of this folder
+  if (sel?.project && sel.project !== PROJECT) sel = null;   // the last click was in another project file of this folder
   if (sel) t = Math.min(total, sel.time);
   if (sel?.range && sel.range.end > sel.range.start && sel.range.start < total) range = { start: sel.range.start, end: Math.min(total, sel.range.end) };
   await document.fonts.load(`11px ${FONT}`).catch(() => {});   // the canvas cannot redraw itself when the web font arrives
@@ -1856,7 +1857,6 @@ try {
   // is ready, or for good when the new one does not load. A file this page itself loaded (the project file, its audio, a
   // transition) loads the whole page again, once no note is open and the Export menu is closed; the selection brings
   // back the time. `motlab working` says which notes and scenes the agent is working on.
-  const PROJECT = '{{project}}';
   let refreshing = null;
   const queued = new Set();
   const pageUses = () => new Set(performance.getEntriesByType('resource').filter(e => e.initiatorType !== 'iframe').map(e => rel(e.name)).filter(f => f && f !== 'selection.json'));   // not the scene pages
