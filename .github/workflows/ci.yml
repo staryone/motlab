@@ -36,5 +36,7 @@ jobs:
         if: runner.os == 'Windows'
         run: choco install ffmpeg -y --no-progress
       - run: npm ci --no-audit --no-fund
+      - name: Python packages
+        run: ${{ runner.os == 'Windows' && 'python' || 'python3' }} -m pip install -r skills/motlab/requirements.txt
       - run: node bin/motlab.js doctor
       - run: npm test
