@@ -16,6 +16,8 @@ motlab restart    # stop it and start it again from the same folder, for example
 
 One viewer holds many projects. The project name in the header is a menu of the motlab projects it knows: the folders with a `project.json` up to four levels under the folder `motlab edit` was started from (without `node_modules`, `out`, `backup` and hidden folders), and every project opened with `motlab edit` before, which is remembered in `~/.motlab/recent.json`. A project on another drive shows up in the menu after it has been opened once. The folder the menu scans is the one the viewer was started from, by `motlab start` or by the `motlab edit` that started it. `motlab edit` without a project prints the viewer's address, which opens the first project it finds. If port 4173 belongs to something else, the viewer takes the next free port up to 4190, and `motlab edit`, `stop` and `restart` find it there. The left panel lists the scenes and audio files, the middle shows the preview with the play controls, and the bottom has a timeline of scenes and audio with waveforms.
 
+Project folder paths are case-sensitive except on Windows and macOS. On Linux, `demo/` and `Demo/` are separate projects; when folder names produce the same URL slug, the viewer adds `-2`, `-3`, and so on.
+
 The viewer is for looking and pointing, not editing. While a page is open it watches the project folder, so a scene the agent saves shows without a reload ([Live updates](#live-updates)).
 
 ## Language
@@ -23,6 +25,8 @@ The viewer is for looking and pointing, not editing. While a page is open it wat
 The viewer's text is in English or Indonesian. It follows the browser: Indonesian when one of the browser's languages is Indonesian, English otherwise. The last row of the project menu switches to the other language ("Bahasa Indonesia" or "English") and reloads the page, and the browser remembers the choice. This page names the controls in English. In Indonesian, Notes and Note are Catatan, Save is Simpan, Delete is Hapus, Mark done is Tandai selesai, Reopen is Buka lagi, Done is Selesai, Open is Buka, Cancel is Batalkan, "New version from this one" is "Versi baru dari ini" and Main is Utama.
 
 ## Versions
+
+`motlab edit <folder>/project-alt.json` opens that version, including when the viewer is already running. Its printed address includes `?v=project-alt.json`; opening a folder or `project.json` keeps the plain project address.
 
 The name after the project in the header is the version menu. It lists every project file in the folder (see [Versions](projects.md#versions)), with `project.json` as "Main". "New version from this one" asks for a name and copies the open version to `project-<name>.json`, then opens it; the agent changes what is in it. The open version is in the address as `?v=project-tiktok.json`, and Export renders that version to `out/<folder>-<version>-<resolution>.mp4`. `selection.json` names the version a click was made in as `project`.
 
@@ -141,6 +145,8 @@ Notes work in full screen too: the card opens over the full-screen preview and t
 
 Two tabs on the same project can both take notes. A save names the notes the tab deleted instead of leaving them out, so notes made in the other tab are kept, and a new note whose number the other tab took first moves to the next free number, with its picture drawn again. After every save, and when a tab gets focus back, the page takes in the file's notes: the other tab's new ones, the ones it deleted, and done marks. Tried in a windowed Chrome over the DevTools protocol with two tabs: tab B's first note became 2 next to tab A's 1, each tab listed the other's notes after a focus change, a note deleted in B stayed deleted when A saved again, and every picture showed its own number. Two tabs editing the text of the same note still keep whichever saved last.
 
+A tab saves only the notes changed in it, so seeking or moving the range in an older tab does not write its old copy of a note over the other tab's edit. What a tab takes in from the file includes edits to notes it already has, except notes changed in it that are not saved yet. One save waits for the one before it to finish.
+
 Each version has its own notes. The numbers run across all versions of the folder, so "catatan 3" means one note. The selection is written about 0.15 s after the last change, so scrubbing and typing do not write a file per pointer move or key. The last selection and the notes are loaded again when the page opens.
 
 `selection.json`, `selection.png` (from before notes) and `selection/` are in `.gitignore`.
@@ -194,7 +200,7 @@ Open `https://viewer.example.com` and sign in. Then:
 - Every request needs the login, whatever address it comes in on, so a proxy that rewrites the Host header to `127.0.0.1` does not skip it. Only the sign-in page answers without it.
 - The session is a cookie that is HttpOnly, Secure and SameSite=Strict, and lasts 30 days or until the viewer stops. A save, a new version or an Export must come from the viewer's own page on `https://viewer.example.com`; a request from another site is refused.
 - After 5 wrong passwords in a minute, the login waits until the minute is over.
-- `motlab edit`, `stop` and `restart` on the server still work: the viewer writes a random token to `~/.motlab/viewer-token` (readable only by you on Linux and macOS) and removes it when it stops, and the commands send it. `restart` keeps the domain.
+- `motlab edit`, `stop` and `restart` on the server still work: the viewer writes a random token to `~/.motlab/viewer-token` (readable only by you on Linux and macOS) and removes it when it stops, and the commands send it. `restart` keeps the domain and needs `MOTLAB_VIEWER_PASSWORD` in its environment. If the password is missing or too short, the current viewer stays running.
 - Export renders on the server, so the server needs Chrome and ffmpeg (`motlab doctor`). The finished file opens from the Open link as it does on your own machine.
 
 The password is read from the environment so that it does not show up in the process list. Put it in your service manager's environment file rather than in a command line that the shell history keeps. A proxy other than Caddy works the same way: HTTPS in front, `127.0.0.1:4173` behind it.

@@ -113,7 +113,9 @@ const lines = edit.captions(await (await fetch('../transcript.json')).json(), { 
   --output_format json`) or a list of `{ text, start, end }`, in seconds of the recording, and returns lines
   `{ text, start, end, words }` in the scene's time. Draw the line where `start <= t < end` with the style's caption
   rules, and use `words` for a word-by-word highlight. `maxChars` 24 to 32 suits a phone; `shift` moves every word
-  if the captions run early (0.23 s in one take).
+  if the captions run early (0.23 s in one take). With a dissolve, words starting in the outgoing part's faded
+  tail are dropped like cut words; crossing words end where the incoming part starts. `edit.toOut()` maps
+  tail times to that start too. The last part keeps its full span, up to the section's end.
 - motlab does not transcribe. If there is no transcript, ask the user for one or whether to install Whisper; do not
   install it unasked. Without one, ask the user where each section starts.
 

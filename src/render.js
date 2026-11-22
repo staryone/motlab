@@ -170,9 +170,11 @@ export async function renderStills(o) {
     page = await openPage({ server, chromePath: findChrome(o.chrome), url, scale: o.scale ?? 1 });
     await readInfo(page, log);
     mkdirSync(outDir, { recursive: true });
-    const files = [];
+    const files = [], counts = new Map();
     for (const t of o.times) {
-      const sink = await server.createSink(join(outDir, `${t.toFixed(2)}.${jpg ? 'jpg' : 'png'}`));
+      const name = t.toFixed(2), count = (counts.get(name) || 0) + 1;
+      counts.set(name, count);
+      const sink = await server.createSink(join(outDir, `${name}${count > 1 ? `-${count}` : ''}.${jpg ? 'jpg' : 'png'}`));
       try { await page.evaluate(`window.__motlab.still(${JSON.stringify({ t, type: jpg ? 'image/jpeg' : 'image/png', quality: o.quality ?? 0.92, base: server.base, sink: sink.id })})`); } finally { await sink.close(); }
       files.push(sink.path);
     }
