@@ -61,6 +61,8 @@ export function mergeNotes(old, { marks = [], toggled = [], deleted = [] }, v) {
 
 const json = (res, data, code = 200) => res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(data));
 const readBody = req => new Promise((ok, no) => { let body = ''; req.on('data', d => body += d).on('end', () => ok(body)).on('error', no); });
+const htmlText = text => text.replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+const scriptJSON = data => JSON.stringify(data).replaceAll('<', '\\u003c').replaceAll('\u2028', '\\u2028').replaceAll('\u2029', '\\u2029');
 
 // domain: serve the viewer to that host name through a reverse proxy, behind a login (src/access.js).
 export function startEditor(target, port = 4173, { domain, password = process.env.MOTLAB_VIEWER_PASSWORD } = {}) {
@@ -200,8 +202,8 @@ export function startEditor(target, port = 4173, { domain, password = process.en
     }
     if (sub === '/') {   // read on every request, so a reload picks up edits to the editor itself
       res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' });
-      const file = version(url.searchParams.get('v'));
-      const fill = { name: basename(root), project: file, version: label(file), slug: m[1] };
+      const file = version(url.searchParams.get('v')), title = label(file);
+      const fill = { name: htmlText(basename(root)), version: htmlText(title), pageData: scriptJSON({ file, title, slug: m[1] }) };
       return res.end(readFileSync(new URL('./editor.html', import.meta.url), 'utf8').replace(/\{\{(\w+)\}\}/g, (all, k) => fill[k] ?? all));
     }
     const asset = join(root, sub);

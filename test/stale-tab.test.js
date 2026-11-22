@@ -11,6 +11,7 @@ test('focus sync preserves a note while its save is in flight', async () => {
   const m = { id: 'a', n: 1, note: 'parallel edit A' };
   let acknowledge;
   const context = {
+    PROJECT: 'project.json',
     notes: [m], active: m, popText: { value: m.note }, others: [],
     sel: { time: 0 }, range: null, rangeOut: r => r, images: new Map(), crypto: {},
     clearTimeout() {}, setTimeout() { return 1; },
@@ -44,6 +45,7 @@ test('overlapping saves keep newer text until both writes are acknowledged', asy
   const requests = [], pending = [];
   const m = { id: 'a', n: 1, note: 'first edit' };
   const context = {
+    PROJECT: 'project.json',
     notes: [m], active: m, popText: { value: m.note }, others: [],
     sel: { time: 0 }, range: null, rangeOut: r => r, images: new Map(), crypto: {},
     clearTimeout() {}, setTimeout() { return 1; },
@@ -82,6 +84,7 @@ test('only edited notes are sent, and failed writes retain notes and pictures fo
   const payloads = [];
   let fail = true;
   const context = {
+    PROJECT: 'project.json',
     notes: [{ id: 'a', n: 1, note: 'edited' }, { id: 'b', n: 2, note: 'unchanged' }],
     sel: { time: 3 }, range: null, rangeOut: r => r, images: new Map([[1, 'data:image/png;base64,eA==']]),
     crypto: {}, clearTimeout() {}, setTimeout() { return 1; }, sync() {},
@@ -120,6 +123,7 @@ test('an older tab seeking saves no stale notes over another tab’s edit', asyn
   file = mergeNotes(file, { marks: [{ ...stale, note: 'edited in tab B' }] }, project).all;
   let payload;
   await runInNewContext(`${saving}\nsend()`, {
+    PROJECT: project,
     notes: tabA, sel: { time: 2 }, range: null, rangeOut: r => r,
     images: new Map(), crypto: {}, clearTimeout, setTimeout,
     sync() {},

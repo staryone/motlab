@@ -27,6 +27,7 @@ The viewer's text is in English or Indonesian. It follows the browser: Indonesia
 ## Versions
 
 `motlab edit <folder>/project-alt.json` opens that version, including when the viewer is already running. Its printed address includes `?v=project-alt.json`; opening a folder or `project.json` keeps the plain project address.
+To open an existing version with an apostrophe in its name, pass the path in double quotes: `motlab edit "promo/project-client's.json"`.
 
 The name after the project in the header is the version menu. It lists every project file in the folder (see [Versions](projects.md#versions)), with `project.json` as "Main". "New version from this one" asks for a name and copies the open version to `project-<name>.json`, then opens it; the agent changes what is in it. The open version is in the address as `?v=project-tiktok.json`, and Export renders that version to `out/<folder>-<version>-<resolution>.mp4`. `selection.json` names the version a click was made in as `project`.
 
