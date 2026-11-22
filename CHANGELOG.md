@@ -2,7 +2,7 @@
 
 Changes are listed by release, newest first. The sections dated before 0.1.0 record what was built on the way to the first release.
 
-## Unreleased
+## 0.4.1 (2026-11-22)
 
 ### Added
 
