@@ -33,6 +33,13 @@ def pauses(path, noise, min_pause):
     ends = [float(x) for x in re.findall(r'silence_end: ([\d.]+)', err)]
     return list(zip(starts, ends + [float('inf')] * (len(starts) - len(ends))))
 
+def filter_file_option():
+    with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8') as g: g.write('anullsrc,atrim=end=0.01[out]')
+    try:
+        probe = subprocess.run(['ffmpeg', '-hide_banner', '-v', 'error', '-/filter_complex', g.name, '-map', '[out]', '-f', 'null', '-'], capture_output=True)
+        return '-/filter_complex' if probe.returncode == 0 else '-filter_complex_script'
+    finally: os.unlink(g.name)
+
 def main():
     if len(sys.argv) < 3 or sys.argv[1].startswith('-'): sys.exit(__doc__ or open(__file__, encoding='utf-8').read().split('\nimport')[0])
     src, out = sys.argv[1], sys.argv[2]
@@ -81,7 +88,7 @@ def main():
         with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8') as g: g.write(graph)
         try:
             os.makedirs(os.path.dirname(os.path.abspath(audio)), exist_ok=True)
-            subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', src, '-/filter_complex', g.name, '-map', '[out]', '-ar', '48000', '-ac', '2', audio], check=True)
+            subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', src, filter_file_option(), g.name, '-map', '[out]', '-ar', '48000', '-ac', '2', audio], check=True)
         finally: os.unlink(g.name)
         print(f'voice with the same cuts -> {audio} ({duration(audio):.2f} s)')
 
