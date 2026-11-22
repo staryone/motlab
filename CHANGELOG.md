@@ -4,15 +4,15 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
-### Fixed
-
-- `cut_pauses.py --audio-out` probes support for the file-loading `-/filter_complex` syntax and falls back to `-filter_complex_script` on older FFmpeg. This keeps the filter graph in a file and works after current FFmpeg removed the deprecated fallback. Checked with FFmpeg 4.4.2, 7.0.2 and current master, with hard cuts and dissolves.
-
 ### Added
 
 - `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".
 - The skills can be installed on their own with `npx skills add staryone/motlab -g`, the skills CLI behind skills.sh (README, docs/install.md). The motlab skill now starts with `motlab --version`: when the command is missing, it tells the user what the engine needs and, with their yes, runs `npm install -g @motlab/cli` and `npx @motlab/cli setup --skill none`; when it prints no version, the engine is older than the skill. The asset skill says the same in one line.
 - `motlab setup`, `motlab setup --update`, `node install.js` and `motlab uninstall` leave a skill that the skills CLI installed with `-g`, which it lists in `~/.agents/.skill-lock.json`, and print the `npx skills` command that updates or removes it. Before, setup copied over the CLI's link, so the skill had two owners and two copies. `--force` copies over it anyway. `test/install.test.js` checks setup, `--force` and uninstall with a faked lock file.
+
+### Fixed
+
+- `cut_pauses.py --audio-out` failed on FFmpeg before 7.0, such as 4.4, because it loaded the filter graph with `-/filter_complex`, which came in with 7.0. It now asks FFmpeg which one it has and uses `-filter_complex_script` on older versions. That fallback alone would not do: FFmpeg 9.0.2 on Windows no longer knows it.
 
 ### Changed
 

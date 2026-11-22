@@ -22,13 +22,6 @@ def duration(path):   # the shortest stream: a recording's sound often ends a fe
     out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=duration:format=duration', '-of', 'csv=p=0', path], capture_output=True, text=True)
     return min(float(x) for x in out.stdout.split() if re.fullmatch(r'[\d.]+', x.strip(',')))
 
-def filter_file_option():
-    with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8') as g: g.write('anullsrc,atrim=end=0.01[out]')
-    try:
-        probe = subprocess.run(['ffmpeg', '-hide_banner', '-v', 'error', '-/filter_complex', g.name, '-map', '[out]', '-f', 'null', '-'], capture_output=True)
-        return '-/filter_complex' if probe.returncode == 0 else '-filter_complex_script'
-    finally: os.unlink(g.name)
-
 def pauses(path, noise, min_pause):
     err = subprocess.run(['ffmpeg', '-hide_banner', '-i', path, '-map', '0:a:0', '-af', f'highpass=f=80,silencedetect=noise={noise}dB:d={min_pause}',
                           '-f', 'null', '-'], capture_output=True, text=True).stderr
@@ -36,6 +29,13 @@ def pauses(path, noise, min_pause):
     starts = [float(x) for x in re.findall(r'silence_start: (-?[\d.]+)', err)]
     ends = [float(x) for x in re.findall(r'silence_end: ([\d.]+)', err)]
     return list(zip(starts, ends + [float('inf')] * (len(starts) - len(ends))))
+
+def filter_file_option():
+    with tempfile.NamedTemporaryFile('w', suffix='.txt', delete=False, encoding='utf-8') as g: g.write('anullsrc,atrim=end=0.01[out]')
+    try:
+        probe = subprocess.run(['ffmpeg', '-hide_banner', '-v', 'error', '-/filter_complex', g.name, '-map', '[out]', '-f', 'null', '-'], capture_output=True)
+        return '-/filter_complex' if probe.returncode == 0 else '-filter_complex_script'
+    finally: os.unlink(g.name)
 
 def main():
     if len(sys.argv) < 3 or sys.argv[1].startswith('-'): sys.exit(__doc__ or open(__file__, encoding='utf-8').read().split('\nimport')[0])
