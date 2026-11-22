@@ -31,27 +31,33 @@ function locate(o) {
   return { root, url: rel.split(sep).map(encodeURIComponent).join('/') };
 }
 
-async function openPage({ server, chromePath, url, scale, query }) {
+async function openPage({ server, chromePath, url, scale, query, signal }) {
+  signal?.throwIfAborted();
   const chrome = await launchChrome({ chromePath });
+  const stop = () => { void chrome.close(); };
+  signal?.addEventListener('abort', stop);
   try {
+    signal?.throwIfAborted();
     const page = await attachPage(chrome);
     await page.navigate(`${server.origin}/${url}?t=0&scale=${scale}${query ? '&' + query : ''}`);
     // Wait for the contract. Give up 8 s after the document has finished loading (or 5 s after a script error).
     const t0 = Date.now(); let loadedAt = 0;
     for (;;) {
+      signal?.throwIfAborted();
       const state = await page.evaluate('typeof window.renderAt === "function" && typeof window.ready !== "undefined" ? "ok" : document.readyState').catch(() => 'loading');
       if (state === 'ok') break;
       const now = Date.now(), errs = page.errors.length ? ` Page errors: ${page.errors.slice(0, 3).join(' | ')}` : '';
       if (state === 'complete' && !loadedAt) loadedAt = now;
       if (now - t0 > 60000 || (loadedAt && now - loadedAt > 8000) || (errs && now - t0 > 5000)) throw new Error(`the page did not expose window.renderAt and window.ready.${errs}`);
-      await sleep(50);
+      await sleep(50, undefined, { signal });
     }
     // ready has no time limit (a heavy page can take long), but a page whose ready never resolves should not wait in silence
     const waiting = setTimeout(() => console.warn(`Still waiting for window.ready after 30 s (${url}).${page.errors.length ? ` Page errors: ${page.errors.slice(0, 3).join(' | ')}` : ''}`), 30000);
     try { await page.evaluate('Promise.resolve(window.ready).then(() => true)'); } finally { clearTimeout(waiting); }
     await page.evaluate(RUNTIME);
     return { ...page, chrome };
-  } catch (e) { await chrome.close(); throw e; }
+  } catch (e) { await chrome.close(); signal?.throwIfAborted(); throw e; }
+  finally { signal?.removeEventListener('abort', stop); }
 }
 
 async function openPages(count, args) {
@@ -76,7 +82,7 @@ export async function renderVideo(o) {
   const stop = () => pages.forEach(p => p.chrome.close());
   o.signal?.addEventListener('abort', stop);
   try {
-    pages = await openPages(workers, { server, chromePath: findChrome(o.chrome), url, scale, query: o.query });
+    pages = await openPages(workers, { server, chromePath: findChrome(o.chrome), url, scale, query: o.query, signal: o.signal });
     o.signal?.throwIfAborted();
     const info = await readInfo(pages[0], log), { width, height } = info;
     if (!(info.total > 0)) throw new Error('window.TOTAL must be a positive number of seconds');

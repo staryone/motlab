@@ -17,6 +17,8 @@ Scene paths in `project.json` are file paths, not URLs: write `scene #2.html` as
 
 Temporary files go to the system temp folder and are removed afterwards. The output is written as `.part` and renamed at the end.
 
+Cancelling an export closes its Chrome even while a scene is loading or waiting for `window.ready`, and the cancel request answers once the render has stopped, so a new export can start straight after.
+
 The code is plain JavaScript ESM with JSDoc and no TypeScript. Half of it runs inside Chrome and is served straight from disk, so TypeScript would mean two languages or a build step. CDP uses Node's built-in `WebSocket`.
 
 ## Encoder choice
