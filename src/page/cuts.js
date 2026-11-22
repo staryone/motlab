@@ -57,12 +57,13 @@ export function cutList(cuts, clip, { clip2 = null, punch = [1], glide = 0, drif
     f.draw(ctx, ox, oy, w, h); ctx.restore();
   }
   // A word's time in this edit, or null when its start was cut out or lies outside this section.
-  const place = src => { const p = parts.find(p => src >= p.from && src < p.to); return p && p.at + (src - p.from) < duration ? p : null; };
+  const sourceEnd = (p, k) => Math.min(p.to, p.from + ((parts[k + 1]?.at ?? duration) - p.at));
+  const place = src => parts.find((p, k) => src >= p.from && src < sourceEnd(p, k));
   return {
     duration, parts, offset, section: name,
     at(t) { const k = index(t), p = parts[k]; return { index: k, src: p.from + (t - p.at), zoom: zoomAt(k, t) }; },
     toOut(src) {
-      for (const p of parts) { if (src < p.from) return p.at; if (src <= p.to) return p.at + (src - p.from); }
+      for (const [k, p] of parts.entries()) { if (src < p.from) return p.at; if (src <= sourceEnd(p, k)) return p.at + (src - p.from); }
       return duration;
     },
     // transcript: Whisper's JSON ({ segments: [{ words: [{ word, start, end }] }] }) or a list of { word or text, start,
@@ -74,7 +75,7 @@ export function cutList(cuts, clip, { clip2 = null, punch = [1], glide = 0, drif
       for (const w of transcriptWords(transcript)) {
         const start = w.start + shift, p = place(start);
         if (!p) continue;
-        const end = Math.min(Math.max(w.end + shift, start), p.to);
+        const end = Math.min(Math.max(w.end + shift, start), sourceEnd(p, parts.indexOf(p)));
         words.push({ text: w.text, start: p.at + (start - p.from), end: Math.min(p.at + (end - p.from), duration) });
       }
       const lines = [];

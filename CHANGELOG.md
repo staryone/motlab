@@ -12,6 +12,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
+- With a dissolve, `edit.captions()` could return a line that ended before it started, such as 1.9 s to 1.51 s: a word in the outgoing part's faded tail was placed after the first word of the incoming part. A part's words now stop where the next part starts, as its picture does. Words in the faded tail are left out like cut words, a word that crosses the start ends there, and `edit.toOut()` maps the tail to the next part's start. Not tried with a real Whisper transcript.
 - `motlab edit <folder>/project-alt.json` opened `project.json`: the address it printed, the redirect from `/` and a second `motlab edit` into a running viewer all left out `?v=`. They keep it now. A folder or `project.json` still opens the plain address.
 - `motlab stills` named each file after its time with two decimals, so times that round the same, such as `1.001 1.004 2`, wrote one file and the later frame replaced the earlier one. Each time now gets its own file: `1.00.png`, `1.00-2.png` and `2.00.png`. `contact_sheet.py` reads the new names.
 - `motlab restart` on a viewer with a domain stopped the viewer before it checked `MOTLAB_VIEWER_PASSWORD`, so a missing or short password left no viewer running. It checks first now, and leaves the running viewer alone when the password is wrong.
