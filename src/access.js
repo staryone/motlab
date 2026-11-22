@@ -8,17 +8,22 @@ import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 
-export const TOKEN_FILE = join(homedir(), '.motlab', 'viewer-token');
-export const MIN_PASSWORD = 12;
+const TOKEN_FILE = join(homedir(), '.motlab', 'viewer-token');
+const MIN_PASSWORD = 12;
 const COOKIE = 'motlab_session', DAYS = 30, TRIES = 5;   // 5 wrong passwords a minute, then wait
 
 // The token for motlab commands on this machine, or null when the viewer runs without a domain.
 export const readToken = () => { try { return readFileSync(TOKEN_FILE, 'utf8').trim() || null; } catch { return null; } };
 
-export function createAccess({ domain, password, tokenFile = TOKEN_FILE } = {}) {
-  if (!domain) return null;
+export function validateDomainAccess(domain, password) {
+  if (!domain) return;
   if (!/^[a-z0-9.-]+(:\d+)?$/i.test(domain)) throw new Error(`--domain takes a host name such as viewer.example.com, not "${domain}"`);
   if (!password || password.length < MIN_PASSWORD) throw new Error(`a viewer on a domain needs MOTLAB_VIEWER_PASSWORD set to a password of at least ${MIN_PASSWORD} characters`);
+}
+
+export function createAccess({ domain, password, tokenFile = TOKEN_FILE } = {}) {
+  if (!domain) return null;
+  validateDomainAccess(domain, password);
   const digest = s => createHash('sha256').update(String(s)).digest();
   const want = digest(password), token = randomBytes(32).toString('hex'), sessions = new Map(), failures = [];
   mkdirSync(dirname(tokenFile), { recursive: true });

@@ -29,7 +29,7 @@ motlab video page.html out.mp4 --fps 25 --scale 2
 motlab events page.html events.json
 ```
 
-`stills` writes files named after the time with two decimals, for example `0.50.png`, `2.00.png` and `4.25.png`, or JPEG with `--format jpg`. Its default scale is 1.
+`stills` writes files named after the time with two decimals, for example `0.50.png`, `2.00.png` and `4.25.png`, or JPEG with `--format jpg`. Times that round to the same name, or the same time twice, get `-2`, `-3` and so on: `1.001 1.004 2` writes `1.00.png`, `1.00-2.png` and `2.00.png`. Another run replaces files of the same name. Its default scale is 1.
 
 `stills`, `events` and `video` serve the nearest folder above the page that has a `project.json`, the same folder the viewer serves, so a scene can load `../` files. A page outside a project is served from its own folder. Pass `--root` to serve another folder.
 
@@ -64,7 +64,7 @@ When the page throws while loading, the error names the file, line and column, f
 | Variable | Meaning |
 |---|---|
 | `CHROME` | Path to Chrome or Chromium |
-| `MOTLAB_VIEWER_PASSWORD` | The viewer's password with `motlab start --domain`, at least 12 characters. See [On a VPS with a domain](viewer.md#on-a-vps-with-a-domain) |
+| `MOTLAB_VIEWER_PASSWORD` | The viewer's password with `motlab start --domain` or `motlab restart` on a domain, at least 12 characters. See [On a VPS with a domain](viewer.md#on-a-vps-with-a-domain) |
 | `MOTLAB_CACHE_DIR` | Where the encoder timings and the cached scene parts are saved. Default `%LOCALAPPDATA%\motlab` on Windows, `~/.cache/motlab` elsewhere |
 
 ## Page contract

@@ -196,7 +196,7 @@ Open `https://viewer.example.com` and sign in. Then:
 - Every request needs the login, whatever address it comes in on, so a proxy that rewrites the Host header to `127.0.0.1` does not skip it. Only the sign-in page answers without it.
 - The session is a cookie that is HttpOnly, Secure and SameSite=Strict, and lasts 30 days or until the viewer stops. A save, a new version or an Export must come from the viewer's own page on `https://viewer.example.com`; a request from another site is refused.
 - After 5 wrong passwords in a minute, the login waits until the minute is over.
-- `motlab edit`, `stop` and `restart` on the server still work: the viewer writes a random token to `~/.motlab/viewer-token` (readable only by you on Linux and macOS) and removes it when it stops, and the commands send it. `restart` keeps the domain.
+- `motlab edit`, `stop` and `restart` on the server still work: the viewer writes a random token to `~/.motlab/viewer-token` (readable only by you on Linux and macOS) and removes it when it stops, and the commands send it. `restart` keeps the domain and needs `MOTLAB_VIEWER_PASSWORD` in its environment. If the password is missing or too short, the current viewer stays running.
 - Export renders on the server, so the server needs Chrome and ffmpeg (`motlab doctor`). The finished file opens from the Open link as it does on your own machine.
 
 The password is read from the environment so that it does not show up in the process list. Put it in your service manager's environment file rather than in a command line that the shell history keeps. A proxy other than Caddy works the same way: HTTPS in front, `127.0.0.1:4173` behind it.
