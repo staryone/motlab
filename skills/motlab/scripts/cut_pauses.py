@@ -18,9 +18,12 @@ import json, os, re, subprocess, sys, tempfile
 def opt(name, default, cast=float):
     return cast(sys.argv[sys.argv.index(name) + 1]) if name in sys.argv else default
 
-def duration(path):   # the shortest stream: a recording's sound often ends a few frames before its picture
-    out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=duration:format=duration', '-of', 'csv=p=0', path], capture_output=True, text=True)
-    return min(float(x) for x in out.stdout.split() if re.fullmatch(r'[\d.]+', x.strip(',')))
+def duration(path):   # the shorter of picture and sound, never subtitles or data
+    out = subprocess.run(['ffprobe', '-v', 'error', '-show_entries', 'stream=codec_type,duration:format=duration', '-of', 'json', path], capture_output=True, text=True, check=True)
+    data = json.loads(out.stdout)
+    lengths = [float(s['duration']) for s in data['streams']
+               if s.get('codec_type') in ('audio', 'video') and s.get('duration') not in (None, 'N/A')]
+    return min(lengths) if lengths else float(data['format']['duration'])
 
 def pauses(path, noise, min_pause):
     err = subprocess.run(['ffmpeg', '-hide_banner', '-i', path, '-map', '0:a:0', '-af', f'highpass=f=80,silencedetect=noise={noise}dB:d={min_pause}',

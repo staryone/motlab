@@ -4,6 +4,10 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ## Unreleased
 
+### Fixed
+
+- `cut_pauses.py` ignores subtitle and data track durations when finding the end of a take. A 1 s subtitle over 4 s of picture and sound no longer silently truncates the cut list to 1 s. It still uses the shorter audio/video duration to keep picture and sound in step, falling back to the container duration when stream durations are unavailable. `test/cut-pauses.test.js` runs the helper on generated media.
+
 ### Added
 
 - `motlab version`, `motlab --version` and `-v` print the installed version, such as `0.4.0`. Before, `--version` stopped with "Unknown option".

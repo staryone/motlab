@@ -168,6 +168,8 @@ For a talking head with many jump cuts, cut the pauses out of the recording inst
 python skills/motlab/scripts/cut_pauses.py footage/talk.mp4 cuts.json --start 1.4 --audio-out audio/voice-cut.wav
 ```
 
+The take ends at the shorter of its audio and video stream durations, so picture and sound stay in step; subtitle and data tracks do not limit it. If stream durations are unavailable, the container duration is used. `--end` can shorten it further.
+
 A scene then plays the cut list with `/__motlab/cuts.js`:
 
 ```js
