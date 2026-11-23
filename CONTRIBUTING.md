@@ -53,6 +53,10 @@ If you touch the renderer, include the render time of the sample project before 
 
 For viewer changes, run `motlab edit example`, check the change in a browser, and look at the console for errors.
 
+## Licence
+
+motlab is under MIT OR Apache-2.0: whoever uses it picks either licence. By opening a pull request you agree that your contribution is licensed the same way, under both, with no other terms. The people who contributed before the change from MIT alone agreed in [issue #44](https://github.com/staryone/motlab/issues/44).
+
 ## Pull requests
 
 Before you start on something bigger than a fix, such as an item from the roadmap, open an issue or comment on one to say you're taking it. That way two people don't build the same thing, and we can agree on the approach first.

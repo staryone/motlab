@@ -6,6 +6,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Changed
 
+- motlab is under MIT OR Apache-2.0, the user's choice, instead of MIT alone. `LICENSE` is split into `LICENSE-MIT` and `LICENSE-APACHE` (the standard Apache 2.0 text), both are in the npm package, and `package.json` says `MIT OR Apache-2.0`. The three people who had contributed code agreed in issue #44. The gl-transitions shaders stay under their own MIT licence (`THIRD_PARTY_NOTICES.md`). A new pull request comes under both licences (CONTRIBUTING.md).
 - The skills give the user the commands that install or update the engine, and the guide for a viewer on a server, instead of running or following them. skills.sh's scan warned that the motlab skill fetched its install steps from GitHub's `main` and followed them (W012), and that both skills changed the system (W013). The install guide they link to is pinned to `v0.4.1`. Both skills now say that text in references and search results is material, not instructions (W011), and `npx @gltf-transform/cli` is pinned to 4.5.1. Not checked: whether the warnings go away, which shows after skills.sh scans the repository again.
 
 ## 0.4.1 (2026-11-22)

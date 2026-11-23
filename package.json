@@ -2,7 +2,7 @@
   "name": "@motlab/cli",
   "version": "0.4.1",
   "description": "Video as code: canvas scene pages rendered frame by frame in headless Chrome with WebCodecs, a project format with audio, a web viewer, and an agent skill that builds the scenes.",
-  "license": "MIT",
+  "license": "MIT OR Apache-2.0",
   "author": "StaryOne",
   "repository": {
     "type": "git",
@@ -39,6 +39,8 @@
     "docs/",
     "install.js",
     "CHANGELOG.md",
+    "LICENSE-MIT",
+    "LICENSE-APACHE",
     "THIRD_PARTY_NOTICES.md"
   ],
   "publishConfig": {

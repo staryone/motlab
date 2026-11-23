@@ -1,6 +1,6 @@
 # Third-party notices
 
-motlab's own code is under the [MIT licence](LICENSE). This file lists code from other projects that is copied into the repository, with the licence it came under. The example project's sounds in `example/audio/` were made by the maintainer for this repository and are under the same MIT licence.
+motlab's own code is under your choice of the [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE) licence. This file lists code from other projects that is copied into the repository, with the licence it came under. The example project's sounds in `example/audio/` were made by the maintainer for this repository and are under the same two licences.
 
 ## gl-transitions
 

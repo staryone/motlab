@@ -13,7 +13,7 @@ A video engine where every scene is code, and an agent skill that writes the sce
 [Demo](#watch-the-demo) · [Install](#install) · [Quick start](#quick-start) · [Speed](#speed) · [How it works](#how-it-works) · [Docs](#documentation) · [FAQ](#faq) · [Roadmap](ROADMAP.md)
 
 [![CI](https://github.com/staryone/motlab/actions/workflows/ci.yml/badge.svg)](https://github.com/staryone/motlab/actions/workflows/ci.yml)
-[![MIT license](https://img.shields.io/badge/license-MIT-f4c430?style=flat-square)](LICENSE)
+[![License: MIT OR Apache-2.0](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-f4c430?style=flat-square)](#license)
 [![Node.js 24+](https://img.shields.io/badge/Node.js-24%2B-339933?style=flat-square&logo=nodedotjs&logoColor=white)](package.json)
 
 </div>
@@ -253,4 +253,4 @@ npm test
 
 ## License
 
-[MIT](LICENSE). The scene transitions come from gl-transitions (MIT); [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) has their licence and the libraries motlab installs or loads. Fonts, footage, music and other files you bring into a project keep their own licences.
+Your choice of [MIT](LICENSE-MIT) or [Apache 2.0](LICENSE-APACHE). Contributions come under both ([CONTRIBUTING.md](CONTRIBUTING.md#licence)). The scene transitions come from gl-transitions (MIT); [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) has their licence and the libraries motlab installs or loads. Fonts, footage, music and other files you bring into a project keep their own licences.
