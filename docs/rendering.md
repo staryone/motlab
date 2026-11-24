@@ -120,7 +120,7 @@ To compare on the same GPU, motlab ran again on the Radeon (`IGPU=1 node run.mjs
 | `--workers 4` | 12.0 s (0.989, 25.6 MB) | 12.3 s | 14.0 s (0.994, 53.1 MB) | 13.1 s |
 
 - On the Radeon motlab took 8.0 to 12.0 s at 1080p, against 27.2 s for HyperFrames and 30.7 s for Remotion at their fastest settings (2.3 to 3.4 and 2.6 to 3.8 times as long). At 4K it took 13.2 to 22.5 s, against 48.9 s for the fastest of the other two (2.2 to 3.7 times as long). The gap is about the same as with motlab on the RTX 3060.
-- motlab was not slower on the Radeon. At 1080p every setting was a little faster, and at 4K software encoding was faster (13.2 s against 14.8 s). Why was not measured; one guess is that the frames stay on the GPU that also holds the hardware encoder.
+- motlab was not slower on the Radeon. At 1080p every setting was a little faster, and at 4K software encoding was faster (13.2 s against 14.8 s). Why it was faster was not measured; one guess is that the frames stay on the GPU that also holds the hardware encoder.
 - At 4K the default picked HEVC on the Radeon (the saved probe found it clearly faster there), so that file is HEVC and smaller (40.7 MB). On the RTX 3060 it picked H.264.
 
 ### Without a GPU
