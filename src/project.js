@@ -4,15 +4,16 @@
 // "duration": 0.6, "ease": "inOutCubic", "params": {} } }: the previous scene turns into it over that time, so the two
 // overlap and the video is that much shorter. Audio files are mixed at their start time (seconds) and volume (1 = as is).
 // An audio entry may also be a video file (its sound is used), with optional "from" (seconds into the file) and "duration".
-import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { freemem, availableParallelism, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
+import { findChrome, launchChrome } from './chrome.js';
 import { finalize, probeVideo, run } from './ffmpeg.js';
 import { findTransition, isTransitionFile, parseTransition, transitionHead, transitionProgress, transitionTail } from './page/transitions.js';
 import { cacheDir } from './probe.js';
 import { renderVideo } from './render.js';
+import { startServer } from './server.js';
 
 // How many parts render at once without --parallel: 3, fewer on a smaller machine. On the test laptop (16 threads) a
 // project of 12 short scenes got faster up to 3 at once and no faster at 4, and 3 Chrome processes rendering 4K used
@@ -77,6 +78,36 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
   if (qp !== undefined && !(Number.isInteger(qp) && qp >= 0 && qp <= 51)) throw new Error(`qp must be a whole number from 0 to 51, not ${JSON.stringify(qp)}`);
   if (codec !== undefined && !['auto', 'h264', 'hevc'].includes(codec)) throw new Error(`codec must be auto, h264 or hevc, not ${JSON.stringify(codec)}`);
   const tmp = mkdtempSync(join(tmpdir(), 'motlab-project-')), partial = out + '.part';
+  // Share one static server and a small pool of headless Chrome processes across parts, opening a fresh tab per part
+  // instead of cold-starting Chrome for every scene and transition. A Chrome that hits an error or abort is closed, not reused.
+  let serverPromise, closingChromes = Promise.resolve();
+  const getServer = () => (serverPromise ??= startServer({ root: dir }));
+  const idleChromes = [], allChromes = new Set();
+  const takeChrome = async () => {
+    if (idleChromes.length) return idleChromes.pop();
+    const c = await launchChrome({ chromePath: findChrome() });
+    allChromes.add(c);
+    return c;
+  };
+  const closeChromes = () => {
+    const list = [...allChromes]; allChromes.clear(); idleChromes.length = 0;
+    return Promise.all(list.map(c => c.close()));
+  };
+  const renderPart = async (opts, jobSignal) => {
+    const server = await getServer(), chrome = await takeChrome();
+    const onAbort = () => { allChromes.delete(chrome); void chrome.close(); };
+    jobSignal.addEventListener('abort', onAbort, { once: true });
+    let ok = false;
+    try {
+      const res = await renderVideo({ ...opts, server, chrome, signal: jobSignal });
+      ok = true;
+      return res;
+    } finally {
+      jobSignal.removeEventListener('abort', onAbort);
+      if (ok && !jobSignal.aborted && allChromes.has(chrome)) idleChromes.push(chrome);
+      else { allChromes.delete(chrome); await chrome.close(); }
+    }
+  };
   try {
     // One MP4 per scene. The first scene picks the encoder and the rest are forced to the same one, so the parts
     // can be joined without re-encoding.
@@ -127,8 +158,8 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       signal.throwIfAborted();
       if (jobs[j].kind === 'scene') {
         const k = key({ kind: 'scene', file: scene.file, hash: hashes[i], fps: p.fps, scale, qp, codec, version: VERSION, head: transitionHead(into), tail: transitionTail(next) });
-        const part = await getPart(k, !only || only.includes(i + 1), `\nScene ${i + 1}/${scenes.length}: ${scene.file}`, log, () => renderVideo({ page: join(dir, scene.file), root: dir,
-          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, qp, codec, log, signal, progress, head: transitionHead(into), tail: transitionTail(next), ...same() }));
+        const part = await getPart(k, !only || only.includes(i + 1), `\nScene ${i + 1}/${scenes.length}: ${scene.file}`, log, () => renderPart({ page: join(dir, scene.file), root: dir,
+          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, qp, codec, log, progress, head: transitionHead(into), tail: transitionTail(next), ...same() }, signal));
         // a stream copy join of parts with different sizes makes an MP4 that changes resolution partway through
         if (parts[0] && (part.width !== parts[0].width || part.height !== parts[0].height))
           throw Object.assign(new Error(`${scene.file} is ${part.width}x${part.height} but ${scenes[0].file} is ${parts[0].width}x${parts[0].height}. All scenes in a project must have the same canvas size`), { final: true });
@@ -140,8 +171,8 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       const query = new URLSearchParams({ from: scene.file, to: scenes[i + 1].file, offset: (from.pageFrames - transitionTail(next)) / p.fps, frames: next.n,
         fps: p.fps, ...(next.layer ? { layer: next.layer } : { type: next.type, ease: next.ease, params: JSON.stringify(next.params) }) });
       return getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.layer ? `layer ${next.layer}` : next.type}, ${next.n} frames`, log,
-        () => renderVideo({ url: '__motlab/transition.html', query: String(query), root: dir, out: join(cacheRoot, tk + '.mp4'),
-          fps: p.fps, scale, qp, codec, log, signal, progress, ...same() }));
+        () => renderPart({ url: '__motlab/transition.html', query: String(query), root: dir, out: join(cacheRoot, tk + '.mp4'),
+          fps: p.fps, scale, qp, codec, log, progress, ...same() }, signal));
     };
     // Runs the parts that have no result yet, `width` at a time. When one fails the others are stopped, and the parts
     // that finished are kept. A part's log is printed in one piece when it ends, so parallel logs do not interleave.
@@ -178,8 +209,11 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       // failed part. The parts still missing are rendered one at a time; a part that fails then fails for real.
       if (width === 1 || e.final || signal?.aborted) throw e;
       log(`\nA part failed with ${width} at a time (${String(e?.message || e).split('\n')[0]}). Rendering the remaining parts one at a time.`);
+      await closeChromes();
       progress = true; await runAll(1);
     }
+    // Start shutting down the Chrome pool while ffmpeg mixes audio and joins the parts.
+    closingChromes = closeChromes();
     const duration = parts.reduce((sum, s) => sum + s.duration, 0);
 
     let audio;
@@ -187,8 +221,8 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       audio = join(tmp, 'mix.wav');
       // A mono file goes to both channels at full level, as the viewer (WebAudio) plays it. ffmpeg's own up-mix to
       // stereo would put it 3 dB lower.
-      const mono = a => spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=channels', '-of', 'csv=p=0', join(dir, a.file)], { encoding: 'utf8' }).stdout.trim() === '1';
-      const chains = p.audio.map((a, i) => `[${i}:a]${mono(a) ? 'pan=stereo|c0=c0|c1=c0,' : ''}adelay=${Math.round((a.start || 0) * 1000)}:all=1,volume=${a.volume ?? 1}[a${i}]`);
+      const channels = await Promise.all(p.audio.map(a => run('ffprobe', ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=channels', '-of', 'csv=p=0', join(dir, a.file)], signal)));
+      const chains = p.audio.map((a, i) => `[${i}:a]${channels[i].trim() === '1' ? 'pan=stereo|c0=c0|c1=c0,' : ''}adelay=${Math.round((a.start || 0) * 1000)}:all=1,volume=${a.volume ?? 1}[a${i}]`);
       await run('ffmpeg', ['-y', '-loglevel', 'error', ...p.audio.flatMap(a => [...(a.from ? ['-ss', String(a.from)] : []), ...(a.duration ? ['-t', String(a.duration)] : []), '-i', join(dir, a.file)]), '-filter_complex',
         `${chains.join(';')};${p.audio.map((_, i) => `[a${i}]`).join('')}amix=inputs=${p.audio.length}:normalize=0[mix]`,
         '-map', '[mix]', '-ar', '48000', '-ac', '2', '-t', duration.toFixed(6), audio], signal);
@@ -209,5 +243,8 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
     } catch {}
     if (pruned) log(`(removed ${pruned} unused cached part${pruned === 1 ? '' : 's'})`);
     log(`\nSAVED ${out} (${scenes.length} scenes${parts.length > scenes.length ? `, ${parts.length - scenes.length} transitions` : ''}, ${duration.toFixed(3)} s${audio ? `, ${p.audio.length} audio files` : ''})`);
-  } finally { rmSync(partial, { force: true }); rmSync(tmp, { recursive: true, force: true }); }
+  } finally {
+    await Promise.all([closingChromes, closeChromes(), serverPromise?.then(s => s.close())]);
+    rmSync(partial, { force: true }); rmSync(tmp, { recursive: true, force: true });
+  }
 }
