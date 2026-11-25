@@ -34,6 +34,9 @@ test('the viewer loads an existing version with an apostrophe in its filename', 
     });
     chrome = await launchChrome({ chromePath: findChrome() });
     const page = await attachPage(chrome);
+    // The viewer's Google Fonts stylesheet holds back the load event; on CI that host took up to the whole timeout.
+    await page.send('Network.enable');
+    await page.send('Network.setBlockedURLs', { urls: ['*://fonts.googleapis.com/*', '*://fonts.gstatic.com/*'] });
     const loaded = new Promise(resolve => chrome.on('Page.loadEventFired', resolve));
     await page.navigate(url);
     await loaded;
