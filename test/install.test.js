@@ -18,6 +18,7 @@ test('install.js --update puts the skills back where they were', () => {
     assert.equal(r.status, 0, r.stderr);
     assert.ok(r.stdout.includes(`replace ${join(home, '.agents', 'skills', 'motlab')}`), r.stdout);
     assert.ok(r.stdout.includes(`-> ${join(home, 'custom', 'motlab-assets')}`), r.stdout);
+    assert.ok(r.stdout.includes(`-> ${join(home, 'custom', 'motlab-styles')}`), r.stdout);
     assert.ok(!r.stdout.includes(join(home, '.claude')), 'an agent folder without the skill stays untouched');
   } finally { rmSync(home, { recursive: true, force: true }); }
 });
@@ -32,6 +33,7 @@ test('motlab uninstall removes what the installer wrote and nothing else', () =>
     put(join(home, 'bin', 'other.cmd'), 'echo other');
     put(join(home, 'custom', 'motlab', 'SKILL.md'));
     put(join(home, '.claude', 'skills', 'motlab-assets', 'SKILL.md'));
+    put(join(home, '.claude', 'skills', 'motlab-styles', 'SKILL.md'));
     put(join(home, '.claude', 'skills', 'someone-else', 'SKILL.md'));
     put(join(home, '.motlab', 'install.json'), JSON.stringify({ skillDirs: [join(home, 'custom')], bin: join(home, 'bin') }));
     const cache = process.platform === 'win32' ? join(home, 'local', 'motlab') : join(home, '.cache', 'motlab');   // where probe.js keeps it
@@ -39,7 +41,7 @@ test('motlab uninstall removes what the installer wrote and nothing else', () =>
     const env = { ...process.env, HOME: home, USERPROFILE: home, LOCALAPPDATA: join(home, 'local'), MOTLAB_KEEP_VIEWER: '1', MOTLAB_CACHE_DIR: '' };
     delete env.MOTLAB_CACHE_DIR;
     const run = (...args) => spawnSync(process.execPath, ['bin/motlab.js', 'uninstall', ...args], { encoding: 'utf8', env, input: '' });
-    const gone = [join(home, 'bin', 'motlab.cmd'), join(home, 'custom', 'motlab'), join(home, '.claude', 'skills', 'motlab-assets'), join(home, '.motlab'), cache];
+    const gone = [join(home, 'bin', 'motlab.cmd'), join(home, 'custom', 'motlab'), join(home, '.claude', 'skills', 'motlab-assets'), join(home, '.claude', 'skills', 'motlab-styles'), join(home, '.motlab'), cache];
     const asked = run();
     assert.equal(asked.status, 1, asked.stdout);
     for (const f of gone) { assert.ok(asked.stdout.includes(f), `${f} is listed`); assert.ok(existsSync(f), `${f} is kept without --yes`); }

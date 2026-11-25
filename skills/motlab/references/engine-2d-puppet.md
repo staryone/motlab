@@ -1,8 +1,8 @@
 # 2D: cut-outs, puppets and layers
 
-For flat, illustrated scenes start from `templates/template-2d.html`. It is a working example of the pieces below:
-shots on flat colour fields, a shot change that grows a shape from the outgoing shot, headlines that rise word by word,
-a slow push on each shot, and optional held poses, jitter and flat shadows. Replace its `SHOTS` with the real ones.
+For flat, illustrated scenes start from `templates/template-2d.html`: the page contract, one block of beat times,
+timing helpers and optional held poses. The look comes from the references or the chosen style; motlab-styles' Ad
+morph template is a full 2D example of one, with shapes growing into the next shot.
 
 Most illustrated briefs come with art as flat PNGs. The scripts here turn that art into parts that can move.
 
@@ -71,7 +71,7 @@ drawing itself with a dash offset, a speech bubble popping in with a slight over
 
 ## Held poses, jitter and flat shadows
 
-Flat art often looks better moving like hand-drawn animation than perfectly smooth:
+For flat art that should move like hand-drawn animation instead of perfectly smooth, when the look asks for it:
 
 - Hold poses: `tp = Math.floor(t * POSES) / POSES` feeds every animation, with `POSES` at 12 (smoother) or 8 (rougher).
   At 24 fps that is a new pose every 2 or 3 frames, always the same number.
@@ -80,7 +80,8 @@ Flat art often looks better moving like hand-drawn animation than perfectly smoo
 - Flat shadows: a hard shadow with no blur, offset down and to the right, about a quarter opaque. Shadow offsets are
   in device pixels, so multiply them by `SCALE`.
 
-## The last shot
+## Placing a logo
 
-End on a still frame: no push or drift, the logo centred by what is visible in it (not by the image file's size, which
-may include empty margins), then the tagline and what to do next (a URL, a store badge the brand really uses).
+Place a logo by what is visible in it, not by the image file's size, which may include empty margins: measure its
+visible bounds once and keep them as a constant (`technique.md` §1). A store badge or URL on an end card is the one
+the brand really uses.

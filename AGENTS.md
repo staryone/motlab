@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Instructions for a coding agent working on this repository. If you are making a video for a user, you want the skill in [skills/motlab/SKILL.md](skills/motlab/SKILL.md), and for assets [skills/motlab-assets/SKILL.md](skills/motlab-assets/SKILL.md), not this file.
+Instructions for a coding agent working on this repository. If you are making a video for a user, you want the skill in [skills/motlab/SKILL.md](skills/motlab/SKILL.md), for assets [skills/motlab-assets/SKILL.md](skills/motlab-assets/SKILL.md), and for a ready-made look [skills/motlab-styles/SKILL.md](skills/motlab-styles/SKILL.md), not this file.
 
 ## Read first
 

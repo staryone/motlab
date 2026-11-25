@@ -64,7 +64,7 @@ A panel is `{ tex, w, h, pos, rot, scale, alpha, light, blur, bias, reflect, she
 gl3d.js has no meshes. For models start from `templates/template-three.html`. It loads three.js 0.186.1 from jsDelivr
 through an import map, so a render needs the network. Set `MODEL` to a `.glb` or `.gltf` next to the page; left empty,
 it shows a placeholder box. The model is scaled to 1.6 units and stood on a shadow floor, lit by `RoomEnvironment` and
-one key light, with a one-way camera and a 2D title over it.
+one key light, with an example camera move and a 2D title over it.
 
 - three.js draws into its own WebGL canvas, which `render()` copies onto `#c`. So `#c` stays a 2D canvas and titles,
   captions and glows are drawn with the same code as in the 2D template, after the copy.

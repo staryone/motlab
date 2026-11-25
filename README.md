@@ -36,6 +36,7 @@ The ad above (19 seconds, 7 scenes) was made with motlab and its skill, reviewed
 - A long talking-head take is cut at its pauses and can be split into one scene per section, with captions placed from a transcript.
 - Frames are encoded with WebCodecs inside the page, so they never leave Chrome as images. On a GPU that made it 2 to 4 times as fast as Remotion and HyperFrames on the [benchmark scene](#speed).
 - A second skill, `motlab-assets`, builds reusable asset kits the same way: icons, illustrations, 2D characters with a rig, transitions, 3D objects and textures, rendered to transparent PNG plus SVG, or GLB, FBX and OBJ with PBR textures. Every video that uses the kit shares one look.
+- The motlab skill has no look of its own: it knows the engine, its tools and how to direct and build a video, and the look comes from your references or from another skill you use. A third skill, `motlab-styles`, holds ready-made looks with their rules and templates, for when you ask for one, and writes down the look of a reference video as a style.
 
 ## Watch the demo
 
@@ -52,7 +53,7 @@ npm install -g @motlab/cli
 npx @motlab/cli setup
 ```
 
-npm installs the engine. Setup copies both skills to your agent's skill folder, checks the machine, and makes sure the `motlab` command works: where npm's folder is not on PATH (nvm for Windows), it adds the command to `~/.local/bin`. After that it is `motlab` everywhere, and `motlab doctor` checks the machine again at any time.
+npm installs the engine. Setup copies the three skills to your agent's skill folder, checks the machine, and makes sure the `motlab` command works: where npm's folder is not on PATH (nvm for Windows), it adds the command to `~/.local/bin`. After that it is `motlab` everywhere, and `motlab doctor` checks the machine again at any time.
 
 Setup installs the skills for Claude Code unless you name another agent:
 
@@ -89,7 +90,7 @@ The installer runs `npm ci`, puts a `motlab` command in `~/.local/bin` and copie
 npx skills add staryone/motlab -g
 ```
 
-This installs only the two skills, for the agents it finds on your machine. The first time the motlab skill runs, it sees that the engine is missing and gives you the two commands to install it: `npm install -g @motlab/cli` and then `npx @motlab/cli setup --skill none`, so setup adds only the command. Setup and `motlab uninstall` leave skills that came from npx skills alone; update them with `npx skills update -g`. Without `-g`, npx skills puts the skills in the current project only.
+This installs only the three skills, for the agents it finds on your machine. The first time the motlab skill runs, it sees that the engine is missing and gives you the two commands to install it: `npm install -g @motlab/cli` and then `npx @motlab/cli setup --skill none`, so setup adds only the command. Setup and `motlab uninstall` leave skills that came from npx skills alone; update them with `npx skills update -g`. Without `-g`, npx skills puts the skills in the current project only.
 
 </details>
 
@@ -159,6 +160,7 @@ Footage is decoded inside the page with Mediabunny, so a scene can cut and trim 
 | How a render works, encoders, file size, measurements, quirks | [Rendering](docs/rendering.md) |
 | What the skill does and its references | [SKILL.md](skills/motlab/SKILL.md), [skill references](skills/motlab/references/) |
 | Asset kits: tokens, 2D, 3D | [motlab-assets SKILL.md](skills/motlab-assets/SKILL.md), [its references](skills/motlab-assets/references/) |
+| Ready-made looks | [motlab-styles SKILL.md](skills/motlab-styles/SKILL.md), [its styles](skills/motlab-styles/styles/) |
 | The viewer's visual design | [DESIGN.md](DESIGN.md) |
 | What is not built or not tested yet | [Roadmap](ROADMAP.md) |
 | Changes | [Changelog](CHANGELOG.md) |

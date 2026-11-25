@@ -124,9 +124,8 @@ If the user has ElevenLabs connected to the agent (a connector or MCP server), t
 exact timing of the scenes and generate the voice in the same session. Each take costs the user ElevenLabs
 credits, so make one only on request. Without the connection, the user pastes your script into ElevenLabs themselves.
 
-- Budget roughly 2.2 words per second so the delivery is not rushed. A 10-second video holds 18 to 22 words, and the
-  end card's last two seconds stay quiet.
-- Write a line for each shot in the way the brand talks, and finish on its slogan.
+- Budget roughly 2.2 words per second so the delivery is not rushed. A 10-second video holds 18 to 22 words.
+- Write a line for each shot in the way the brand talks, and finish on what the viewer should do or remember.
 - Only claims the user can back up; no promised results.
 - Add delivery notes (pace, mood, pauses, which word carries the stress) and offer a second version aimed at another
   audience. When the real take arrives, re-time the scene constants to it.
@@ -139,9 +138,9 @@ a connector for the service before assuming they work in its website, and point 
 their plan.
 
 - Match the tempo to anything rhythmic on screen: pulses every 0.62 s are 97 BPM.
-- Offer two or three directions. For each, give a style line and a structure (intro, build, drop, outro, instrumental)
-  with the lift landing on the reveal. For example: "warm minimal house, 97 BPM, instrumental, soft round kick, muted
+- Offer two or three directions that fit the video's look. For each, give a style line and a structure (intro, build,
+  drop, outro, instrumental) with the lift landing on the video's biggest moment. For example: "warm minimal house, 97 BPM, instrumental, soft round kick, muted
   plucks, gentle chords, bright and calm", or "playful indie electronic, 97 BPM, instrumental, hand claps, bouncy bass,
   toy-piano melody, cheerful".
-- Cut the track so its biggest change lands on the reveal, and keep the music 8 to 10 dB under the effects so the
+- Cut the track so its biggest change lands on that moment, and keep the music 8 to 10 dB under the effects so the
   details still come through.

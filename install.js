@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Installs motlab from this folder: npm packages, a `motlab` command on PATH and the agent skills (motlab, motlab-assets).
+// Installs motlab from this folder: npm packages, a `motlab` command on PATH and the agent skills (motlab, motlab-assets, motlab-styles).
 //
 //   node install.js                       engine, command and the skills for Claude Code
 //   node install.js --skill agents        the skills in ~/.agents/skills (Codex, Cursor, OpenCode, Copilot, Gemini CLI, Amp,
@@ -101,7 +101,7 @@ if (o.update && !skillDirs.length) say('no skill folders from an earlier install
 // A skill that `npx skills add -g` installed belongs to that CLI. Copying ours over it would give it two owners and put
 // a second copy next to the one it links into each agent folder, so it is left alone. --force copies it anyway.
 const fromCli = skillsCliSkills();
-const names = ['motlab', 'motlab-assets'].filter(name => {
+const names = ['motlab', 'motlab-assets', 'motlab-styles'].filter(name => {
   if (!skillDirs.length || o.force || !fromCli.has(name)) return true;
   say(`skill ${name} was installed with npx skills, so it is left alone. Update it with: npx skills update -g`);
   return false;
