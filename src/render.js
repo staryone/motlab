@@ -31,9 +31,9 @@ function locate(o) {
   return { root, url: rel.split(sep).map(encodeURIComponent).join('/') };
 }
 
-async function openPage({ server, chromePath, chrome: sharedChrome, url, scale, query, signal }) {
+async function openPage({ server, chromePath, browser, url, scale, query, signal }) {
   signal?.throwIfAborted();
-  const owned = !sharedChrome, chrome = sharedChrome || await launchChrome({ chromePath });
+  const owned = !browser, chrome = browser || await launchChrome({ chromePath });
   let page;
   const stop = () => { void (owned ? chrome.close() : page?.close()); };
   signal?.addEventListener('abort', stop);
@@ -85,8 +85,8 @@ export async function renderVideo(o) {
   const stop = () => pages.forEach(p => void closePage(p));
   o.signal?.addEventListener('abort', stop);
   try {
-    const sharedChrome = workers === 1 ? o.chrome : undefined;
-    pages = await openPages(workers, { server, chromePath: sharedChrome ? undefined : findChrome(o.chrome), chrome: sharedChrome, url, scale, query: o.query, signal: o.signal });
+    const browser = workers === 1 ? o.browser : undefined;
+    pages = await openPages(workers, { server, chromePath: browser ? undefined : findChrome(o.chrome), browser, url, scale, query: o.query, signal: o.signal });
     o.signal?.throwIfAborted();
     const info = await readInfo(pages[0], log), { width, height } = info;
     if (!(info.total > 0)) throw new Error('window.TOTAL must be a positive number of seconds');

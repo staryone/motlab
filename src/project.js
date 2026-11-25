@@ -99,7 +99,7 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
     jobSignal.addEventListener('abort', onAbort, { once: true });
     let ok = false;
     try {
-      const res = await renderVideo({ ...opts, server, chrome, signal: jobSignal });
+      const res = await renderVideo({ ...opts, server, browser: chrome, signal: jobSignal });
       ok = true;
       return res;
     } finally {
