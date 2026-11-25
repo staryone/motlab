@@ -144,11 +144,14 @@ export function startEditor(target, port = 4173, { domain, password = process.en
     if (!p) return res.writeHead(404).end();
     if (!m[2]) return res.writeHead(301, { Location: `/p/${m[1]}/` }).end();   // the page loads everything relative to this
     // The version comes as ?v= for the page and as `project` in the body of a write; anything that is not one of the
-    // project's versions falls back to the file the project was opened with.
-    const { root } = p, sub = m[2], all = versions(root);
-    const version = f => all.some(v => v.file === f) ? f : basename(p.file);
+    // project's versions falls back to the file the project was opened with. Computed lazily so static asset and
+    // footage Range requests do not scan and parse every .json file in the project folder.
+    const { root } = p, sub = m[2];
+    let all;
+    const listVersions = () => (all ??= versions(root));
+    const version = f => listVersions().some(v => v.file === f) ? f : basename(p.file);
 
-    if (sub === '/versions' && req.method === 'GET') return json(res, all);
+    if (sub === '/versions' && req.method === 'GET') return json(res, listVersions());
     if (sub === '/parallel' && req.method === 'GET') return json(res, { auto: defaultParallel() });   // asked each time the Export menu opens, as free memory changes
     if (sub === '/__events' && req.method === 'GET') return live.subscribe(root, req, res);   // live updates for the page
     if (sub === '/versions' && req.method === 'POST') {   // body: { from, name }; a copy of `from` as project-<name>.json
