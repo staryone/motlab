@@ -2,10 +2,14 @@
 <html lang="id"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>{{name}} / {{version}} · motlab</title>
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600&display=swap">
+<script>{   /* light or dark before the first paint: the theme picked in this browser, else the system's (applyTheme in the module does the same) */
+  let t; try { t = localStorage.motlabTheme; } catch {}
+  document.documentElement.dataset.theme = t === 'dark' || t === 'light' ? t : matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}</script>
 <style>
   /* Design notes are in DESIGN.md. Muted text and waveform colours were picked with the contrast checker against every background they sit on,
      in both themes. The timeline canvas reads these tokens too (C in the script). */
-  :root { color-scheme: light dark;
+  :root { color-scheme: light;
     --bg: #fff; --line: #e6e6e4; --edge: #dcdcda; --hair: #ececeb; --faint: #c9c9c7; --canvas: #ececec; --text: #1f1f1e; --muted: #666561; --hover: #f4f4f3; --press: #e4e4e2; --sel: #ebebea;
     --on-text: #fff; --on-text-dim: rgba(255,255,255,.3); --text-press: #000; --tip: #1f1f1e; --on-tip: #fff; --tip-key: rgba(255,255,255,.16); --tip-dim: rgba(255,255,255,.7);
     --blue: #2c6fe0; --blue-bg: #dfe9fb; --blue-hover: #d3e1fa; --blue-press: #c7d8f8; --blue-line: #a9c3f1; --on-blue: #fff; --band: rgba(44,111,224,.10); --band-bg: #eaf0fc; --scrub-band: rgba(44,111,224,.16);
@@ -16,14 +20,14 @@
     --badge: rgba(0,0,0,.55); --on-badge: #fff; --bowtie: rgba(0,0,0,.6); --wash: rgba(255,255,255,.35);
     --font: "Plus Jakarta Sans", ui-sans-serif, system-ui, "Segoe UI", sans-serif; --side: clamp(260px, 24.5vw, 468px);
     --ease: cubic-bezier(.2, .8, .2, 1); --fast: .14s; --slide: .26s; }
-  /* dark follows the system setting. The cards are lighter than the canvas, as the white cards are on the grey one; the
-     dark buttons turn light, and tooltips and toasts stay dark */
-  @media (prefers-color-scheme: dark) { :root {
+  /* dark: the system's setting or the theme button (data-theme, set before the first paint). The cards are lighter than
+     the canvas, as the white cards are on the grey one; the dark buttons turn light, and tooltips and toasts stay dark */
+  :root[data-theme="dark"] { color-scheme: dark;
     --bg: #242423; --line: #343432; --edge: #3e3e3b; --hair: #30302e; --faint: #5c5c58; --canvas: #191918; --text: #ececea; --muted: #a6a59f; --hover: #2d2d2b; --press: #3a3a37; --sel: #333331;
     --on-text: #1f1f1e; --on-text-dim: rgba(31,31,30,.3); --text-press: #fff; --tip: #3a3a38;
     --blue: #7aa7f7; --blue-bg: #233a63; --blue-hover: #2a4675; --blue-press: #30507f; --blue-line: #3f5f97; --on-blue: #10203d; --band: rgba(122,167,247,.14); --band-bg: #303641; --scrub-band: rgba(122,167,247,.2);
     --red: #f28b82; --red-bg: #4a2522; --red-hover: #552a26; --red-press: #5f2f2a;
-    --tile: #2e2e2c; --clip: #2e2e2c; --clip-text: #d4d3ce; --clip-edge: rgba(255,255,255,.08); --wave: #807f7a; --ring: rgba(255,255,255,.06); --strike: rgba(255,255,255,.3); --scrim: rgba(0,0,0,.45); } }
+    --tile: #2e2e2c; --clip: #2e2e2c; --clip-text: #d4d3ce; --clip-edge: rgba(255,255,255,.08); --wave: #807f7a; --ring: rgba(255,255,255,.06); --strike: rgba(255,255,255,.3); --scrim: rgba(0,0,0,.45); }
   * { box-sizing: border-box; margin: 0; }
   [hidden]:not(.menu, .toast, #tip) { display: none !important; }
   html, body { height: 100%; }
@@ -104,7 +108,7 @@
      buttons, the range bar and the full-screen pill are left out. The bar is hidden ('bar-off') unless the pointer is near
      the bottom edge, so it covers nothing while the frame is looked at */
   #dock { display: contents; }
-  #scrubWrap, #fsScene, #fullExit, #fullBar { display: none; }
+  #scrubWrap, #fsScene, #fullExit, #fullBar, #themeBar { display: none; }
   #canvas:fullscreen { overflow: hidden; background: var(--full); }
   #canvas:fullscreen #stage { position: absolute; inset: 0; padding: 0; }
   #canvas:fullscreen #dock { position: absolute; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0px)); z-index: 3; display: flex; flex-direction: column; padding: 6px 6px 4px;
@@ -366,6 +370,7 @@
     #drawBar .sq { flex: 1; width: auto; gap: 6px; font-size: 13px; }
     #drawBar .lbl { display: inline; }
     #fullBar { display: flex; }
+    #themeBar { display: grid; }   /* the theme button moves from the full-screen pill to the left of the header, where the panel button was */
     #exportLabel { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
     #export { padding: 0 8px; }
     .menu, #projMenu, #verMenu, #exportMenu { position: fixed; top: 50px; left: 8px; right: 8px; width: auto; min-width: 0; max-width: none; translate: none; transform-origin: top center; }
@@ -384,7 +389,7 @@
 </style></head>
 <body class="still">
 <header>
-  <div><button class="icon" id="panel" data-i="panel" data-label="hidePanel" aria-expanded="true"></button></div>
+  <div><button class="icon" id="panel" data-i="panel" data-label="hidePanel" aria-expanded="true"></button><button class="icon" id="themeBar" data-label="themeDark"></button></div>
   <div class="crumb">
     <div class="wrap"><h1><button class="pick" id="proj" data-i="down" aria-expanded="false" aria-controls="projMenu" data-t="data-tip=switchProject"><span class="nm">{{name}}</span></button></h1>
       <div class="menu c" id="projMenu" hidden><h3 data-t="projects"></h3><div id="projList"><p class="foot" data-t="loading"></p></div><p class="foot" id="projFoot"></p>
@@ -431,7 +436,7 @@
 </div>
 <main>
   <div id="canvas">
-    <div class="pill" id="pillFull"><button class="sq" id="full" data-i="full" data-label="full" data-key="F"></button></div>
+    <div class="pill" id="pillFull"><button class="sq" id="theme" data-label="themeDark"></button><button class="sq" id="full" data-i="full" data-label="full" data-key="F"></button></div>
     <div id="notices"><div class="toast" id="note" role="status" hidden></div></div><div class="sr" id="workSr" role="status"></div>
     <div id="stage"><span id="msg" data-t="loadingProject"></span><canvas id="view" hidden></canvas><div id="marks"></div>
       <div class="pop" id="pop" role="dialog" aria-labelledby="popWhere" hidden>
@@ -529,6 +534,8 @@ const TEXT = {
   fullExit: ['Keluar dari layar penuh', 'Exit full screen'],
   showControls: ['Tampilkan kontrol', 'Show the controls'],
   fullNone: ['Layar penuh tidak tersedia di browser ini', 'Full screen is not available in this browser'],
+  themeDark: ['Mode gelap', 'Dark mode'],
+  themeLight: ['Mode terang', 'Light mode'],
   fullRefused: ['Layar penuh ditolak browser', 'The browser refused full screen'],
   fullStuck: ['Layar penuh tidak terbuka. Coba di Chrome biasa.', 'Full screen did not open. Try it in regular Chrome.'],
   loadingProject: ['Memuat project…', 'Loading project…'],
@@ -627,12 +634,11 @@ $('ver').firstElementChild.textContent = VERSION; document.title = `${$('proj').
 $('lang').firstChild.textContent = L('otherLang'); $('lang').lastChild.textContent = LANG === 'id' ? 'EN' : 'ID'; $('lang').firstChild.lang = LANG === 'id' ? 'en' : 'id';
 $('lang').onclick = () => { try { localStorage.motlabLang = LANG === 'id' ? 'en' : 'id'; } catch {} location.reload(); };
 const PAD = 20, RULER = 44, MK_Y = 30, VH = 54, AH = 40, GAP = 8, AY = RULER + VH + GAP, PEAKS = 200;
-// The canvas colours are the page's tokens (--clip-text is C.clipText), read again when the system theme changes
+// The canvas colours are the page's tokens (--clip-text is C.clipText), read again when the theme changes
 const C = {}, readColours = () => { const css = getComputedStyle(document.documentElement);
   for (const k of ['bg', 'edge', 'text', 'muted', 'tile', 'clip', 'clip-text', 'clip-edge', 'wave', 'blue', 'blue-bg', 'blue-line', 'on-blue', 'band', 'band-bg', 'scrub-band',
     'note', 'note-on', 'note-fill', 'note-halo', 'badge', 'on-badge', 'bowtie', 'wash']) C[k.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = css.getPropertyValue('--' + k).trim(); };
 readColours();
-const DARK = matchMedia('(prefers-color-scheme: dark)');
 const FONT = getComputedStyle(document.documentElement).getPropertyValue('--font').trim();   // the timeline canvas uses the page font too
 const laneHeight = n => AY + n * (AH + GAP) + 6;
 const svg = (d, fill) => `<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
@@ -662,6 +668,8 @@ const ICON = {
   zin: svg('<circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3 3M5 7h4M7 5v4"/>'),
   lane: svg('<rect x="2" y="3" width="12" height="10" rx="2"/><path d="M2 9.5h12"/>'),
   down: svg('<path d="m5 6.5 3 3 3-3"/>'),
+  moon: svg('<path d="M8 2a4 4 0 0 0 6 6 6 6 0 1 1-6-6z"/>'),   // Lucide moon (ISC), in the 16 px box
+  sun: svg('<circle cx="8" cy="8" r="2.7"/><path d="M8 1.3v1.3M8 13.4v1.3M3.3 3.3l.9.9M11.8 11.8l.9.9M1.3 8h1.3M13.4 8h1.3M4.2 11.8l-.9.9M12.7 3.3l-.9.9"/>'),   // Lucide sun (ISC), in the 16 px box
 };
 const label = (b, text, key = b.dataset.key) => {   // the accessible name and the tooltip; `key` is shown in a key cap
   b.setAttribute('aria-label', text); b.dataset.tip = text;
@@ -669,6 +677,24 @@ const label = (b, text, key = b.dataset.key) => {   // the accessible name and t
 };
 document.querySelectorAll('[data-i]').forEach(e => e.insertAdjacentHTML(['export', 'rangeNote', 'toolMark', 'toolPen'].includes(e.id) ? 'afterbegin' : 'beforeend', ICON[e.dataset.i]));
 document.querySelectorAll('[data-label]').forEach(b => label(b, L(b.dataset.label)));
+// Light or dark: the system's setting, or the one picked with the theme button (in the full-screen pill, or the header on
+// a phone), kept in this browser. A pick that matches the system is forgotten, so the viewer follows the system again.
+const DARK = matchMedia('(prefers-color-scheme: dark)');
+let onTheme = () => {};   // the canvases are drawn again; set once the timeline exists
+function applyTheme() {
+  let t; try { t = localStorage.motlabTheme; } catch {}
+  const dark = t === 'dark' || t === 'light' ? t === 'dark' : DARK.matches;
+  document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+  for (const b of [$('theme'), $('themeBar')]) { b.innerHTML = ICON[dark ? 'sun' : 'moon']; label(b, L(dark ? 'themeLight' : 'themeDark')); }
+  readColours(); onTheme();
+}
+$('theme').onclick = $('themeBar').onclick = () => {
+  const dark = document.documentElement.dataset.theme !== 'dark';   // the one to switch to
+  try { if (dark === DARK.matches) delete localStorage.motlabTheme; else localStorage.motlabTheme = dark ? 'dark' : 'light'; } catch {}
+  applyTheme();
+};
+DARK.addEventListener('change', applyTheme);
+applyTheme();
 // Tooltips: shown after 0.5 s of hover (at once while moving between controls, or on keyboard focus), above the control
 // or below it near the top of the window. The timeline's list of keys waits 1 s and goes away when the pointer moves on,
 // so it does not sit over the timeline while you work.
@@ -1192,7 +1218,7 @@ try {
     return c.toDataURL('image/png');
   }
   new ResizeObserver(paint).observe(view);
-  DARK.addEventListener('change', () => { readColours(); drawTimeline(); });   // CSS follows on its own, the canvases are drawn again
+  onTheme = drawTimeline;   // CSS follows the theme on its own, the canvases are drawn again
   async function show() {
     marks(); $('now').textContent = fmt(t);
     const s = sceneAt(t);
