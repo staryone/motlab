@@ -31,14 +31,15 @@ function locate(o) {
   return { root, url: rel.split(sep).map(encodeURIComponent).join('/') };
 }
 
-async function openPage({ server, chromePath, url, scale, query, signal }) {
+async function openPage({ server, chromePath, browser, url, scale, query, signal }) {
   signal?.throwIfAborted();
-  const chrome = await launchChrome({ chromePath });
-  const stop = () => { void chrome.close(); };
+  const owned = !browser, chrome = browser || await launchChrome({ chromePath });
+  let page;
+  const stop = () => { void (owned ? chrome.close() : page?.close()); };
   signal?.addEventListener('abort', stop);
   try {
     signal?.throwIfAborted();
-    const page = await attachPage(chrome);
+    page = await attachPage(chrome, { create: !owned });
     await page.navigate(`${server.origin}/${url}?t=0&scale=${scale}${query ? '&' + query : ''}`);
     // Wait for the contract. Give up 8 s after the document has finished loading (or 5 s after a script error).
     const t0 = Date.now(); let loadedAt = 0;
@@ -55,15 +56,17 @@ async function openPage({ server, chromePath, url, scale, query, signal }) {
     const waiting = setTimeout(() => console.warn(`Still waiting for window.ready after 30 s (${url}).${page.errors.length ? ` Page errors: ${page.errors.slice(0, 3).join(' | ')}` : ''}`), 30000);
     try { await page.evaluate('Promise.resolve(window.ready).then(() => true)'); } finally { clearTimeout(waiting); }
     await page.evaluate(RUNTIME);
-    return { ...page, chrome };
-  } catch (e) { await chrome.close(); signal?.throwIfAborted(); throw e; }
+    return { ...page, chrome, owned };
+  } catch (e) { await (owned ? chrome.close() : page?.close()); signal?.throwIfAborted(); throw e; }
   finally { signal?.removeEventListener('abort', stop); }
 }
+
+const closePage = p => p.owned ? p.chrome.close() : p.close();
 
 async function openPages(count, args) {
   const settled = await Promise.allSettled(Array.from({ length: count }, () => openPage(args)));
   const failed = settled.find(s => s.status === 'rejected');
-  if (failed) { await Promise.all(settled.filter(s => s.status === 'fulfilled').map(s => s.value.chrome.close())); throw failed.reason; }
+  if (failed) { await Promise.all(settled.filter(s => s.status === 'fulfilled').map(s => closePage(s.value))); throw failed.reason; }
   return settled.map(s => s.value);
 }
 
@@ -76,13 +79,14 @@ async function readInfo(page, log) {
 export async function renderVideo(o) {
   const log = o.log || console.log, fps = o.fps ?? 24, scale = o.scale ?? 2, workers = Math.max(1, o.workers ?? 1), started = Date.now();
   const { root, url } = locate(o), out = resolve(o.out), part = out + '.part';   // written here first, renamed when complete
-  const server = await startServer({ root }), tmp = mkdtempSync(join(tmpdir(), 'motlab-render-'));
+  const ownServer = !o.server, server = o.server || await startServer({ root }), tmp = mkdtempSync(join(tmpdir(), 'motlab-render-'));
   let pages = [];
-  // o.signal (an AbortSignal) stops the render: closing Chrome rejects whatever the render is waiting on.
-  const stop = () => pages.forEach(p => p.chrome.close());
+  // o.signal (an AbortSignal) stops the render: closing Chrome (or its tab) rejects whatever the render is waiting on.
+  const stop = () => pages.forEach(p => void closePage(p));
   o.signal?.addEventListener('abort', stop);
   try {
-    pages = await openPages(workers, { server, chromePath: findChrome(o.chrome), url, scale, query: o.query, signal: o.signal });
+    const browser = workers === 1 ? o.browser : undefined;
+    pages = await openPages(workers, { server, chromePath: browser ? undefined : findChrome(o.chrome), browser, url, scale, query: o.query, signal: o.signal });
     o.signal?.throwIfAborted();
     const info = await readInfo(pages[0], log), { width, height } = info;
     if (!(info.total > 0)) throw new Error('window.TOTAL must be a positive number of seconds');
@@ -91,7 +95,7 @@ export async function renderVideo(o) {
     const pageFrames = frameCount(info.total, fps), head = o.head || 0, tail = o.tail || 0, frames = pageFrames - head - tail;
     if (frames < 1) throw new Error(`the page has ${pageFrames} frames, too few for transitions of ${head} and ${tail} frames at its start and end`);
     const ranges = splitFrames(frames, workers).map(r => ({ start: r.start + head, end: r.end + head }));
-    for (const extra of pages.splice(ranges.length)) await extra.chrome.close();
+    for (const extra of pages.splice(ranges.length)) await closePage(extra);
     log(`Page: ${width}x${height}, ${info.total} s, ${frames} frames at ${fps} fps${head || tail ? ` (frames ${head} to ${pageFrames - tail} of ${pageFrames})` : ''}${ranges.length > 1 ? `, ${ranges.length} Chrome processes` : ''}`);
 
     const enc = await selectEncoder({ pages, machine: { chrome: pages[0].chrome.version, gpu: info.gpu.renderer }, width, height, fps,
@@ -156,8 +160,8 @@ export async function renderVideo(o) {
     return summary;
   } finally {
     o.signal?.removeEventListener('abort', stop);
-    await Promise.all(pages.map(p => p.chrome.close()));
-    await server.close();
+    await Promise.all(pages.map(closePage));
+    if (ownServer) await server.close();
     rmSync(part, { force: true }); rmSync(tmp, { recursive: true, force: true });
   }
 }

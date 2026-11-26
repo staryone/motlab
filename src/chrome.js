@@ -105,7 +105,11 @@ export async function launchChrome({ chromePath, extraArgs = [] }) {
     const id = ++nextId; pending.set(id, { ok, no, method });
     ws.send(JSON.stringify({ id, method, params, ...(sessionId ? { sessionId } : {}) }));
   });
-  const on = (event, fn) => { if (!listeners.has(event)) listeners.set(event, []); listeners.get(event).push(fn); };
+  const on = (event, fn) => {
+    if (!listeners.has(event)) listeners.set(event, []);
+    listeners.get(event).push(fn);
+    return () => { const a = listeners.get(event), i = a ? a.indexOf(fn) : -1; if (i >= 0) a.splice(i, 1); };
+  };
 
   const chrome = {
     send, on,
@@ -125,32 +129,41 @@ export async function launchChrome({ chromePath, extraArgs = [] }) {
 }
 
 // One page (tab) in a Chrome process: evaluate code in it and receive the messages the in-page runtime emits.
-export async function attachPage(chrome) {
-  const { targetInfos } = await chrome.send('Target.getTargets');
-  const target = targetInfos.find(t => t.type === 'page');
-  if (!target) throw new Error('Chrome has no page target');
-  const { sessionId } = await chrome.send('Target.attachToTarget', { targetId: target.targetId, flatten: true });
-  const send = (method, params) => chrome.send(method, params, sessionId);
-
-  const errors = [], emitHandlers = [];
-  // A SyntaxError's description names no file, so the file and line are added from the exception details.
-  const where = d => d.url ? ` (${decodeURIComponent(new URL(d.url).pathname)}:${d.lineNumber + 1}:${d.columnNumber + 1})` : '';
-  chrome.on('Runtime.exceptionThrown', (p, sid) => {
-    if (sid !== sessionId) return;
-    const d = p.exceptionDetails, text = d.exception?.description || d.text, place = where(d);
-    errors.push(place && !text.includes(place.slice(2, -1)) ? text + place : text);
-  });
-  chrome.on('Runtime.bindingCalled', (p, sid) => {
-    if (sid !== sessionId || p.name !== '__motlabEmit') return;
-    let msg; try { msg = JSON.parse(p.payload); } catch { return; }
-    for (const fn of emitHandlers) fn(msg);
-  });
-  await send('Page.enable'); await send('Runtime.enable'); await send('Runtime.addBinding', { name: '__motlabEmit' });
-
-  const evaluate = async expression => {
-    const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
-    if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text || 'page error');
-    return r.result.value;
+// With create: true, opens a fresh tab (leaving Chrome's initial blank tab alive) so a Chrome process can be reused across parts.
+export async function attachPage(chrome, { create = false } = {}) {
+  const targetId = create
+    ? (await chrome.send('Target.createTarget', { url: 'about:blank' })).targetId
+    : (await chrome.send('Target.getTargets')).targetInfos.find(t => t.type === 'page')?.targetId;
+  if (!targetId) throw new Error('Chrome has no page target');
+  let offExc = () => {}, offBind = () => {};
+  const close = async () => {
+    offExc(); offBind();
+    if (create) await chrome.send('Target.closeTarget', { targetId }).catch(() => {});
   };
-  return { send, evaluate, errors, onEmit: fn => emitHandlers.push(fn), navigate: url => send('Page.navigate', { url }) };
+  try {
+    const { sessionId } = await chrome.send('Target.attachToTarget', { targetId, flatten: true });
+    const send = (method, params) => chrome.send(method, params, sessionId);
+
+    const errors = [], emitHandlers = [];
+    // A SyntaxError's description names no file, so the file and line are added from the exception details.
+    const where = d => d.url ? ` (${decodeURIComponent(new URL(d.url).pathname)}:${d.lineNumber + 1}:${d.columnNumber + 1})` : '';
+    offExc = chrome.on('Runtime.exceptionThrown', (p, sid) => {
+      if (sid !== sessionId) return;
+      const d = p.exceptionDetails, text = d.exception?.description || d.text, place = where(d);
+      errors.push(place && !text.includes(place.slice(2, -1)) ? text + place : text);
+    });
+    offBind = chrome.on('Runtime.bindingCalled', (p, sid) => {
+      if (sid !== sessionId || p.name !== '__motlabEmit') return;
+      let msg; try { msg = JSON.parse(p.payload); } catch { return; }
+      for (const fn of emitHandlers) fn(msg);
+    });
+    await send('Page.enable'); await send('Runtime.enable'); await send('Runtime.addBinding', { name: '__motlabEmit' });
+
+    const evaluate = async expression => {
+      const r = await send('Runtime.evaluate', { expression, awaitPromise: true, returnByValue: true });
+      if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description || r.exceptionDetails.text || 'page error');
+      return r.result.value;
+    };
+    return { send, evaluate, errors, onEmit: fn => emitHandlers.push(fn), navigate: url => send('Page.navigate', { url }), close };
+  } catch (e) { await close(); throw e; }
 }
