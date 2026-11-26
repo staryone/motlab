@@ -50,17 +50,15 @@ already started, so do not end a scene on its last frame of motion. The types, f
 | `LinearBlur` | blur dissolve | `intensity` (0.1) |
 | `cube` | 3D cube turn | `persp` (0.7), `unzoom` (0.3), `reflection` (0.4), `floating` (3) |
 
-Names are not case sensitive. `ease` is any name from `motion.js` (default `inOutCubic`). In an ad, prefer the
-transitions in `craft.md` that carry a shape across the cut; these are for edits, explainers and talking heads, where
-a designed morph is not worth building for every cut. A shader transition between two scenes that already morph into
-each other only blurs the morph.
+Names are not case sensitive. `ease` is any name from `motion.js` (default `inOutCubic`). Which cuts get a shader
+transition comes from the video's look. A shader between two scenes that already morph into each other inside their
+pages only blurs the morph, so use one or the other at a cut.
 
-### A layer over the cut (only when asked)
+### A layer over the cut
 
-The default for every transition is still the one you design and draw frame by frame in the scene pages: a shape
-that carries across the cut (`craft.md` §9), checked with stills inside it. Do not reach for a layer to save that
-work. Use one only when the user asks for a ready-made sweep or wipe over the cut, or wants a kit's transition used
-the same way at many cuts:
+A layer is a ready-made sweep or wipe drawn over a hard cut, such as a kit's transition used the same way at many
+cuts. The other ways to change shot are a hard cut, a shader transition, or a change drawn frame by frame inside the
+scene pages; the look decides which (`technique.md` §3). A layer goes in `project.json` like this:
 `"transition": { "layer": "assets/kits/<kit>/transitions/swish/transition.js", "duration": 0.6 }`. The module exports
 `draw(ctx, p, W, H)` in page pixels, `p` runs 0 to 1 and the frame must be fully covered at 0.5, where the cut is.
 The scenes keep their full length (nothing overlaps), so audio times do not move. The module comes from the asset

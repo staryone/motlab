@@ -66,7 +66,7 @@ python -m pip install -r <folder>/skills/motlab/requirements.txt
 
 ## 5. Tell the user
 
-Say in a few lines what was installed and where (the clone and the launcher, or the npm package, and the two skill folders), what `doctor` still reports, and how to start: `motlab edit <folder>/example` opens the example in the viewer (it starts the viewer in the background) and prints the address, `http://127.0.0.1:4173/p/example/`; `motlab stop` ends it. A new agent session may be needed before the skills show up.
+Say in a few lines what was installed and where (the clone and the launcher, or the npm package, and the three skill folders), what `doctor` still reports, and how to start: `motlab edit <folder>/example` opens the example in the viewer (it starts the viewer in the background) and prints the address, `http://127.0.0.1:4173/p/example/`; `motlab stop` ends it. A new agent session may be needed before the skills show up.
 
 ## 6. The viewer on a VPS, when the user asks for it
 

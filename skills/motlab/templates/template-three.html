@@ -66,7 +66,7 @@ async function load() {
   rig.add(hero);
 }
 
-function pose(t) {   // ONE continuous camera: a push in that slows down, while the orbit only ever turns one way
+function pose(t) {   // An example camera: one continuous push in that slows down, with a slow orbit. The look decides the real moves.
   rig.rotation.y = lerp(-0.7, 0.45, sine(prog(t, 0, END)));
   rig.position.y = lerp(-0.25, 0, outExpo(prog(t, 0, 1.4)));
   if (mixer) mixer.setTime(t);

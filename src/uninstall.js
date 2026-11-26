@@ -26,7 +26,7 @@ function targets() {
     try { if (readFileSync(f, 'utf8').includes('motlab.js')) out.push({ path: f, what: 'launcher' }); } catch {}
   }
   const fromCli = skillsCliSkills();   // `npx skills remove` removes those
-  for (const dir of new Set([...(record.skillDirs || []), ...KNOWN])) for (const name of ['motlab', 'motlab-assets']) {
+  for (const dir of new Set([...(record.skillDirs || []), ...KNOWN])) for (const name of ['motlab', 'motlab-assets', 'motlab-styles']) {
     const d = join(dir, name);
     if (fromCli.has(name)) continue;
     let stat = null; try { stat = lstatSync(d); } catch {}
@@ -42,7 +42,7 @@ function targets() {
 }
 
 export async function uninstall({ dryRun = false, yes = false } = {}) {
-  const cli = ['motlab', 'motlab-assets'].filter(n => skillsCliSkills().has(n));
+  const cli = ['motlab', 'motlab-assets', 'motlab-styles'].filter(n => skillsCliSkills().has(n));
   if (cli.length) console.log(`${cli.join(' and ')} came from npx skills and stay. Remove ${cli.length > 1 ? 'them' : 'it'} with: npx skills remove ${cli.join(' ')} -g\n`);
   const list = targets();
   if (!list.length) { console.log(`Nothing from motlab is installed here${FROM_NPM ? `. To remove the command, ${REST}` : ''}.`); return 0; }
