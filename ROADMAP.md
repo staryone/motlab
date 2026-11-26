@@ -7,7 +7,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - Alpha output (ProRes 4444).
 - From the viewer on a VPS, sending a render to the personal laptop when it is on. The viewer itself runs on a domain behind a password now (`motlab start --domain`), and its Export renders on the server it runs on.
 - Less setup to open the viewer from a phone. Today it is a domain behind Caddy, or `tailscale serve` with `--domain` (docs/viewer.md). Two ideas: `motlab start --tailscale`, which would run `tailscale serve` and start the viewer on the tailnet name, where the password could be optional since only your own devices reach it; and `motlab start --tunnel` through Cloudflare Tunnel, either a free `trycloudflare.com` address for a quick review or a domain whose DNS is on Cloudflare, with no Caddy and no open ports. The free address does not carry server-sent events, so the page would have to ask for changes every few seconds instead; it also changes on every start, and Cloudflare offers it for testing only.
-- A dark mode for the viewer. Its colours are written into the CSS and the timeline's canvas code, so they need to become tokens with dark values checked for contrast first.
+- A dark sign-in page for a viewer on a domain (src/access.js). The viewer follows the system's dark mode now, but the sign-in page stays light.
 
 ## Not tested yet
 
@@ -18,6 +18,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - `render --parallel` and Export on a machine with fewer than 16 CPU threads or little memory, and on a GPU whose hardware encoder runs out of sessions, where the fallback to one part at a time should take over, and a number above the suggested one picked in the Export menu until memory runs out. The parallel render was measured on the test laptop only (docs/projects.md).
 - The viewer on a real VPS behind Caddy with a real certificate, its systemd user service, and the agent's setup steps in docs/install-for-agents.md. The login was tested on the Windows laptop with curl and Chrome on localhost (docs/viewer.md). With `tailscale serve` and `--domain` set to the tailnet name, the viewer on a Linux VPS opened from a laptop and from a phone on the same tailnet.
 - Renders longer than 10 minutes, and a 10-minute render on a machine that is doing nothing else.
+- The viewer's dark mode in full screen, and in Safari and Firefox. It was checked in the desktop app's browser on Windows, where full screen does not open.
 - A machine without a GPU beyond the tests. CI runs the end-to-end tests on Linux and Windows runners without a GPU, and the benchmark ran with Chrome drawing on SwiftShader on the test laptop (1080p and 4K, in `docs/rendering.md`). A real video has been rendered on such a machine now: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, in about 82 s (issue #8). No 3D (WebGL) scene has been rendered on one yet.
 - Footage filmed on a phone (variable frame rate and HEVC were tested with files made by ffmpeg), and HEVC on a Chrome that cannot decode it.
 - Scene transitions between scenes of different sizes in the viewer, and in a normal Chrome window. The render refuses scenes of different sizes.
