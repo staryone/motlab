@@ -19,6 +19,7 @@ Changes are listed by release, newest first. The sections dated before 0.1.0 rec
 
 ### Fixed
 
+- `mix.py` crashed with a NumPy `ValueError` when a bed started before 0 s (e.g. with a negative `offset`) or after the end of the output buffer. `add_bed` now clips the head before 0 s and clamps `fit` to `>= 0`, matching one-shot cues. Checked with `test/mix-beds.test.js` on Windows; not tried on macOS or Linux.
 - `test/editor-version.test.js` waited for the viewer's load event, which waits for the Google Fonts stylesheet, so its time on CI's Ubuntu runner followed that host: 2.5 to 14.5 s on earlier runs, and the 30 s timeout on one. The test now blocks the two font hosts and the viewer falls back to system fonts. With the font host made to hang, it timed out at 30 s before and passed in 1.7 s after (Windows, test laptop). The viewer itself is unchanged.
 
 ## 0.4.1 (2026-11-22)
