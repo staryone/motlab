@@ -148,6 +148,8 @@ This installs no engine. The first time the motlab skill runs, it runs `motlab -
 
 The skills CLI lists what it installed with `-g` in `~/.agents/.skill-lock.json` (`$XDG_STATE_HOME/skills/.skill-lock.json` when that is set). A skill listed there belongs to it: `motlab setup`, `motlab setup --update` and `node install.js` leave that skill where it is and say so, and `motlab uninstall` leaves it too. Otherwise setup would put its own copy over the link and the two installers would each update a different copy. Update those skills with `npx skills update -g` and remove them with `npx skills remove motlab motlab-assets motlab-styles -g`. `--force` makes setup copy over them anyway.
 
+A skill that is new in the repository, such as `motlab-styles` for someone who ran `npx skills add` before it existed, is not in the lock file. `motlab setup --update` then copies it next to the others, as for any skill it owns; with a faked lock file listing `motlab` and `motlab-assets`, `install.js --update` left those two alone and copied `motlab-styles`. Without setup, `npx skills add staryone/motlab -g --skill motlab-styles` adds it. Not tried: whether `npx skills update -g` adds a skill it did not install before, or removes files the new version no longer has, such as `references/craft.md`.
+
 Tried on Windows 11 with skills 1.9.0: `npx skills add <the motlab folder> --list` found both skills it had then. Before this, it skipped both, because their `description` held `: ` without quotes, which its YAML parser reads as a new key; the descriptions are quoted now, and `test/skills.test.js` checks that. Not tried yet: a real `npx skills add staryone/motlab -g` followed by the skill installing the engine in a new session.
 
 ## Updating
