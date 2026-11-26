@@ -49,3 +49,22 @@ mix.add_bed(np.zeros((48000, 2)), {'file': 'tone', 'at': 0, 'to': float(sys.argv
     assert.match(result.stderr, /bed tone ends before it starts/);
   });
 }
+
+test('mix beds: clips beds starting before 0 s or past the end of the mix instead of crashing', () => {
+  const result = spawnSync(python, ['-c', `
+import contextlib, importlib.util, io, sys
+import numpy as np
+spec = importlib.util.spec_from_file_location('mix', sys.argv[1])
+mix = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mix)
+out = np.zeros((mix.RATE, 2))
+with contextlib.redirect_stdout(io.StringIO()):
+    mix.add_bed(out, {'file': 'pre', 'at': 0, 'offset': -0.2, 'to': 0.5, 'fade_in': 0, 'fade_out': 0}, np.ones((100, 2)), -26, mix.Timeline({}, 0), 1)
+    mix.add_bed(out, {'file': 'late', 'at': 2.0, 'to': 3.0}, np.ones((100, 2)), -26, mix.Timeline({}, 0), 1)
+    mix.add_bed(out, {'file': 'before', 'at': -1.0, 'to': -0.2}, np.ones((100, 2)), -26, mix.Timeline({}, 0), 1)
+half = mix.RATE // 2
+np.testing.assert_allclose(out[:half], mix.db(-26))
+assert not out[half:].any()
+`, script], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.error?.message || result.stderr);
+});

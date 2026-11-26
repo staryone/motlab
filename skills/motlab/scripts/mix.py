@@ -190,8 +190,11 @@ def add_bed(out, cue, sound, level, when, length):
     if fade_out:
         gain[-fade_out:] *= np.linspace(1, 0, fade_out) ** 2
     at = int(start * RATE)
-    fit = min(n, len(out) - at)
-    out[at:at + fit] += body[:fit] * gain[:fit, None]
+    if at < 0:
+        body, gain, at = body[-at:], gain[-at:], 0
+    fit = max(0, min(len(body), len(out) - at))
+    if fit:
+        out[at:at + fit] += body[:fit] * gain[:fit, None]
     print(f'BED {start:6.2f}-{stop:5.2f}  {level:+5.1f} dB  {os.path.basename(cue["file"])[:60]}')
 
 
