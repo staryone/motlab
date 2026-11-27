@@ -207,7 +207,7 @@ It checks Node, Chrome, ffmpeg, ffprobe, the npm packages, and (as warnings) Pyt
 Windows
 
 - Chrome is found in `Program Files` and `Program Files (x86)`, then in Playwright's folder. Set `CHROME` for any other path.
-- On a laptop with two GPUs, headless Chrome draws on the integrated one unless told otherwise. motlab always passes `--force_high_performance_gpu`, and each render prints the GPU it got.
+- On a laptop with two GPUs, headless Chrome draws on the integrated one unless told otherwise. motlab passes `--force_high_performance_gpu` by default (set `MOTLAB_GPU=default` to leave it out, e.g. when the discrete GPU has no hardware video encoder), and each render prints the GPU it got.
 - Python is usually `python`, not `python3`.
 
 macOS and Linux
