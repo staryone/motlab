@@ -96,7 +96,8 @@ its message says why; never stash, reset or discard their changes. The new skill
    the page can load files from the whole project), then `python3 scripts/contact_sheet.py <outDir> sheet.jpg` and look at it. Look
    inside every transition at three or four moments as well as at the still parts, and put the references next to the
    stills: a wrong shape, a flipped layout or parts that pass through each other are easy to miss otherwise. Fix what
-   `technique.md` or the look's own rules would flag before the user sees it.
+   `technique.md` or the look's own rules would flag before the user sees it. `motlab stills <video> <outDir> 3.5 7.2`
+   draws frames of the whole video at those times, with transitions and overlays.
 7. **Open the viewer.** Run `motlab edit <video>`; it ends at once and prints the address. Give it to the user. Say in
    a few lines what is in it and what you could not check: you saw stills, not playback, and you cannot hear the sound. Give the
    user the "listen by ear" moments `mix.py` printed.
@@ -165,6 +166,12 @@ promo/
   write a `.glsl` transition of your own into the project and how to match one from a reference video. `"layer"` in
   place of `"type"` draws a module (a kit's `transition.js`) over a hard cut instead. A transition can also be drawn
   inside the scene pages themselves, frame by frame. Which of these a video uses comes from its look.
+- `"overlays"` lists modules drawn over the whole video from one time to another, on top of the scenes and transitions:
+  a lower third, a logo, a progress bar, captions. `{ "layer": "overlays/name.js", "from": 1.2, "to": 4.2, "params": {} }`
+  in seconds of the video, or with `"scene": 3` counted from that scene's start so it moves with the scene. Use one
+  when the same motion runs across a cut or repeats over several scenes; draw it in the scene when it belongs to that
+  shot. `templates/overlay.js` shows the module (`draw(ctx, t, W, H, o)`), and the engine's docs/projects.md,
+  Overlays, has the rest.
 - When the user wants a smaller file, set `"qp": 22` in `project.json` (about 30% smaller than the default 18, at
   nearly the same quality); their Export then uses it. Higher saves more and shows more. Details in the engine's
   docs/rendering.md, File size.
@@ -198,8 +205,10 @@ promo/
   (`floor(sceneTime * fps)`, the same grid as the render), so pass `frame / fps` to `motlab stills` to see exactly that
   picture. Older selections have no `frame`; compute it the same way. Inside a scene transition, `transition` is
   `{ type, from, frame, frames }` and the note is about the transition (`from` is the scene it comes from); `scene` is
-  the one it leads into, and stills of either page alone will not show the mix, so check it in the viewer. Inside a
-  layer over the cut it is `{ layer, from, frame, frames }`, and `scene` is the one on screen under the layer.
+  the one it leads into, and stills of either page alone will not show the mix: `motlab stills <video> <dir> <time>`
+  does. Inside a layer over the cut it is `{ layer, from, frame, frames }`, and `scene` is the one on screen under
+  the layer. `overlays`, when there are any at that time, lists them as `{ n, layer }`: a note on a lower third or a
+  logo may be about the overlay, not the scene.
 - `range` is `{ start, end, scenes }` when the user marked a stretch of time on the timeline (the range button or `R`, Shift+drag, `X` for a scene, or `I` and
   `O`): video seconds on the frame grid and the scene numbers it covers. A note like "ini terlalu lambat" with a range
   is about that whole stretch, not the single `time`.
@@ -312,6 +321,7 @@ and how to install it before you start.
   `motlab render` and `motlab video` are the user's (see the top). Chrome always runs on the GPU.
 - `templates/template-2d.html`, `template-3d.html` (gl3d.js), `template-three.html` and `template-p5.html`: starting
   points for scenes. The three.js and p5.js templates load their library from a CDN, so they need the network.
+  `templates/overlay.js`: a starting point for an overlay.
 - `contact_sheet.py`: puts the stills from `motlab stills` on one sheet, labelled with their times.
 - `key.py` removes a flat background, `split.py` cuts a cut-out into layers, `grid.py` overlays pixel coordinates.
 - `gl3d.js` places 2D-canvas panels in 3D; `puppet.js` bends a cut-out with pins.

@@ -65,7 +65,7 @@ The name after the project in the header is the version menu. It lists every pro
 
 Every button in the toolbars has a tooltip with its shortcut, and resting the pointer on the timeline for a second lists the timeline's keys.
 
-The timeline zooms up to 24 px per frame, and close in the ruler gets a tick per frame. While it plays zoomed in, the view follows the playhead. Hiding the timeline gives the preview the whole canvas, up to the side panel, or the full width with the panel closed. The browser remembers that choice and the last export resolution.
+A project with overlays has a thin row for each under the scenes, from where it starts to where it ends, with its file name. The timeline zooms up to 24 px per frame, and close in the ruler gets a tick per frame. While it plays zoomed in, the view follows the playhead. Hiding the timeline gives the preview the whole canvas, up to the side panel, or the full width with the panel closed. The browser remembers that choice and the last export resolution.
 
 Over the preview the cursor is a +. It is dark over light parts of the frame and white over dark ones.
 
@@ -108,6 +108,7 @@ Every click on a scene, an audio clip or a point on the timeline is saved to `se
 | `frame` | the frame of that scene the preview shows; `frame / fps` is its time on the render's frame grid |
 | `transition` | inside a transition: `{ type, from, frame, frames }`, the scene number it comes from and its frame `frame` of `frames`; else `null`. `scene` is then the scene it leads into. Inside a layer over a cut it is `{ layer, from, frame, frames }`, and `scene` is the one under the layer |
 | `audio` | `{ file, start, index }` when the click was on an audio clip, else `null` |
+| `overlays` | the [overlays](projects.md#overlays) showing there, as `{ n, layer }` with `n` their place in `overlays` from 1; left out when none |
 | `range` | `{ start, end, scenes }` when a range is marked, else `null`: seconds from the start of the video, on the frame grid, and the scene numbers it covers |
 | `marks` | the notes, see below |
 

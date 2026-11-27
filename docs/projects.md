@@ -18,6 +18,7 @@ A project is a folder with scene pages, audio files and a `project.json`:
 - All scenes must have the same canvas size, and the render stops with an error that names the scene that differs. That size sets the orientation: landscape, portrait and square all work.
 - `start` is seconds from the start of the video, and `volume` is a multiplier (1 leaves it as is).
 - Scene pages learn where they start in the video from `window.SCENE_START` ([Where a scene starts](#where-a-scene-starts)).
+- `overlays` are drawn over the whole video from one time to another ([Overlays](#overlays)).
 - A mono file plays at the same level on both channels, in the viewer and in the render.
 - An audio entry can also be a video file, whose sound is used. Any entry can take `from` (seconds into the file) and `duration` to use only part of it.
 - Audio that runs past the end of the video is cut.
@@ -151,6 +152,32 @@ The viewer and the render compile the file before the first frame, so a mistake 
 The render draws a transition with `__motlab/transition.html`, a page that loads both scene pages in iframes and mixes their canvases with WebGL2. The viewer mixes the same two canvases with the same code. On the example project with a `crosswarp` and a `cube` transition, a transition frame in the viewer and in the 1080p MP4 differed by 1.37 levels of 255 on average, with 0.2% of values more than 8 apart, at the edges, from the H.264 compression.
 
 Tested: the example's scenes with two transitions (7.6 s, 228 frames, the frame count and length expected), a 1080x1920 project of two footage scenes joined by `directionalwarp`, and `test/render.test.js`, which checks that a 15-frame linear fade from black to white is at mid grey on its eighth frame. A 12-scene project with all 11 types, one into each scene, gave 555 frames and 18.5 s as expected, and every scene showed its own colour and clock in the middle of its plain stretch. It took 57 s at 1080p, mostly from starting Chrome for 23 parts. Not tested: a transition between scenes of different sizes in the viewer, where the new scene is stretched to the size of the one before (the render refuses such a project).
+
+## Overlays
+
+An overlay is motion drawn over the video from one time to another, over every scene and transition it spans: a lower third, a logo, a progress bar, captions. It is a module listed once in the project file, instead of the same drawing copied into each scene page:
+
+```json
+"overlays": [
+  { "layer": "overlays/progress.js" },
+  { "layer": "overlays/lower-third.js", "from": 1.2, "to": 4.2, "params": { "name": "Ana Putri", "title": "Founder" } },
+  { "layer": "overlays/lower-third.js", "scene": 3, "from": 0.3 }
+]
+```
+
+- `from` and `to` are seconds of the video. With `scene` (a scene number from 1) they count from that scene's start, so the overlay moves with the scene when a scene before it changes length.
+- Without `from` it starts at 0, without `to` it lasts to the end of the video, or of its scene.
+- `params` go to the module as they are. Later overlays are drawn over earlier ones.
+
+The module exports `draw(ctx, t, W, H, o)`. `t` is seconds since the overlay began, `W` x `H` the page's own pixels (before `?scale=`), and `o` is `{ duration, params, time }`, with `time` in seconds of the video, so an overlay can leave before it ends. Like a scene, it draws everything from `t`. The motlab skill's `templates/overlay.js` is a plain starting point.
+
+It is drawn after the scenes and the transitions, on every frame where `from <= time < to`. Inside a shader transition the two scenes are mixed and the overlay stays sharp over them; drawn inside each scene page instead (with `SCENE_START`), it would be bent or faded with them. The render copies such a frame onto a 2D canvas first, since a scene's canvas may be WebGL; frames without an overlay go to the encoder as before.
+
+A cached part remembers the overlays it was drawn with. When one changes (its module file, its times, its `params`, or its place because a scene before it changed length), `--only` renders again the parts it touches, before and after the change, and keeps the rest. An overlay that spans the whole video, like a progress bar, touches every part. A project with overlays reads every scene's length before it renders, from the cached parts when they are there, else by opening each page. A file the module loads (a font, a picture) changing is not noticed, as for scenes.
+
+The viewer draws the overlays on the preview, shows one row per overlay under the scenes on the timeline, and names the overlays at a click in `selection.json`. `motlab stills <project> <outDir> 1.7 5.3` draws frames of the whole video at those times, with the transitions and the overlays, as the render would ([CLI](cli.md)).
+
+Tested: `test/render.test.js` renders three scenes at 10 fps with a fade and an overlay that paints a square counting its own frames, at `--scale 2`: every frame showed the square from its start to its end, at the right count, also over the mixed frames, and the page underneath elsewhere. Project stills at three times inside and after the fade drew the same. After the overlay was made to end earlier, `--only 1` rendered the next scene again, which had lost it, and kept the third from the cache. In the viewer, two lower thirds and a progress bar over a crosswarp transition showed as in the render. At 4K, a 6.4 s test project of three 2D scenes with a progress bar on every frame and two lower thirds rendered in 8.2 and 8.5 s, against 7.9 and 8.2 s for the same project without them (`motlab render --scale 2`, test laptop, Windows). Not tried: overlays that load fonts, and heavier overlays.
 
 ## Footage
 

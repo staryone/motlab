@@ -566,6 +566,7 @@ const TEXT = {
   noFile: [n => `Scene ${n} di project.json tidak punya "file".`, n => `Scene ${n} in project.json has no "file".`],
   firstTransition: ['Scene 1 punya transisi, padahal tidak ada scene sebelumnya. Hapus "transition" dari scene 1.', 'Scene 1 has a transition, but there is no scene before it. Remove "transition" from scene 1.'],
   badTransition: [(n, e) => `Transisi di scene ${n}: ${e}`, (n, e) => `Transition in scene ${n}: ${e}`],
+  badOverlay: [(n, e) => `Overlay ${n} di project.json: ${e}`, (n, e) => `Overlay ${n} in project.json: ${e}`],
   noCanvas: [f => `${f} tidak ada atau tanpa <canvas id="c">. Periksa project.json, lalu muat ulang.`, f => `${f} is missing or has no <canvas id="c">. Check project.json, then reload.`],
   loadingScene: [(i, n) => `Memuat scene ${i} dari ${n}…`, (i, n) => `Loading scene ${i} of ${n}…`],
   tooShort: [(i, f, a, b) => `Scene ${i} (${f} frame) terlalu pendek untuk transisinya (${a} + ${b} frame). Perpendek "duration" transisinya, lalu muat ulang.`,
@@ -633,14 +634,14 @@ const VERSION = PROJECT === 'project.json' ? L('main') : VERSION_LABEL;   // the
 $('ver').firstElementChild.textContent = VERSION; document.title = `${$('proj').textContent} / ${VERSION} · motlab`;
 $('lang').firstChild.textContent = L('otherLang'); $('lang').lastChild.textContent = LANG === 'id' ? 'EN' : 'ID'; $('lang').firstChild.lang = LANG === 'id' ? 'en' : 'id';
 $('lang').onclick = () => { try { localStorage.motlabLang = LANG === 'id' ? 'en' : 'id'; } catch {} location.reload(); };
-const PAD = 20, RULER = 44, MK_Y = 30, VH = 54, AH = 40, GAP = 8, AY = RULER + VH + GAP, PEAKS = 200;
+const PAD = 20, RULER = 44, MK_Y = 30, VH = 54, OH = 22, AH = 40, GAP = 8, AY = RULER + VH + GAP, PEAKS = 200;   // OH: an overlay's row
 // The canvas colours are the page's tokens (--clip-text is C.clipText), read again when the theme changes
 const C = {}, readColours = () => { const css = getComputedStyle(document.documentElement);
   for (const k of ['bg', 'edge', 'text', 'muted', 'tile', 'clip', 'clip-text', 'clip-edge', 'wave', 'blue', 'blue-bg', 'blue-line', 'on-blue', 'band', 'band-bg', 'scrub-band',
     'note', 'note-on', 'note-fill', 'note-halo', 'badge', 'on-badge', 'bowtie', 'wash']) C[k.replace(/-(\w)/g, (_, c) => c.toUpperCase())] = css.getPropertyValue('--' + k).trim(); };
 readColours();
 const FONT = getComputedStyle(document.documentElement).getPropertyValue('--font').trim();   // the timeline canvas uses the page font too
-const laneHeight = n => AY + n * (AH + GAP) + 6;
+const laneHeight = (n, overlays = 0) => AY + overlays * (OH + GAP) + n * (AH + GAP) + 6;
 const svg = (d, fill) => `<svg aria-hidden="true" width="16" height="16" viewBox="0 0 16 16" fill="${fill ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${d}</svg>`;
 const ICON = {
   panel: svg('<rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6.5 3v10"/>'),
@@ -833,7 +834,7 @@ document.addEventListener('fullscreenchange', () => {
 try {
   const project = await (await fetch(encodeURIComponent(PROJECT))).json(), fps = project.fps, files = project.audio || [];
   if (!project.scenes?.length) throw hint(L('noScenes'));
-  $('tl').style.height = laneHeight(files.length) + 'px';   // hold the timeline's final height while the scenes load
+  $('tl').style.height = laneHeight(files.length, project.overlays?.length || 0) + 'px';   // hold the timeline's final height while the scenes load
   try { if (localStorage.motlabTimeline === '0') $('lane').hidden = true; } catch {}   // hidden last time: stays hidden from the start
 
   // Every scene is the real page in a hidden iframe, so the preview draws exactly what the render draws. Only a few
@@ -875,6 +876,15 @@ try {
     }
     return s;
   }));
+  // Overlays over the whole video (src/page/overlays.js), each with its module. A missing file or draw() shows on
+  // opening; the viewer page loads the modules itself, so a saved change to one reloads it.
+  const { drawOverlays, loadOverlay, overlayAt, parseOverlays, placeOverlays } = await import('/__motlab/overlays.js');
+  let overlays, placed = [];
+  try { overlays = parseOverlays(project.overlays, scenes.length); } catch (e) { throw hint(e.message); }
+  for (const [i, o] of overlays.entries()) {
+    try { o.mod = await loadOverlay(new URL(o.layer, location.href).href, o.layer); } catch (e) { throw hint(L('badOverlay', i + 1, e.message)); }
+  }
+  const TY = AY + overlays.length * (OH + GAP);   // where the audio rows start on the timeline, under one row per overlay
   function unload(s) { usedBy(s); s.frame.remove(); s.frame = s.win = s.canvas = s.warm = null; live.splice(live.indexOf(s), 1); }
   // A scene's page in a new hidden iframe, once its `ready` has resolved, or an error that says what is missing. `limit`
   // (ms) bounds the wait for `ready`, which a half-written page may never resolve.
@@ -935,6 +945,7 @@ try {
       s.start = total - transitionOverlap(s.transition) / fps; total = s.start + s.dur;
       if (s.win) s.win.SCENE_START = s.start;
     }
+    placed = placeOverlays(overlays, scenes.map(s => s.start), scenes.map(s => s.dur));
     return bad;
   }
   { const bad = lay(); if (bad) throw hint(bad.text); }
@@ -1005,7 +1016,7 @@ try {
   function drawTimeline() {
     drawScrub();   // notes and the range show on the full-screen scrub bar too
     if (lane.hidden || !lane.clientWidth) return;   // hidden, or left out in full screen
-    const w = lane.clientWidth, h = laneHeight(tracks.length), dpr = devicePixelRatio, sx = lane.scrollLeft;
+    const w = lane.clientWidth, h = laneHeight(tracks.length, overlays.length), dpr = devicePixelRatio, sx = lane.scrollLeft;
     tl.style.width = w + 'px'; tl.width = w * dpr; tl.height = h * dpr; tl.style.height = h + 'px'; g.setTransform(dpr, 0, 0, dpr, 0, 0);
     const X = time => PAD + time * pps - sx, from = Math.max(0, (sx - PAD) / pps), to = (sx + w) / pps;   // visible seconds
 
@@ -1052,8 +1063,16 @@ try {
       }
     }
 
+    for (const [i, o] of placed.entries()) {   // one thin row per overlay, under the scenes: its span and its file name
+      const x = X(o.start), y = AY + i * (OH + GAP), cw = Math.max(4, (Math.min(o.end, total) - o.start) * pps);
+      if (x > w || x + cw < 0) continue;
+      g.fillStyle = C.clip; g.beginPath(); g.roundRect(x, y, cw, OH, 6); g.fill();
+      const label = name(o.layer), lw = g.measureText(label).width, inside = cw > lw + 16;
+      g.fillStyle = inside ? C.clipText : C.muted; g.fillText(label, inside ? Math.min(Math.max(x, 0), x + cw - lw - 16) + 8 : x + cw + 8, y + OH / 2);
+    }
+
     for (const [i, a] of tracks.entries()) {
-      const x = X(a.start), y = AY + i * (AH + GAP), cw = Math.max(4, Math.min(a.len, total - a.start) * pps), on = sel?.audio && tracks[sel.audio.index] === a;
+      const x = X(a.start), y = TY + i * (AH + GAP), cw = Math.max(4, Math.min(a.len, total - a.start) * pps), on = sel?.audio && tracks[sel.audio.index] === a;
       if (x > w || x + cw < 0) continue;
       g.fillStyle = on ? C.blueBg : C.clip; g.beginPath(); g.roundRect(x, y, cw, AH, 8); g.fill();
       g.save(); g.clip(); g.fillStyle = on ? C.blue : C.wave;
@@ -1259,6 +1278,7 @@ try {
           try { await lay.tr.mod.draw(c, lay.p, s.w, s.h); } finally { c.restore(); }
         }
       }
+      await drawOverlays(c, placed, s.start + frame / fps, s.w, s.h);   // over the scenes and transitions, as the render draws them
       cur = { s, frame }; luma = null; paint();
     } finally { busy = false; rendering = []; }
     if (at !== t) show();
@@ -1389,7 +1409,8 @@ try {
   }
   const spot = time => {   // where a time is: its scene, the frame the preview shows there, and the transition it is in
     const s = sceneAt(time), pair = pairAt(time), lay = pair ? null : layerAt(s, frameIn(s, time));
-    return { time: +time.toFixed(3), scene: s.file, sceneIndex: scenes.indexOf(s) + 1, sceneTime: +(time - s.start).toFixed(3), frame: frameIn(s, time),
+    const over = placed.flatMap((o, i) => overlayAt(o, s.start + frameIn(s, time) / fps) ? [{ n: i + 1, layer: o.layer }] : []);   // n: its place in "overlays"
+    return { time: +time.toFixed(3), scene: s.file, sceneIndex: scenes.indexOf(s) + 1, sceneTime: +(time - s.start).toFixed(3), frame: frameIn(s, time), ...(over.length ? { overlays: over } : {}),
       transition: pair ? { type: s.transition.type, from: scenes.indexOf(pair.from) + 1, frame: pair.k, frames: pair.n }
         : lay ? { layer: lay.tr.layer, from: lay.from, frame: lay.k, frames: lay.n } : null };
   };
@@ -1617,7 +1638,7 @@ try {
 
   const scrub = e => {
     const r = tl.getBoundingClientRect(), y = e.clientY - r.top;
-    seek((e.clientX - r.left + lane.scrollLeft - PAD) / pps, y >= AY ? tracks[Math.floor((y - AY) / (AH + GAP))] : null);
+    seek((e.clientX - r.left + lane.scrollLeft - PAD) / pps, y >= TY ? tracks[Math.floor((y - TY) / (AH + GAP))] : null);
   };
   // A range: Shift+drag on the timeline, or I and O at the playhead. Its edges can be dragged, and Escape takes it off.
   // Its ends sit on the frame grid.

@@ -25,7 +25,7 @@ function mediabunnyBundle() {   // the ESM browser bundle that ships inside the 
 const pageFile = file => () => new URL(`./page/${file}`, import.meta.url);
 const PAGE_LIBS = {
   '/__motlab/footage.js': pageFile('footage.js'), '/__motlab/motion.js': pageFile('motion.js'), '/__motlab/transitions.js': pageFile('transitions.js'),
-  '/__motlab/cuts.js': pageFile('cuts.js'), '/__motlab/transition.html': pageFile('transition.html'), '/__motlab/mediabunny.mjs': mediabunnyBundle,
+  '/__motlab/cuts.js': pageFile('cuts.js'), '/__motlab/overlays.js': pageFile('overlays.js'), '/__motlab/transition.html': pageFile('transition.html'), '/__motlab/mediabunny.mjs': mediabunnyBundle,
 };
 export const pageLib = pathname => PAGE_LIBS[pathname]?.();
 
