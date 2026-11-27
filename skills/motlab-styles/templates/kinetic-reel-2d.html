@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Scene (kinetic reel, 9:16)</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #090b10; display: grid; place-items: center; }
+  canvas { display: block; height: min(100vh, 100vw * 16 / 9); aspect-ratio: 9 / 16; }
+</style></head><body><canvas id="c"></canvas>
+<script type="module">
+// Kinetic reel 9:16 template (1080x1920): safe-zone framing, hook by t=0.08 s, 2.5D stat cards, word-highlighted caption pill.
+import { ease, lerp, prog, stagger } from '/__motlab/motion.js';
+
+const W = 1080, H = 1920, TOTAL = 4.0;
+const params = new URLSearchParams(location.search), SCALE = parseFloat(params.get('scale') || '1');
+const cv = document.getElementById('c'), ctx = cv.getContext('2d');
+cv.width = Math.round(W * SCALE); cv.height = Math.round(H * SCALE);
+
+const TOKENS = { bgTop: '#0d1220', bgBot: '#070a12', card: '#151c2f', edge: '#2a3759', ink: '#f5f7ff', muted: '#9aa6c4', accent: '#30e2a8' };
+const CARDS = [
+  { label: 'Load time', value: '0.4 s', note: 'Cold start on 4G' },
+  { label: 'Frame rate', value: '60 fps', note: 'Zero layout jank' },
+  { label: 'Bundle size', value: '18 KB', note: 'Gzipped runtime' },
+];
+const WORDS = [
+  { text: 'Ship', start: 0.10, end: 0.42 },
+  { text: 'faster', start: 0.42, end: 0.80 },
+  { text: 'with', start: 0.80, end: 1.05 },
+  { text: 'less', start: 1.05, end: 1.40 },
+  { text: 'code.', start: 1.40, end: 2.20 },
+];
+
+function backdrop(t) {
+  const g = ctx.createLinearGradient(0, 0, 0, H);
+  g.addColorStop(0, TOKENS.bgTop); g.addColorStop(1, TOKENS.bgBot);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  const cell = 96, shift = (t * 18) % cell;
+  ctx.strokeStyle = 'rgba(255,255,255,0.045)'; ctx.lineWidth = 2; ctx.beginPath();
+  for (let x = 0; x <= W; x += cell) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = shift; y <= H; y += cell) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+}
+
+function card(x, y, w, h, item, k) {
+  if (k <= 0) return;
+  const s = lerp(0.94, 1, k), dy = (1 - k) * 36;
+  ctx.save();
+  ctx.globalAlpha = k;
+  ctx.translate(x + w / 2, y + dy + h / 2); ctx.scale(s, s); ctx.translate(-w / 2, -h / 2);
+  ctx.fillStyle = '#070a12'; ctx.beginPath(); ctx.roundRect(0, 14, w, h, 28); ctx.fill();
+  ctx.fillStyle = TOKENS.card; ctx.strokeStyle = TOKENS.edge; ctx.lineWidth = 2.5;
+  ctx.beginPath(); ctx.roundRect(0, 0, w, h, 28); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = TOKENS.muted; ctx.font = '600 32px system-ui, sans-serif'; ctx.fillText(item.label, 38, 66);
+  ctx.fillStyle = TOKENS.accent; ctx.font = '700 72px system-ui, sans-serif'; ctx.fillText(item.value, 38, 152);
+  ctx.fillStyle = TOKENS.ink; ctx.font = '500 32px system-ui, sans-serif'; ctx.fillText(item.note, 340, 144);
+  ctx.restore();
+}
+
+function caption(t) {
+  if (t > 2.6) return;
+  ctx.save();
+  ctx.font = '700 46px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+  const space = ctx.measureText(' ').width, widths = WORDS.map(w => ctx.measureText(w.text).width);
+  const totalW = widths.reduce((a, b) => a + b, 0) + space * (WORDS.length - 1);
+  const px = 34, y = 1400, x0 = 72 + (888 - totalW) / 2;   // centred inside x: 72..960 safe zone
+  ctx.fillStyle = 'rgba(12, 16, 28, 0.86)'; ctx.strokeStyle = TOKENS.edge; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.roundRect(x0 - px, y - 44, totalW + px * 2, 88, 22); ctx.fill(); ctx.stroke();
+  let x = x0;
+  WORDS.forEach((w, i) => {
+    const active = t >= w.start && t < w.end;
+    if (active) {
+      ctx.fillStyle = TOKENS.accent;
+      ctx.beginPath(); ctx.roundRect(x - 10, y - 30, widths[i] + 20, 60, 12); ctx.fill();
+    }
+    ctx.fillStyle = active ? '#07120e' : TOKENS.ink;
+    ctx.fillText(w.text, x, y + 2);
+    x += widths[i] + space;
+  });
+  ctx.restore();
+}
+
+function render(t) {
+  ctx.save(); ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0);
+  backdrop(t);
+  // Hook headline inside 9:16 safe zone (x: 72..960, y >= 180); already visible at t=0.08 s for cover thumbnails
+  const hk = ease.outExpo(prog(t, -0.05, 0.25));
+  ctx.save(); ctx.globalAlpha = hk;
+  ctx.fillStyle = TOKENS.accent; ctx.font = '700 34px system-ui, sans-serif';
+  ctx.fillText('WEEKLY METRICS', 80, 240 + (1 - hk) * 20);
+  ctx.fillStyle = TOKENS.ink; ctx.font = '700 80px system-ui, sans-serif';
+  ctx.fillText('Faster pages.', 80, 340 + (1 - hk) * 24);
+  ctx.fillText('Clearer numbers.', 80, 430 + (1 - hk) * 24);
+  ctx.restore();
+
+  CARDS.forEach((c, i) => {
+    const start = stagger(i, 0.14, 0.22);
+    card(80, 520 + i * 240, 880, 206, c, ease.outExpo(prog(t, start, start + 0.36)));
+  });
+  caption(t);
+  ctx.restore();
+}
+
+window.EVENTS = [{ name: 'hook', t: 0.08 }, { name: 'card.1', t: 0.22 }, { name: 'card.2', t: 0.36 }, { name: 'card.3', t: 0.50 }, { name: 'end', t: TOTAL }];
+window.TOTAL = TOTAL;
+window.renderAt = render;
+window.ready = Promise.resolve().then(() => {
+  if (params.has('t') || window.top !== window) render(parseFloat(params.get('t') || '0'));
+  else requestAnimationFrame(function loop(ms) { render((ms / 1000) % TOTAL); requestAnimationFrame(loop); });
+  return true;
+});
+</script></body></html>
