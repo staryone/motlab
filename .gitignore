@@ -6,4 +6,5 @@ selection.png
 refs/
 __pycache__/
 selection/
+.motlab/
 example_mesh/

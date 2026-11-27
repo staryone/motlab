@@ -10,6 +10,7 @@ import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync,
 import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { createAccess } from './access.js';
+import { fileAt, listCheckpoints, restoreCheckpoint, saveCheckpoint } from './history.js';
 import { createLive } from './live.js';
 import { defaultParallel, projectPaths, renderProject } from './project.js';
 import { pageLib, sendFile } from './server.js';
@@ -163,6 +164,37 @@ export function startEditor(target, port = 4173, { domain, password = process.en
         copyFileSync(join(root, version(from)), join(root, to));
         return json(res, { file: to, label: label(to) });
       } catch (e) { return res.writeHead(400).end(e.message); }
+    }
+    // The project's history (src/history.js): the checkpoints, one kept under a name, and a restore.
+    if (sub === '/history' && req.method === 'GET') return json(res, await listCheckpoints(root));
+    if (sub === '/history' && req.method === 'POST') {   // body: { name }
+      try {
+        const name = String(JSON.parse(await readBody(req)).name || '').trim();
+        if (!name) return res.writeHead(400).end('A checkpoint needs a name.');
+        const cp = await saveCheckpoint(root, { name });
+        return json(res, { id: cp.id });
+      } catch (e) { return res.writeHead(400).end(e.message); }
+    }
+    if (sub === '/history/restore' && req.method === 'POST') {   // body: { id, file }; file alone, or the whole project
+      try {
+        const { id, file } = JSON.parse(await readBody(req));
+        return json(res, await restoreCheckpoint(root, String(id), { file: file ? String(file) : undefined }));
+      } catch (e) { return res.writeHead(400).end(e.message); }
+    }
+    // A checkpoint served as a project of its own at /p/<slug>/@<id>/, read only, for the viewer's compare: the page
+    // in its bare form (only the preview, following the time the main page sends), and the files as they were.
+    const at = /^\/@([\w-]+)(\/.*)$/.exec(sub);
+    if (at && req.method === 'GET') {
+      try {
+        if (at[2] === '/') {
+          res.writeHead(200, { 'Content-Type': 'text/html', 'Cache-Control': 'no-store' });
+          const file = version(url.searchParams.get('v')), title = label(file);
+          const fill = { name: htmlText(basename(root)), version: htmlText(title), pageData: scriptJSON({ file, title, slug: m[1], at: at[1] }) };
+          return res.end(readFileSync(new URL('./editor.html', import.meta.url), 'utf8').replace(/\{\{(\w+)\}\}/g, (all, k) => fill[k] ?? all));
+        }
+        const obj = fileAt(root, at[1], at[2].slice(1));
+        return obj ? sendFile(req, res, obj, at[2]) : res.writeHead(404).end();
+      } catch { return res.writeHead(404).end(); }
     }
     if (req.method === 'POST' && sub === '/selection') {   // the last click, the range and this version's notes
       try {

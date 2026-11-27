@@ -2,8 +2,9 @@ import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { doctor } from './doctor.js';
+import { describe, listCheckpoints, restoreCheckpoint, saveCheckpoint } from './history.js';
 import { startEditor } from './editor.js';
-import { renderProject, renderProjectStills } from './project.js';
+import { projectPaths, renderProject, renderProjectStills } from './project.js';
 import { dumpEvents, renderStills, renderVideo } from './render.js';
 import { uninstall } from './uninstall.js';
 import { PKG, update } from './update.js';
@@ -23,7 +24,12 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
   motlab stop | restart                              end the viewer, or start it again from the same folder
   motlab working <project> [text] [--note 3,5] [--scene 2]
                                                      show in the open viewer what the agent is working on, until
-                                                     motlab working <project> --done (or 10 minutes without a change)
+                                                     motlab working <project> --done (or 10 minutes without a change).
+                                                     Both keep a checkpoint of the project first
+  motlab history <project>                           the project's checkpoints, newest first, with what changed in each
+  motlab history <project> save <name>               keep a checkpoint of the project as it is now, under a name
+  motlab history <project> restore <id> [--file f]   put the project (or one file) back as it was; a checkpoint of
+                                                     how it is now is kept first, so it can be undone
   motlab stills <page.html> <outDir> <t1> <t2> ...  [--scale 1] [--format png|jpg]
   motlab stills <project> <outDir> <t1> <t2> ...     frames of the whole video at those times, with transitions and overlays
   motlab video  <page.html> <out.mp4> [--fps 24] [--scale 2] [--audio file] [--encoder auto|hw|sw] [--workers N]
@@ -91,7 +97,7 @@ export async function main(argv) {
     fps: { type: 'string' }, scale: { type: 'string' }, audio: { type: 'string' }, encoder: { type: 'string' }, codec: { type: 'string' },
     workers: { type: 'string' }, bitrate: { type: 'string' }, qp: { type: 'string' }, mux: { type: 'string' }, root: { type: 'string' }, chrome: { type: 'string' },
     only: { type: 'string' }, domain: { type: 'string' }, parallel: { type: 'string' }, note: { type: 'string' }, scene: { type: 'string' }, done: { type: 'boolean' },
-    format: { type: 'string' }, reprobe: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
+    format: { type: 'string' }, file: { type: 'string' }, reprobe: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
     version: { type: 'boolean', short: 'v' },
   } });
   const [mode, page, out, ...rest] = positionals;
@@ -106,7 +112,34 @@ export async function main(argv) {
   if (mode === 'stop') { await stopViewer(); return 0; }
   if (mode === 'restart') { await restartViewer(); return 0; }
   if (mode === 'working') {
+    // a checkpoint before the agent's round and after it, for the viewer's history and motlab history
+    if (page) await saveCheckpoint(projectPaths(page).root, { why: { kind: v.done ? 'after' : 'before', notes: numbers('note', 'note')(v.note) || [], scenes: numbers('scene', 'scene')(v.scene) || [], text: [out, ...rest].filter(Boolean).join(' ').slice(0, 200) } });
     await workInViewer(page, { notes: numbers('note', 'note')(v.note) || [], scenes: numbers('scene', 'scene')(v.scene) || [], text: [out, ...rest].filter(Boolean).join(' '), done: v.done });
+    return 0;
+  }
+  if (mode === 'history') {
+    if (!page) throw new Error('history needs a project folder or project file');
+    const { root } = projectPaths(page);
+    if (out === 'save') {
+      const cp = await saveCheckpoint(root, { name: rest.join(' ') || 'checkpoint' });
+      console.log(`Kept checkpoint ${cp.id} (${cp.name}, ${Object.keys(cp.files).length} files)`);
+      return 0;
+    }
+    if (out === 'restore') {
+      if (!rest[0]) throw new Error('history restore needs a checkpoint id (motlab history <project> lists them)');
+      const { changed, before } = await restoreCheckpoint(root, rest[0], { file: v.file });
+      console.log(changed.length ? `Restored ${changed.join(', ')} from ${rest[0]}.` : `Nothing to restore: ${v.file || 'the project'} is as it was at ${rest[0]}.`);
+      if (before) console.log(`How it was just before is checkpoint ${before}: motlab history <project> restore ${before} undoes this.`);
+      return 0;
+    }
+    if (out) throw new Error(`unknown history command "${out}" (save or restore)`);
+    const list = await listCheckpoints(root);
+    if (!list.length) console.log('No checkpoints yet. motlab working keeps one before and after each round of work, and motlab history <project> save <name> keeps one now.');
+    for (const c of list) {
+      const what = c.first ? `the first checkpoint, ${c.files} files` : c.changed.length > 8 ? `changed: ${c.changed.slice(0, 8).join(', ')} and ${c.changed.length - 8} more`
+        : c.changed.length ? `changed: ${c.changed.join(', ')}` : 'nothing changed';
+      console.log(`${c.id}  ${new Date(c.time).toLocaleString()}  ${describe(c)}\n    ${what}`);
+    }
     return 0;
   }
   if (mode === 'render') {
@@ -115,7 +148,7 @@ export async function main(argv) {
       qp: num('qp', v.qp, { min: 0, int: true }), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc']) });
     return 0;
   }
-  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, working, stills, video, events, doctor, setup, update, uninstall, help or version)`);
+  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, working, history, stills, video, events, doctor, setup, update, uninstall, help or version)`);
   if (!page || !out) throw new Error(`${mode} needs a page and an output path`);
   const common = { page, root: v.root, chrome: v.chrome };
 

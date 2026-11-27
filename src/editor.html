@@ -251,6 +251,32 @@
   #verGo:active:not(:disabled) { background: var(--text-press); }
   .menu h3 { font-size: 12px; font-weight: 500; color: var(--muted); padding: 6px 10px; }
   #exportMenu { width: 256px; }
+  header .wrap.end { display: flex; align-items: center; gap: 4px; }
+  #histMenu { width: 320px; max-width: calc(100vw - 24px); }
+  #histForm { display: flex; gap: 6px; padding: 4px; }
+  #histName { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; font-size: 13px; color: var(--text); background: var(--bg); user-select: text; }
+  #histName::placeholder { color: var(--muted); }
+  #histName:focus-visible { outline: 2px solid var(--blue); outline-offset: -1px; }
+  #histGo { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 500; background: var(--text); color: var(--on-text); }
+  #histGo:active:not(:disabled) { background: var(--text-press); }
+  #histList { max-height: min(55vh, 420px); overflow-y: auto; }
+  .hrow { padding: 8px 10px; border-top: 1px solid var(--line); white-space: normal; }
+  .hrow b { display: block; font-size: 13px; font-weight: 500; }
+  .hrow small { display: block; font-size: 12px; color: var(--muted); }
+  .hrow .hacts { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 6px; }
+  .hrow .hacts button { height: 26px; padding: 0 8px; border-radius: 6px; font-size: 12px; background: var(--hover); }
+  .hrow .hacts button:hover { background: var(--sel); }
+  #stage.cmp { grid-template: minmax(0, 1fr) / minmax(0, 1fr) minmax(0, 1fr); gap: 12px; }
+  #stage.cmp #view { grid-area: 1 / 2; }
+  #cmp { grid-area: 1 / 1; width: 100%; height: 100%; border: 0; background: transparent; }   /* the checkpoint's page fits its frame in itself */
+  #cmpBar { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 3; display: flex; align-items: center; gap: 4px; padding: 0 4px 0 12px; font-size: 12px; white-space: nowrap; max-width: calc(100% - 140px); }
+  #cmpText { overflow: hidden; text-overflow: ellipsis; }
+  @media (max-width: 719px) { #stage.cmp { grid-template: minmax(0, 1fr) minmax(0, 1fr) / minmax(0, 1fr); gap: 8px; padding-top: 40px; } #stage.cmp #view { grid-area: 2 / 1; } #cmpBar { top: 4px; max-width: calc(100% - 16px); } }
+  body.embed { display: block; background: transparent; }
+  body.embed header, body.embed aside, body.embed #tabs, body.embed #scrim, body.embed #dock, body.embed #pillFull, body.embed #notices { display: none !important; }
+  body.embed main, body.embed #canvas { height: 100vh; background: transparent; overflow: hidden; }
+  body.embed #stage { padding: 0; }
+  body.embed #view { position: fixed; inset: 0; margin: auto; width: auto; height: auto; max-width: calc(100vw - 4px); max-height: calc(100vh - 4px); pointer-events: none; }   /* the frame style, inside the compare's half */
   /* how many scenes render at once: a segmented control, Auto then 1 to 4, on the hover grey with the picked one a white
      key; the line under it says what the pick does, in red with the alert icon above the suggested number */
   .seg { display: grid; grid-template-columns: 1.7fr repeat(4, 1fr); gap: 2px; margin: 0 4px; padding: 2px; border-radius: 9px; background: var(--hover); }
@@ -405,7 +431,14 @@
       </div></div>
     <span class="sep" aria-hidden="true">/</span><span id="crumb"></span>
   </div>
-  <div class="wrap">
+  <div class="wrap end">
+      <button class="icon" id="hist" data-i="history" data-label="history" aria-expanded="false" aria-controls="histMenu"></button>
+      <div class="menu r" id="histMenu" hidden>
+        <h3 data-t="history"></h3>
+        <form id="histForm"><input id="histName" autocomplete="off" spellcheck="false" maxlength="80" data-t="placeholder=checkpointHint aria-label=checkpointName"><button id="histGo" data-t="keep"></button></form>
+        <div id="histList"><p class="foot" data-t="loading"></p></div>
+        <p class="foot" id="histFoot"></p>
+      </div>
       <button class="btn" id="export" data-i="export" aria-expanded="false" aria-controls="exportMenu"><span id="exportLabel">Export</span></button>
       <div class="menu r" id="exportMenu" hidden>
         <h3 data-t="resolution"></h3>
@@ -438,7 +471,8 @@
   <div id="canvas">
     <div class="pill" id="pillFull"><button class="sq" id="theme" data-label="themeDark"></button><button class="sq" id="full" data-i="full" data-label="full" data-key="F"></button></div>
     <div id="notices"><div class="toast" id="note" role="status" hidden></div></div><div class="sr" id="workSr" role="status"></div>
-    <div id="stage"><span id="msg" data-t="loadingProject"></span><canvas id="view" hidden></canvas><div id="marks"></div>
+    <div id="stage"><span id="msg" data-t="loadingProject"></span><iframe id="cmp" hidden tabindex="-1"></iframe><canvas id="view" hidden></canvas>
+      <div class="pill" id="cmpBar" hidden><span id="cmpText"></span><button class="sq" id="cmpOff" data-i="x" data-label="closeCompare"></button></div><div id="marks"></div>
       <div class="pop" id="pop" role="dialog" aria-labelledby="popWhere" hidden>
         <div class="head"><span class="tag" id="popN"></span><span id="popWhere" class="num"></span><span class="end"><span id="popState" hidden></span><button class="icon" id="popUndo" data-i="undo2" data-label="undoStroke" data-key="Ctrl+Z" hidden></button></span></div>
         <textarea id="popText" rows="2" data-t="placeholder=noteHint aria-label=note"></textarea>
@@ -488,7 +522,8 @@
   <span class="k"><kbd>Ctrl</kbd> + scroll</span><span class="dim">zoom</span>
 </div></template>
 <script type="module">
-const { file: PROJECT, title: VERSION_LABEL, slug: SLUG } = {{pageData}};
+const { file: PROJECT, title: VERSION_LABEL, slug: SLUG, at: AT } = {{pageData}};   // AT: a checkpoint shown bare, for the compare
+if (AT) document.body.classList.add('embed');
 const $ = id => document.getElementById(id);
 // ---- UI text, in Indonesian and English. The language is the one picked in the project menu, else the browser's:
 // Indonesian when one of its languages is, English otherwise. Picking one reloads the page, so text is set once.
@@ -548,6 +583,28 @@ const TEXT = {
   pause: ['Jeda', 'Pause'],
   space: ['Spasi', 'Space'],
   markRange: ['Tandai rentang', 'Mark a range'],
+  history: ['Riwayat', 'History'],
+  checkpointHint: ['Nama, mis. sebelum ganti musik', 'A name, e.g. before the new music'],
+  checkpointName: ['Nama checkpoint', 'Checkpoint name'],
+  keep: ['Simpan', 'Keep'],
+  noCheckpoints: ['Belum ada checkpoint. Agent menyimpannya sebelum dan sesudah tiap putaran kerja, dan kamu bisa menyimpan satu sekarang.', 'No checkpoints yet. The agent keeps one before and after each round of work, and you can keep one now.'],
+  historyFailed: ['Riwayat tidak bisa dibaca.', 'The history could not be read.'],
+  whyBefore: [n => `Sebelum agent bekerja${n}`, n => `Before the agent worked${n}`],
+  whyAfter: [n => `Sesudah agent bekerja${n}`, n => `After the agent worked${n}`],
+  whyRestore: [(f, w) => `Sebelum ${f ? f + ' ' : ''}dikembalikan ke ${w}`, (f, w) => `Before ${f ? f + ' was' : 'it was'} restored to ${w}`],
+  whyNotes: [n => `catatan ${n}`, n => `notes ${n}`],
+  firstCheckpoint: [n => `checkpoint pertama, ${n} file`, n => `the first checkpoint, ${n} files`],
+  nothingChanged: ['tidak ada yang berubah', 'nothing changed'],
+  sameAsNow: ['sama dengan sekarang', 'the same as now'],
+  changedFiles: [(l, more) => `berubah: ${l}${more ? ` dan ${more} lainnya` : ''}`, (l, more) => `changed: ${l}${more ? ` and ${more} more` : ''}`],
+  compare: ['Bandingkan', 'Compare'],
+  restoreAll: ['Kembalikan semua', 'Restore all'],
+  restoreOne: [f => `${f} saja`, f => `${f} only`],
+  restored: [(l, w) => `${l} dikembalikan ke ${w}. Keadaan sebelumnya disimpan di Riwayat, jadi bisa dibatalkan.`, (l, w) => `${l} restored to ${w}. How it was before is in History, so this can be undone.`],
+  restoredNothing: ['Tidak ada yang perlu dikembalikan: isinya sudah sama.', 'Nothing to restore: it is the same already.'],
+  kept: [n => `Checkpoint "${n}" disimpan.`, n => `Checkpoint "${n}" kept.`],
+  comparing: [w => `Kiri: ${w}. Kanan: sekarang.`, w => `Left: ${w}. Right: now.`],
+  closeCompare: ['Tutup perbandingan', 'Close the comparison'],
   zoomOut: ['Perkecil timeline', 'Zoom out the timeline'],
   zoomIn: ['Perbesar timeline', 'Zoom in the timeline'],
   hideTimeline: ['Sembunyikan timeline', 'Hide timeline'],
@@ -646,6 +703,7 @@ const svg = (d, fill) => `<svg aria-hidden="true" width="16" height="16" viewBox
 const ICON = {
   panel: svg('<rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6.5 3v10"/>'),
   export: svg('<path d="M8 2.5v7.5m0 0L5 7m3 3 3-3M3 11v1a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 13 12v-1"/>'),
+  history: svg('<path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9L2.5 5.6"/><path d="M2.5 2.5v3.1h3.1"/><path d="M8 5v3l2.2 1.3"/>'),   // the history icon from Lucide
   full: svg('<path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9.5 6.5M2.5 13.5l4-4"/>'),
   unfull: svg('<path d="M9.5 2.5v4h4M6.5 13.5v-4h-4M13.5 2.5l-4 4M2.5 13.5l4-4"/>'),   // the same arrows, pointing in
   prev: svg('<path d="M4 3.5v9"/><path d="M12 4v8L6.5 8z" fill="currentColor"/>'),
@@ -745,7 +803,7 @@ const note = text => {   // on a phone the message is a bar at the bottom of the
   };
 
 // ---- menus, the side panel and full screen work before the project has loaded
-const menus = [[$('export'), $('exportMenu')], [$('proj'), $('projMenu')], [$('ver'), $('verMenu')]];
+const menus = [[$('export'), $('exportMenu')], [$('hist'), $('histMenu')], [$('proj'), $('projMenu')], [$('ver'), $('verMenu')]];
 const setMenu = (btn, menu, open) => { const was = !menu.hidden; menu.hidden = !open; btn.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); if (open) btn.onopen?.(); else if (was) btn.onclose?.(); };
 for (const [btn, menu] of menus) btn.onclick = () => setMenu(btn, menu, menu.hidden);
 // The project menu lists the motlab projects the server finds, read again each time it opens, so a new one shows up.
@@ -982,6 +1040,7 @@ try {
   let tool = 'mark', ink = null, redo = [], strokeText = '', work = null, reloadAsked = false;   // M or P, a stroke being drawn, strokes taken back, the note text at the last stroke, the agent's work, a reload that waits
   const openNotes = () => notes.filter(m => !m.done || m === active);   // what the preview and the timeline show: done notes only while open
   const images = new Map();   // note number -> PNG data URL, sent with the next save
+  let cmpId = null;   // the checkpoint being compared (history, below)
   let t = 0, sel = null, range = null, looping = false, playing = false, t0 = 0, ac0 = 0, sources = [], busy = false, pps = 1, zoom = 1, cur = null, luma = null;
 
   // ---- side panel; every row is a button so Tab, Enter and Space reach it
@@ -1243,6 +1302,7 @@ try {
   new ResizeObserver(paint).observe(view);
   onTheme = drawTimeline;   // CSS follows the theme on its own, the canvases are drawn again
   async function show() {
+    cmpPost();   // the checkpoint being compared follows
     marks(); $('now').textContent = fmt(t);
     const s = sceneAt(t);
     if (s !== shown) { if (shown) shown.warm = null; shown = s; $('crumb').textContent = $('fsScene').textContent = name(s.file); }   // played, it needs warming again
@@ -1915,8 +1975,78 @@ try {
     setMenu($('export'), $('exportMenu'), true);
   };
 
+  // ---- history (src/history.js): the checkpoints, newest first, one kept now under a name, a restore of the whole
+  // project or of one scene that changed in it, and a compare: the checkpoint's own preview at the left of this one,
+  // following its time. A restore changes the files, so the page and the scenes load again as after any save.
+  let checkpoints = [];
+  const stamp = iso => new Date(iso).toLocaleString(LANG === 'id' ? 'id-ID' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  const whyText = c => {
+    if (c.name) return c.name;
+    const w = c.why || {}, notes = w.notes?.length ? ` (${L('whyNotes', w.notes.join(', '))})` : '';
+    if (w.kind === 'restore') { const from = checkpoints.find(x => x.id === w.from); return L('whyRestore', w.file ? name(w.file) : '', from ? stamp(from.time) : w.from); }
+    return L(w.kind === 'after' ? 'whyAfter' : 'whyBefore', notes + (w.text ? `: ${w.text}` : ''));
+  };
+  function historyRow(c) {
+    const d = document.createElement('div'); d.className = 'hrow';
+    const what = c.first ? L('firstCheckpoint', c.files) : c.changed.length ? L('changedFiles', c.changed.slice(0, 3).map(f => f.split('/').pop()).join(', '), Math.max(0, c.changed.length - 3)) : L('nothingChanged');
+    d.innerHTML = '<b></b><small></small><div class="hacts"></div>';
+    d.children[0].textContent = whyText(c); d.children[1].textContent = `${stamp(c.time)} · ${what}`;
+    const act = (text, fn) => { const b = document.createElement('button'); b.textContent = text; b.onclick = fn; d.children[2].append(b); };
+    act(L('compare'), () => compareWith(c));
+    if (!c.differs.length) d.children[1].textContent += ` · ${L('sameAsNow')}`;
+    else act(L('restoreAll'), () => restore(c));
+    for (const s of scenes) if (c.differs.includes(s.file.replaceAll('\\', '/'))) act(L('restoreOne', name(s.file)), () => restore(c, s.file.replaceAll('\\', '/')));
+    return d;
+  }
+  async function listHistory() {
+    try {
+      checkpoints = await (await fetch('history', { cache: 'no-store' })).json();
+      $('histList').replaceChildren(...checkpoints.map(historyRow));
+      $('histFoot').textContent = checkpoints.length ? '' : L('noCheckpoints');
+    } catch { $('histList').innerHTML = `<p class="foot">${L('historyFailed')}</p>`; }
+  }
+  $('hist').onopen = () => { $('histName').value = ''; listHistory(); };
+  $('histForm').onsubmit = async e => {
+    e.preventDefault();
+    const text = $('histName').value.trim();
+    if (!text) return $('histName').focus();
+    $('histGo').disabled = true;
+    try {
+      const r = await fetch('history', { method: 'POST', body: JSON.stringify({ name: text }) });
+      if (!r.ok) throw new Error(await r.text());
+      $('histName').value = ''; note(L('kept', text)); await listHistory();
+    } catch (err) { $('histFoot').textContent = err.message; }
+    finally { $('histGo').disabled = false; }
+  };
+  async function restore(c, file) {
+    setMenu($('hist'), $('histMenu'), false);
+    const r = await fetch('history/restore', { method: 'POST', body: JSON.stringify({ id: c.id, file }) });
+    if (!r.ok) return note(await r.text());
+    const { changed } = await r.json();
+    note(changed.length ? L('restored', file ? name(file) : and(changed.map(f => f.split('/').pop())), stamp(c.time)) : L('restoredNothing'));
+  }
+  function compareWith(c) {
+    setMenu($('hist'), $('histMenu'), false);
+    cmpId = c.id;
+    const f = $('cmp');
+    f.style.aspectRatio = `${good.w} / ${good.h}`; f.title = L('comparing', whyText(c));
+    f.onload = cmpPost; f.src = `@${encodeURIComponent(c.id)}/?v=${encodeURIComponent(PROJECT)}`; f.hidden = false;
+    $('stage').classList.add('cmp'); $('cmpBar').hidden = false; $('cmpText').textContent = L('comparing', `${whyText(c)}, ${stamp(c.time)}`);
+  }
+  function closeCompare() { cmpId = null; $('cmp').hidden = true; $('cmp').src = 'about:blank'; $('stage').classList.remove('cmp'); $('cmpBar').hidden = true; }
+  $('cmpOff').onclick = closeCompare;
+  function cmpPost() { if (cmpId) $('cmp').contentWindow?.postMessage({ cmpT: t }, location.origin); }
+  // The checkpoint's bare page draws whatever time the page that opened it sends, and asks for it once it has loaded.
+  if (AT) {
+    addEventListener('message', e => {
+      if (e.origin !== location.origin || typeof e.data?.cmpT !== 'number') return;
+      t = Math.max(0, Math.min(total - 1e-6, e.data.cmpT)); show();
+    });
+    parent.postMessage({ cmpReady: true }, location.origin);
+  } else addEventListener('message', e => { if (e.origin === location.origin && e.data?.cmpReady) cmpPost(); });
+
   // ---- first paint: the last saved selection if there is one
-  sel = await fetch('selection.json').then(r => r.ok ? r.json() : null).catch(() => null);
+  sel = AT ? null : await fetch('selection.json').then(r => r.ok ? r.json() : null).catch(() => null);
   const saved = Array.isArray(sel?.marks) ? sel.marks : [];   // notes of every version in this folder
   others = saved.filter(m => m.project !== PROJECT);
   notes = saved.filter(m => m.project === PROJECT).map(({ project, ...m }) => ({ note: '', ...m }));
@@ -1992,7 +2122,7 @@ try {
     if ($('workSr').textContent !== text) $('workSr').textContent = text;
     listNotes(); drawTimeline(); paint();
   }
-  const events = new EventSource('__events');
+  const events = AT ? new EventTarget() : new EventSource('__events');   // a checkpoint does not change
   events.addEventListener('change', e => changed(JSON.parse(e.data).files));
   events.addEventListener('work', e => {   // work on no scene of this version shows as a message, as there is nothing to veil
     work = JSON.parse(e.data); stateUI();

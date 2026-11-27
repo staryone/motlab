@@ -110,7 +110,11 @@ its message says why; never stash, reset or discard their changes. The new skill
    change without a note), so the open viewer marks those scenes as being fixed. Apply every open note, check stills
    around the change, re-run `mix.py` if beats moved, then run `motlab working <video> --done`. The viewer loads a saved
    scene again by itself, so there is no reload to ask for. Report what changed in plain words.
-   Before a round that changes a lot, copy `scenes/` to `backup/<n>/`. Never delete or edit the user's reference files.
+   `motlab working` keeps a checkpoint of the project before the round and `--done` one after it, so a round can be
+   undone: `motlab history <video>` lists them, and `motlab history <video> restore <id> [--file scenes/02.html]` puts
+   the project or one scene back (the user can do the same, and compare, in the viewer's history menu). Keep one
+   under a name before a risky change with `motlab history <video> save "<name>"`. Never delete or edit the user's
+   reference files.
    Many rounds are normal; keep going until the user is happy.
 9. **The render is the user's.** They press Export in the viewer and pick 720p, 1080p, 1440p or 4K. If their computer
    is busy or slows down while it renders, the same menu sets "Scene yang dirender bersamaan" to 1. The file lands in
@@ -136,7 +140,7 @@ promo/
   audio/                music, voiceover, the effects mix
   project.json          the video
   scenes/               one page per scene
-  backup/               copies of scenes/ before big revision rounds
+  .motlab/history/      checkpoints of the project, from motlab working and the viewer
   out/                  the user's exports
 ```
 
