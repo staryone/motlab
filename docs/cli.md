@@ -64,7 +64,7 @@ When the page throws while loading, the error names the file, line and column, f
 | Variable | Meaning |
 |---|---|
 | `CHROME` | Path to Chrome or Chromium |
-| `MOTLAB_GPU` | Set to `default` to leave out `--force_high_performance_gpu` so headless Chrome uses its default (integrated) GPU — useful on dual-GPU laptops whose discrete GPU has no hardware video encoder |
+| `MOTLAB_GPU` | Set to `default` to leave out `--force_high_performance_gpu` so headless Chrome uses its default (integrated) GPU. Useful on dual-GPU laptops whose discrete GPU has no hardware video encoder |
 | `MOTLAB_VIEWER_PASSWORD` | The viewer's password with `motlab start --domain` or `motlab restart` on a domain, at least 12 characters. See [On a VPS with a domain](viewer.md#on-a-vps-with-a-domain) |
 | `MOTLAB_CACHE_DIR` | Where the encoder timings and the cached scene parts are saved. Default `%LOCALAPPDATA%\motlab` on Windows, `~/.cache/motlab` elsewhere |
 
