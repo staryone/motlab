@@ -88,7 +88,8 @@ its message says why; never stash, reset or discard their changes. The new skill
    placeholder frames, rough sketches or shots left for later.
 5. **Sound, now or later.** Music and effects can come after the picture. The first build may be silent, or carry
    only the music if the user already gave it. When music arrives later, re-time the shots to its phrases if the user
-   wants that. Build the effects mix with `mix.py` from the pages' `EVENTS` (`references/sound-and-music.md`), save it
+   wants that. `scripts/beats.py` gives its beats and bars in video time, and each scene knows where it starts in the
+   video from `window.SCENE_START` (`references/sound-and-music.md`, "Timing to music"). Build the effects mix with `mix.py` from the pages' `EVENTS` (`references/sound-and-music.md`), save it
    in `<video>/audio/`, and list it in `project.json` with the music, voiceover and any footage sound, so the viewer
    plays it and Export includes it.
 6. **Check stills yourself.** `motlab stills <page> <outDir> 0.5 1.2 …` (it serves the folder with `project.json`, so
@@ -323,7 +324,8 @@ and how to install it before you start.
   voice with the same cuts, and with `--sections` splits the take into one scene per section.
   The take ends at the shorter audio/video duration (container duration if unavailable), ignoring subtitle and data tracks.
 - `mix.py`: puts library sounds on the page's events at a level set by their role, lowers them under a voiceover,
-  reports how close each landed and which moments to listen to. `synth_sfx.py`: builds a free sound kit. `get_sfx.py`: finds openly licensed sounds on
+  reports how close each landed and which moments to listen to, and with `--beats` puts them on bars of the music.
+  `beats.py`: the tempo, beats, bars and biggest rise of a music track, in video time. `synth_sfx.py`: builds a free sound kit. `get_sfx.py`: finds openly licensed sounds on
   Openverse and downloads them with a `CREDITS.md`. If the user has earshot (`earshot --help` runs, or its MCP tools
   are listed), use it to pick sounds and measure the mix (`references/sound-and-music.md`).
 - `blender/`: `kit.py` (scene, light, camera and render helpers), `tracks.py` (move curves), `mesh_from_sdf.py`

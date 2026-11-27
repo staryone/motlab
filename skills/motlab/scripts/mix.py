@@ -1,7 +1,7 @@
 """Place sound effects from a local library on an animation's beats, write one WAV and report how well they sync.
 
     python3 mix.py cues.json <out.wav> --lib <folder> [--lib <folder> ...] [--events events.json] [--len 20.2]
-                   [--gain 0] [--quant 12] [--voice voice.wav [--duck 9]]
+                   [--gain 0] [--quant 12] [--voice voice.wav [--duck 9]] [--beats beats.json]
 
 --events   the page's window.EVENTS as JSON ([{name, t}], from `motlab events page.html events.json`). Cues that name
            an event move with it when the animation is re-timed.
@@ -9,10 +9,13 @@
 --quant N  round event times up to the next 1/N s, for posterised animation that shows N poses a second: the sound
            lands on the pose where the change first shows.
 --voice    the voiceover as it plays in the video, from 0 s. Effects are lowered by --duck dB while it speaks.
+--beats    the music's beats.json from beats.py, so cues can name a bar and a beat of the music.
 
 cues.json is a list. A one-shot cue:
-    {"event": "card.open" or "at": 3.15, "offset": 0, "file": "part of a file name", "pick": 0,
+    {"event": "card.open" or "at": 3.15 or "bar": 5, "offset": 0, "file": "part of a file name", "pick": 0,
      "role": "click", "db": -14, "align": "auto", "pitch": 1.0, "lp": 6000, "hp": 200, "dur": 2.0, "pan": 0}
+  bar     with --beats: the first beat of this bar of the music, from 1; with "beat": 2, its second beat. "beat"
+          alone counts the beats from the first one, from 1.
   file    the first library file (or the pick-th) whose name contains this text, ignoring case
   role    hit, tap, click, ui, pop, key, tick, whoosh, riser or ambience: sets the level and where the sound sits
           on the beat. "db" (peak level in dBFS, before --gain) and "align" override it.
@@ -23,7 +26,7 @@ cues.json is a list. A one-shot cue:
   pitch   playback speed (1.2 is higher and shorter). lp / hp: low-pass and high-pass in Hz. dur: cut to this
           many seconds with a short fade. pan: -1 left to 1 right.
 A bed, looped if the file is shorter than the span:
-    {"type": "bed", "file": ..., "event"/"at": start, "to_event"/"to": end, "db": -26, "from": 0,
+    {"type": "bed", "file": ..., "event"/"at"/"bar": start, "to_event"/"to"/"to_bar": end, "db": -26, "from": 0,
      "fade_in": 0.5, "fade_out": 1.0, "lp", "hp", "env": [["event name or seconds", dB], ...]}
   from    where to start reading the file, in seconds. env: level changes over time, relative to db.
   fades   shortened in proportion when they do not fit, so the bed still reaches its level.
@@ -146,9 +149,23 @@ def ducking(voice, length, depth, attack=0.03, release=0.25):
 # ---- the mix ------------------------------------------------------------------------------------------------------
 
 class Timeline:
-    def __init__(self, events, quant):
+    def __init__(self, events, quant, music=None):
         self.events = events
         self.quant = quant
+        self.music = music
+
+    def on_music(self, bar, beat):
+        """The video time of a bar (from 1) and a beat in it (from 1), or of the beat-th beat when bar is None."""
+        if not self.music:
+            fail('a cue with "bar" or "beat" needs --beats beats.json')
+        beats = self.music['beats']
+        i = (beat or 1) - 1
+        if bar is not None:
+            i += self.music['downbeat'] - 1 + (bar - 1) * self.music['meter']
+        if not 0 <= i < len(beats):
+            where = f'bar {bar} beat {beat or 1}' if bar is not None else f'beat {beat}'
+            fail(f'{where} is beat {i + 1}, outside the {len(beats)} beats of the music')
+        return float(beats[i])
 
     def snap(self, t):
         return np.ceil(t * self.quant - 1e-6) / self.quant if self.quant else t
@@ -162,13 +179,31 @@ class Timeline:
         return self.event(value) if isinstance(value, str) else float(value)
 
     def cue_time(self, cue, name_key='event', time_key='at'):
-        base = self.event(cue[name_key]) if name_key in cue else float(cue[time_key])
+        if name_key in cue:
+            base = self.event(cue[name_key])
+        elif 'bar' in cue or 'beat' in cue:
+            base = self.on_music(cue.get('bar'), cue.get('beat'))
+        else:
+            base = float(cue[time_key])
         return base + cue.get('offset', 0)
+
+
+def label(cue):
+    if 'event' in cue:
+        return cue['event']
+    if 'bar' in cue:
+        return f'bar {cue["bar"]}' + (f'.{cue["beat"]}' if 'beat' in cue else '')
+    return f'beat {cue["beat"]}' if 'beat' in cue else ''
 
 
 def add_bed(out, cue, sound, level, when, length):
     start = when.cue_time(cue)
-    stop = when.time(cue['to_event']) if 'to_event' in cue else float(cue.get('to', length))
+    if 'to_event' in cue:
+        stop = when.time(cue['to_event'])
+    elif 'to_bar' in cue:
+        stop = when.on_music(cue['to_bar'], cue.get('to_beat'))
+    else:
+        stop = float(cue.get('to', length))
     n = int((stop - start) * RATE)
     if n <= 0:
         fail(f'bed {cue["file"]} ends before it starts')
@@ -209,11 +244,12 @@ def main():
     ap.add_argument('--quant', type=float, default=0.0)
     ap.add_argument('--voice')
     ap.add_argument('--duck', type=float, default=9.0)
+    ap.add_argument('--beats')
     opt = ap.parse_args()
 
     files = library(opt.lib)
     events = {e['name']: e['t'] for e in json.load(open(opt.events, encoding='utf8'))} if opt.events else {}
-    when = Timeline(events, opt.quant)
+    when = Timeline(events, opt.quant, json.load(open(opt.beats, encoding='utf8')) if opt.beats else None)
     length = opt.len or events.get('end') or 20.0
     total = int(length * RATE)
     out = np.zeros((total + 4 * RATE, 2))
@@ -258,13 +294,13 @@ def main():
 
         beat = when.cue_time(cue)
         if not 0 <= beat < length:
-            outside.append((beat, cue.get('event', ''), os.path.basename(path)))
+            outside.append((beat, label(cue), os.path.basename(path)))
         first = int(beat * RATE) - anchor
         if first < 0:   # the sound would start before 0 s: drop its head so the anchor still lands on the beat
             sound, anchor, first = sound[-first:], anchor + first, 0
         fit = max(0, min(len(sound), len(out) - first))
         out[first:first + fit] += sound[:fit]
-        placed.append({'t': beat, 'align': align, 'auto': chosen, 'event': cue.get('event', ''), 'name': os.path.basename(path),
+        placed.append({'t': beat, 'align': align, 'auto': chosen, 'event': label(cue), 'name': os.path.basename(path),
                        'role': role, 'db': level, 'actual': (first + anchor) / RATE})
 
     out = out[:total] * db(opt.gain)

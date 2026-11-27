@@ -82,4 +82,6 @@ And may have:
 - `window.EVENTS`, a list of `{ name, t }` for placing sound effects on beats
 - support for `?t=` (show one frame, for opening the page by hand) and `?scale=` (the resolution multiplier)
 
+The renderer and the viewer set `window.SCENE_START` before the first `renderAt`: where `t = 0` of the page falls in the whole video, in seconds, and 0 for a page rendered on its own. A page reads it inside `renderAt`, since it is not there yet while the page loads, and its `TOTAL` must not depend on it ([Where a scene starts](projects.md#where-a-scene-starts)).
+
 The frame count is `round(TOTAL * fps)`, and frame `f` is drawn at `t = f / fps`. The page itself is never edited by the renderer: `src/page/runtime.js` is injected and drives it.

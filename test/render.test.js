@@ -291,6 +291,35 @@ test('project: parts render several at a time in order, and a failing part is tr
   assert.ok(!existsSync(join(dir, 'parallel2.mp4')));
 });
 
+test('project: SCENE_START is where each scene starts in the video, through a transition, and a scene that reads it renders again when it moves', async () => {
+  // Each scene paints the video time it is at as a grey 9 levels per frame, so every frame of the output, the mixed
+  // ones too, must show its own frame number. d does not read SCENE_START.
+  const proj = join(dir, 'start'), timed = (name, total) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const c = document.getElementById('c').getContext('2d'); window.TOTAL = ${total}; window.ready = Promise.resolve(true);
+    window.renderAt = t => { const g = Math.round((window.SCENE_START + t) * 10) * 9; c.fillStyle = \`rgb(\${g},\${g},\${g})\`; c.fillRect(0, 0, 320, 180); };</script>`);
+  mkdirSync(proj); timed('a.html', 1); timed('b.html', 1); timed('c.html', 1);
+  writeFileSync(join(proj, 'd.html'), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const c = document.getElementById('c').getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);
+    window.renderAt = () => { c.fillStyle = '#fff'; c.fillRect(0, 0, 320, 180); };</script>`);
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 10, scenes: ['a.html', { file: 'b.html', transition: { type: 'fade', duration: 0.5 } }, 'c.html', 'd.html'] }));
+  const check = async (out, frames) => {
+    assert.equal((await probeVideo(out)).frames, frames + 10);
+    const wrong = [];
+    for (let f = 0; f < frames; f++) { const g = meanRgb(out, '100:100:110:40', f)[0]; if (Math.round(g / 9) !== f) wrong.push(`${f}: ${g}`); }
+    assert.deepEqual(wrong, []);
+  };
+  await renderProject({ dir: proj, out: join(dir, 'start1.mp4'), scale: 1, parallel: 2, ...quiet });
+  await check(join(dir, 'start1.mp4'), 25);   // b starts at 0.5 s, inside a; c at 1.5 s
+  timed('a.html', 1.2);   // b and c start 0.2 s later; d's own frames do not change
+  const logs = [];
+  await renderProject({ dir: proj, out: join(dir, 'start2.mp4'), scale: 1, parallel: 2, only: [1], log: m => logs.push(m) });
+  await check(join(dir, 'start2.mp4'), 27);
+  const seen = logs.join('\n');
+  assert.ok(seen.includes('Scene 2/4: b.html (it reads SCENE_START, which moved, so rendering it again)'), seen);
+  assert.ok(seen.includes('Scene 3/4: c.html (it reads SCENE_START, which moved, so rendering it again)'), seen);
+  assert.ok(seen.includes('Scene 4/4: d.html (cached)'), seen);
+});
+
 test('project: qp from project.json reaches the encoder, a wrong one is refused, and the cache keeps each qp apart', async () => {
   const proj = join(dir, 'qp');
   mkdirSync(proj);

@@ -97,6 +97,9 @@ export async function renderVideo(o) {
     const ranges = splitFrames(frames, workers).map(r => ({ start: r.start + head, end: r.end + head }));
     for (const extra of pages.splice(ranges.length)) await closePage(extra);
     log(`Page: ${width}x${height}, ${info.total} s, ${frames} frames at ${fps} fps${head || tail ? ` (frames ${head} to ${pageFrames - tail} of ${pageFrames})` : ''}${ranges.length > 1 ? `, ${ranges.length} Chrome processes` : ''}`);
+    // The page's SCENE_START. A project passes a function, which learns this page's length and waits for the scenes before it.
+    const sceneStart = typeof o.sceneStart === 'function' ? await o.sceneStart(pageFrames) : o.sceneStart || 0;
+    o.signal?.throwIfAborted();
 
     const enc = await selectEncoder({ pages, machine: { chrome: pages[0].chrome.version, gpu: info.gpu.renderer }, width, height, fps,
       mode: o.encoder || 'auto', codec: o.codec || 'auto', bitrate: o.bitrate, qp: o.qp, reprobe: o.reprobe, log });
@@ -119,7 +122,7 @@ export async function renderVideo(o) {
       const t0 = Date.now(); let stats;
       try {
         stats = await Promise.all(ranges.map((r, i) => pages[i].evaluate(`window.__motlab.encodeRange(${JSON.stringify({
-          ...r, fps, codec: enc.codec, codecString: enc.codecString, hw: enc.hw, rc: enc.rc, qp: enc.qp, bitrate: enc.bitrate, mux, base: server.base, sink: jobs[i].id,
+          ...r, sceneStart, fps, codec: enc.codec, codecString: enc.codecString, hw: enc.hw, rc: enc.rc, qp: enc.qp, bitrate: enc.bitrate, mux, base: server.base, sink: jobs[i].id,
           keyInterval: Math.max(1, Math.round(fps * 2)) })})`)));
       } catch (e) { o.signal?.throwIfAborted(); throw e; } finally { await Promise.all(jobs.map(j => j.close())); }
       const encodeMs = Date.now() - t0;
@@ -150,7 +153,7 @@ export async function renderVideo(o) {
 
     const v = await probeVideo(out), wantDur = frames / fps;
     const muxLabel = `${res.mux === 'raw' ? 'raw bitstream' : 'Mediabunny in the page'}, then ffmpeg -c copy${ranges.length > 1 ? ` (concat of ${ranges.length} parts)` : ''}${o.audio ? ' with audio' : ''}`;
-    const summary = { out, frames: v.frames, expectedFrames: frames, pageFrames, duration: v.duration, width, height, fps, gpu: info.gpu.renderer, encoder: label(enc), codec: enc.codec, hw: enc.hw,
+    const summary = { out, frames: v.frames, expectedFrames: frames, pageFrames, sceneStart, startRead: res.stats.some(s => s.startRead), duration: v.duration, width, height, fps, gpu: info.gpu.renderer, encoder: label(enc), codec: enc.codec, hw: enc.hw,
       rate: rate(enc), mux: muxLabel, fullRange: res.fullRange, workers: ranges.length, encodeSeconds: res.encodeMs / 1000, totalSeconds: (Date.now() - started) / 1000, size: v.size,
       color: { range: v.color_range, space: v.color_space, transfer: v.color_transfer, primaries: v.color_primaries } };
     log(`Mux: ${muxLabel}`);
