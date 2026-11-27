@@ -6,7 +6,7 @@ motlab start [--domain viewer.example.com]       the viewer in the background at
 motlab edit   [project]                           open a project in the viewer, starting it first if needed
 motlab stop | restart                             end the viewer, or start it again from the same folder
 motlab working <project> [text] [--note 3,5] [--scene 2] [--done]  show in the open viewer what the agent is working on
-motlab history <project> [save <name> | restore <id> [--file f]]  the project's checkpoints
+motlab history <project> [on | off | restore <id> [--file f]]  the project's checkpoints
 motlab stills <page.html> <outDir> <t1> <t2> ...  single frames as PNG or JPEG
 motlab stills <project> <outDir> <t1> <t2> ...    frames of the whole video at those times
 motlab video  <page.html> <out.mp4> [options]     one page as an MP4

@@ -112,8 +112,9 @@ its message says why; never stash, reset or discard their changes. The new skill
    scene again by itself, so there is no reload to ask for. Report what changed in plain words.
    `motlab working` keeps a checkpoint of the project before the round and `--done` one after it, so a round can be
    undone: `motlab history <video>` lists them, and `motlab history <video> restore <id> [--file scenes/02.html]` puts
-   the project or one scene back (the user can do the same, and compare, in the viewer's history menu). Keep one
-   under a name before a risky change with `motlab history <video> save "<name>"`. Never delete or edit the user's
+   that version of the project, or one scene, back (the user can do the same, and compare, in the viewer's history
+   menu). Name the version file when you work on another cut: `motlab history <video>/project-tiktok.json`. The user
+   can turn the history off; then `motlab working` keeps nothing new. Never delete or edit the user's
    reference files.
    Many rounds are normal; keep going until the user is happy.
 9. **The render is the user's.** They press Export in the viewer and pick 720p, 1080p, 1440p or 4K. If their computer

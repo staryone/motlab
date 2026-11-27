@@ -253,12 +253,11 @@
   #exportMenu { width: 256px; }
   header .wrap.end { display: flex; align-items: center; gap: 4px; }
   #histMenu { width: 320px; max-width: calc(100vw - 24px); }
-  #histForm { display: flex; gap: 6px; padding: 4px; }
-  #histName { flex: 1; min-width: 0; height: 32px; padding: 0 10px; border: 1px solid var(--edge); border-radius: 8px; font: inherit; font-size: 13px; color: var(--text); background: var(--bg); user-select: text; }
-  #histName::placeholder { color: var(--muted); }
-  #histName:focus-visible { outline: 2px solid var(--blue); outline-offset: -1px; }
-  #histGo { height: 32px; padding: 0 12px; border-radius: 8px; font-size: 13px; font-weight: 500; background: var(--text); color: var(--on-text); }
-  #histGo:active:not(:disabled) { background: var(--text-press); }
+  #histOn { font-weight: 500; }
+  #histOn .sw { position: relative; flex: none; width: 30px; height: 18px; border-radius: 9px; background: var(--edge); transition: background-color var(--fast) var(--ease); }
+  #histOn .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform var(--fast) var(--ease); }
+  #histOn[aria-checked="true"] .sw { background: var(--text); }
+  #histOn[aria-checked="true"] .sw::after { transform: translateX(12px); }
   #histList { max-height: min(55vh, 420px); overflow-y: auto; }
   #histList .opt.two { min-height: 40px; }
   #stage.cmp { grid-template: auto minmax(0, 1fr) / minmax(0, 1fr) minmax(0, 1fr); gap: 8px 12px; padding-top: 14px; }
@@ -433,12 +432,10 @@
   <div class="wrap end">
       <button class="icon" id="hist" data-i="history" data-label="history" aria-expanded="false" aria-controls="histMenu"></button>
       <div class="menu r" id="histMenu" hidden>
-        <h3 data-t="history"></h3>
+        <button class="opt" id="histOn" role="switch" aria-checked="true"><span data-t="historyAuto"></span><span class="sw" aria-hidden="true"></span></button>
+        <div class="div"></div>
         <p class="foot" id="histFoot"></p>
         <div id="histList"><p class="foot" data-t="loading"></p></div>
-        <div class="div"></div>
-        <h3 data-t="keepNow"></h3>
-        <form id="histForm"><input id="histName" autocomplete="off" spellcheck="false" maxlength="80" data-t="placeholder=checkpointHint aria-label=checkpointName"><button id="histGo" data-t="keep"></button></form>
       </div>
       <button class="btn" id="export" data-i="export" aria-expanded="false" aria-controls="exportMenu"><span id="exportLabel">Export</span></button>
       <div class="menu r" id="exportMenu" hidden>
@@ -587,11 +584,9 @@ const TEXT = {
   markRange: ['Tandai rentang', 'Mark a range'],
   history: ['Riwayat', 'History'],
   historyHint: ['Pilih satu untuk dilihat di samping yang sekarang.', 'Pick one to see it next to how it is now.'],
-  keepNow: ['Simpan keadaan sekarang', 'Keep how it is now'],
-  checkpointHint: ['Beri nama', 'Give it a name'],
-  checkpointName: ['Nama', 'Name'],
-  keep: ['Simpan', 'Keep'],
+  historyAuto: ['Riwayat otomatis', 'Automatic history'],
   noCheckpoints: ['Belum ada. Riwayat terisi sendiri setiap agent bekerja.', 'Nothing yet. It fills in by itself each time the agent works.'],
+  historyOff: ['Mati. Tidak ada yang disimpan sampai dinyalakan lagi.', 'Off. Nothing new is kept until it is on again.'],
   historyFailed: ['Riwayat tidak bisa dibaca.', 'The history could not be read.'],
   whyBefore: [n => n ? `Sebelum agent mengerjakan catatan ${n}` : 'Sebelum agent bekerja', n => n ? `Before the agent worked on notes ${n}` : 'Before the agent worked'],
   whyAfter: [n => n ? `Sesudah agent mengerjakan catatan ${n}` : 'Sesudah agent bekerja', n => n ? `After the agent worked on notes ${n}` : 'After the agent worked'],
@@ -604,7 +599,6 @@ const TEXT = {
   restored: [w => `Dipulihkan ke ${w}. Yang tadi tetap ada di Riwayat.`, w => `Restored to ${w}. What was there is still in History.`],
   restoredScene: [(n, w) => `Scene ${n} dipulihkan ke ${w}. Yang tadi tetap ada di Riwayat.`, (n, w) => `Scene ${n} restored to ${w}. What was there is still in History.`],
   restoredNothing: ['Sudah sama, tidak ada yang dipulihkan.', 'It is the same already, so nothing changed.'],
-  kept: [n => `Disimpan sebagai ${n}.`, n => `Kept as ${n}.`],
   zoomOut: ['Perkecil timeline', 'Zoom out the timeline'],
   zoomIn: ['Perbesar timeline', 'Zoom in the timeline'],
   hideTimeline: ['Sembunyikan timeline', 'Hide timeline'],
@@ -1975,13 +1969,12 @@ try {
     setMenu($('export'), $('exportMenu'), true);
   };
 
-  // ---- history (src/history.js): the checkpoints, newest first, one kept now under a name, a restore of the whole
-  // project or of one scene that changed in it, and a compare: the checkpoint's own preview at the left of this one,
-  // following its time. A restore changes the files, so the page and the scenes load again as after any save.
+  // ---- history (src/history.js): the checkpoints of this version, newest first, kept by themselves (a switch turns
+  // that off), and a compare: the checkpoint's own preview at the left of this one, following its time, from which this
+  // version or the scene on screen is restored. A restore changes the files, so the page and scenes load again.
   let checkpoints = [];
   const stamp = iso => new Date(iso).toLocaleString(LANG === 'id' ? 'id-ID' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).replace(/,/g, '');
   const whyText = c => {
-    if (c.name) return c.name;
     const w = c.why || {}, notes = w.notes?.length ? w.notes.join(', ') : '';
     return w.kind === 'restore' ? L('whyRestore') : L(w.kind === 'after' ? 'whyAfter' : 'whyBefore', notes);
   };
@@ -1992,31 +1985,26 @@ try {
     b.onclick = () => compareWith(c);
     return b;
   }
+  // The checkpoints that have this version; the switch is for the whole folder, as the checkpoints are.
+  const showOn = on => { $('histOn').setAttribute('aria-checked', on); $('histFoot').textContent = L(!on ? 'historyOff' : checkpoints.length ? 'historyHint' : 'noCheckpoints'); };
   async function listHistory() {
     $('histFoot').textContent = '';
     try {
-      checkpoints = await (await fetch('history', { cache: 'no-store' })).json();
+      const r = await (await fetch(`history?v=${encodeURIComponent(PROJECT)}`, { cache: 'no-store' })).json();
+      checkpoints = r.checkpoints;
       $('histList').replaceChildren(...checkpoints.map(historyRow));
-      $('histFoot').textContent = L(checkpoints.length ? 'historyHint' : 'noCheckpoints');
+      showOn(r.on);
     } catch { $('histList').innerHTML = `<p class="foot">${L('historyFailed')}</p>`; }
   }
-  $('hist').onopen = () => { $('histName').value = ''; listHistory(); };
-  $('histForm').onsubmit = async e => {
-    e.preventDefault();
-    const text = $('histName').value.trim();
-    if (!text) return $('histName').focus();
-    $('histGo').disabled = true;
-    try {
-      const r = await fetch('history', { method: 'POST', body: JSON.stringify({ name: text }) });
-      if (!r.ok) throw new Error(await r.text());
-      $('histName').value = ''; note(L('kept', text)); await listHistory();
-    } catch (err) { $('histFoot').textContent = err.message; }
-    finally { $('histGo').disabled = false; }
+  $('hist').onopen = listHistory;
+  $('histOn').onclick = async () => {
+    const r = await fetch('history/on', { method: 'POST', body: JSON.stringify({ on: $('histOn').getAttribute('aria-checked') !== 'true' }) });
+    if (r.ok) showOn((await r.json()).on);
   };
   // Restore: the whole project, or the scene page on screen. The server keeps how it was first, so it stays in History.
   async function restore(c, s) {
     const file = s && s.file.replaceAll('\\', '/');
-    const r = await fetch('history/restore', { method: 'POST', body: JSON.stringify({ id: c.id, file }) });
+    const r = await fetch('history/restore', { method: 'POST', body: JSON.stringify({ id: c.id, project: PROJECT, file }) });
     if (!r.ok) return note(await r.text());
     const { changed } = await r.json();
     closeCompare();

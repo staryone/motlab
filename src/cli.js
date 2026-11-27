@@ -1,8 +1,9 @@
 import { spawnSync } from 'node:child_process';
+import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { doctor } from './doctor.js';
-import { describe, listCheckpoints, restoreCheckpoint, saveCheckpoint } from './history.js';
+import { describe, historyOn, listCheckpoints, restoreCheckpoint, saveCheckpoint, setHistoryOn } from './history.js';
 import { startEditor } from './editor.js';
 import { projectPaths, renderProject, renderProjectStills } from './project.js';
 import { dumpEvents, renderStills, renderVideo } from './render.js';
@@ -27,8 +28,8 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
                                                      motlab working <project> --done (or 10 minutes without a change).
                                                      Both keep a checkpoint of the project first
   motlab history <project>                           the project's checkpoints, newest first, with what changed in each
-  motlab history <project> save <name>               keep a checkpoint of the project as it is now, under a name
-  motlab history <project> restore <id> [--file f]   put the project (or one file) back as it was; a checkpoint of
+  motlab history <project> on | off                  keep them by themselves or not (on unless turned off)
+  motlab history <project> restore <id> [--file f]   put this version of the project (or one file) back as it was; a checkpoint of
                                                      how it is now is kept first, so it can be undone
   motlab stills <page.html> <outDir> <t1> <t2> ...  [--scale 1] [--format png|jpg]
   motlab stills <project> <outDir> <t1> <t2> ...     frames of the whole video at those times, with transitions and overlays
@@ -113,28 +114,29 @@ export async function main(argv) {
   if (mode === 'restart') { await restartViewer(); return 0; }
   if (mode === 'working') {
     // a checkpoint before the agent's round and after it, for the viewer's history and motlab history
-    if (page) await saveCheckpoint(projectPaths(page).root, { why: { kind: v.done ? 'after' : 'before', notes: numbers('note', 'note')(v.note) || [], scenes: numbers('scene', 'scene')(v.scene) || [], text: [out, ...rest].filter(Boolean).join(' ').slice(0, 200) } });
+    if (page) await saveCheckpoint(projectPaths(page).root, { auto: true, why: { kind: v.done ? 'after' : 'before', project: basename(projectPaths(page).file), notes: numbers('note', 'note')(v.note) || [], scenes: numbers('scene', 'scene')(v.scene) || [], text: [out, ...rest].filter(Boolean).join(' ').slice(0, 200) } });
     await workInViewer(page, { notes: numbers('note', 'note')(v.note) || [], scenes: numbers('scene', 'scene')(v.scene) || [], text: [out, ...rest].filter(Boolean).join(' '), done: v.done });
     return 0;
   }
   if (mode === 'history') {
     if (!page) throw new Error('history needs a project folder or project file');
-    const { root } = projectPaths(page);
-    if (out === 'save') {
-      const cp = await saveCheckpoint(root, { name: rest.join(' ') || 'checkpoint' });
-      console.log(`Kept checkpoint ${cp.id} (${cp.name}, ${Object.keys(cp.files).length} files)`);
+    const { root, file } = projectPaths(page), version = basename(file);   // the version a restore works on
+    if (out === 'on' || out === 'off') {
+      setHistoryOn(root, out === 'on');
+      console.log(out === 'on' ? 'History on: motlab working keeps a checkpoint before and after each round.' : 'History off: no new checkpoints until it is turned on again. The ones kept stay.');
       return 0;
     }
     if (out === 'restore') {
       if (!rest[0]) throw new Error('history restore needs a checkpoint id (motlab history <project> lists them)');
-      const { changed, before } = await restoreCheckpoint(root, rest[0], { file: v.file });
-      console.log(changed.length ? `Restored ${changed.join(', ')} from ${rest[0]}.` : `Nothing to restore: ${v.file || 'the project'} is as it was at ${rest[0]}.`);
+      const { changed, before } = await restoreCheckpoint(root, rest[0], { file: v.file, version });
+      console.log(changed.length ? `Restored ${changed.join(', ')} from ${rest[0]}.` : `Nothing to restore: ${v.file || version} is as it was at ${rest[0]}.`);
       if (before) console.log(`How it was just before is checkpoint ${before}: motlab history <project> restore ${before} undoes this.`);
       return 0;
     }
-    if (out) throw new Error(`unknown history command "${out}" (save or restore)`);
-    const list = await listCheckpoints(root);
-    if (!list.length) console.log('No checkpoints yet. motlab working keeps one before and after each round of work, and motlab history <project> save <name> keeps one now.');
+    if (out) throw new Error(`unknown history command "${out}" (on, off or restore)`);
+    const list = await listCheckpoints(root, { version });
+    if (!historyOn(root)) console.log('History is off for this folder: motlab history <project> on turns it on.');
+    if (!list.length) console.log('No checkpoints yet. motlab working keeps one before and after each round of work.');
     for (const c of list) {
       const what = c.first ? `the first checkpoint, ${c.files} files` : c.changed.length > 8 ? `changed: ${c.changed.slice(0, 8).join(', ')} and ${c.changed.length - 8} more`
         : c.changed.length ? `changed: ${c.changed.join(', ')}` : 'nothing changed';
