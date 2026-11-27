@@ -59,7 +59,6 @@ The name after the project in the header is the version menu. It lists every pro
 | Mark a note done | Mark done in the open note; Reopen opens it again |
 | See the done notes | Done at the end of the Notes list |
 | Delete all done notes | Delete all done notes, under the unfolded done notes, then click it again within 4 s |
-| Count 1 here (a bar starts on this beat) | `B`, or the bar button in the play toolbar ("Hitungan 1 di sini"), with the playhead on a beat (projects with `"beats"`) |
 | Hide the timeline | the last button in the play toolbar |
 | Hide the side panel | the button in the top left |
 | Full screen | the button in the top right of the preview, or `F`; Escape, `F` or the button on the right of the player bar to leave |
@@ -72,9 +71,9 @@ Over the preview the cursor is a +. It is dark over light parts of the frame and
 
 ## Beats on the timeline
 
-With `"beats": "audio/beats.json"` in the project file (the motlab skill's `beats.py` writes that file), the foot of the ruler has a short tick on every beat of the music and a taller one on the first beat of each bar, with the bar's number when there is room. Bar 1 is the script's guess. To move it, put the playhead on the beat where a bar starts and press `B` or the bar button in the play toolbar: the nearest beat within half a beat starts a bar, the viewer rewrites `downbeat`, `bars` and `rise` in `beats.json` (and drops `levels`, measured on the old bars), and the scenes that read it load again. `beats.py` keeps that choice when it runs again for the same track and the same `start` and `from`, unless it is given `--downbeat`. It is the one file the viewer writes that scenes read.
+With `"beats": "audio/beats.json"` in the project file (the motlab skill's `beats.py` writes that file), the foot of the ruler has a short tick on every beat of the music and a taller one on the first beat of each bar, with the bar's number when there is room. The page reads the file again when the agent changes it, for example after the user said by ear that bar 1 starts a beat later. The viewer only shows the beats; moving bar 1 is the agent's (`beats.py --downbeat`).
 
-Checked in the desktop app's browser (Windows) on a 32 s track at 103.8 BPM: the ticks and bar numbers, `B` on the second beat moving bar 1 there, the three scenes that read the file loading again, and `beats.py` keeping it. `test/beats.test.js` checks the rewrite and that `beats.py` keeps it, and drops it for another place in the video. At 360 px wide the play toolbar with the bar button still fits. Not checked: a long track zoomed out, and pressing the button on a real phone.
+Checked in the desktop app's browser (Windows) on a 32 s track at 103.8 BPM: the ticks and bar numbers, and the bars moving on the timeline and in the scenes that read the file when it was written again with another bar 1. Not checked: a long track zoomed out.
 
 ## selection.json
 

@@ -8,7 +8,7 @@
 import { createServer } from 'node:http';
 import { copyFileSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
+import { basename, dirname, isAbsolute, join, relative, sep } from 'node:path';
 import { createAccess } from './access.js';
 import { createLive } from './live.js';
 import { defaultParallel, projectPaths, renderProject } from './project.js';
@@ -57,20 +57,6 @@ export function mergeNotes(old, { marks = [], toggled = [], deleted = [] }, v) {
     return { ...m, ...(d ? { done: true } : {}), project: v };
   });
   return { all: [...kept, ...mine].sort((a, b) => a.n - b.n), renumbered };
-}
-
-// A beats.json from beats.py with bar 1 moved: `beat` (from 1) starts a bar, so the first beat in step with it is bar
-// 1's. The bars and the biggest rise follow; the bar levels go, since they were measured on the old bars. Marked as the
-// viewer's, which beats.py keeps when it runs again without --downbeat.
-export function setDownbeat(file, beat) {
-  const j = JSON.parse(readFileSync(file, 'utf8')), meter = j.meter || 4;
-  if (!Array.isArray(j.beats) || !(Number.isInteger(beat) && beat >= 1 && beat <= j.beats.length)) throw new Error(`beat must be from 1 to ${j.beats?.length}`);
-  const down = (beat - 1) % meter + 1, bars = j.beats.filter((_, i) => i >= down - 1 && (i - down + 1) % meter === 0);
-  const rise = j.rise == null ? j.rise : bars.reduce((a, b) => Math.abs(b - j.rise) < Math.abs(a - j.rise) ? b : a, bars[0]);
-  const { levels, ...rest } = j;
-  const out = { ...rest, downbeat: down, bars, rise, downbeatBy: 'viewer' };
-  writeFileSync(file, JSON.stringify(out, null, 1));
-  return out;
 }
 
 const json = (res, data, code = 200) => res.writeHead(code, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' }).end(JSON.stringify(data));
@@ -176,14 +162,6 @@ export function startEditor(target, port = 4173, { domain, password = process.en
         if (existsSync(join(root, to))) return res.writeHead(409).end(`${to} already exists.`);
         copyFileSync(join(root, version(from)), join(root, to));
         return json(res, { file: to, label: label(to) });
-      } catch (e) { return res.writeHead(400).end(e.message); }
-    }
-    if (req.method === 'POST' && sub === '/beats') {   // body: { project, beat }; that beat (from 1) of the project's beats.json starts a bar
-      try {
-        const { project, beat } = JSON.parse(await readBody(req)), pj = JSON.parse(readFileSync(join(root, version(project)), 'utf8'));
-        const file = typeof pj.beats === 'string' ? resolve(root, pj.beats) : null;
-        if (!file || relative(root, file).startsWith('..') || isAbsolute(relative(root, file))) return res.writeHead(400).end('The project file names no "beats" file in its folder.');
-        return json(res, setDownbeat(file, beat));
       } catch (e) { return res.writeHead(400).end(e.message); }
     }
     if (req.method === 'POST' && sub === '/selection') {   // the last click, the range and this version's notes

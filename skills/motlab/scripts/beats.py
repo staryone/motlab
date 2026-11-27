@@ -9,15 +9,13 @@
 --meter 4     beats in a bar.
 --downbeat K  the K-th beat (from 1) is the first beat of a bar. Without it the beat with the most low end (the kick)
               in its place in the bar is taken, which is often wrong: listen, and give it when the bars are off.
-              Bar 1 set in the viewer (B on a beat) is kept when this runs again on the same track and entry.
 
 beats.json:
     {"tempo": 128.0, "meter": 4, "downbeat": 1, "beats": [0.231, ...], "bars": [0.231, ...], "rise": 15.234,
      "levels": [-21.3, ...], "start": 0, "from": 0, "file": "audio/music.mp3"}
   beats   every beat. bars: the first beat of each bar, bar 1 first; beats before it are a pickup.
   rise    the start of the bar where the track gets loudest compared with the four bars before it (a drop, a chorus).
-  levels  each bar's loudness in dB, for checking the rise. downbeatBy: "viewer" when bar 1 was set there (B); the
-          viewer drops levels then, since they were measured on the old bars.
+  levels  each bar's loudness in dB, for checking the rise.
 
 The method: an onset curve (how much the spectrum rises at each moment, in 40 bands), the tempo from its
 autocorrelation weighted towards 120 BPM, and the beats from the dynamic-programming beat tracker of Ellis 2007
@@ -148,19 +146,6 @@ def refine(curve, frames):
     return out
 
 
-def viewer_downbeat(opt, count):
-    """Bar 1 as the user set it in the viewer (B) in the beats.json being replaced, when it is for the same track."""
-    try:
-        with open(opt.out, encoding='utf8') as f:
-            old = json.load(f)
-    except (OSError, ValueError):
-        return None
-    same = (old.get('downbeatBy') == 'viewer' and old.get('file') == opt.track and old.get('start') == opt.start
-            and old.get('from') == opt.skip and old.get('meter') == opt.meter)
-    down = old.get('downbeat')
-    return down if same and isinstance(down, int) and 1 <= down <= count else None
-
-
 def main():
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0], formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('track')
@@ -189,10 +174,7 @@ def main():
     tempo = 60 / np.median(np.diff(times)) if len(times) > 1 else bpm
 
     low = onsets(level[:, centres < 200])   # the kick drum, for the first beat of the bar
-    kept = viewer_downbeat(opt, len(frames)) if not opt.downbeat else None
-    if kept:
-        down, guessed = kept, False
-    elif opt.downbeat:
+    if opt.downbeat:
         if not 1 <= opt.downbeat <= len(frames):
             fail(f'--downbeat must be from 1 to {len(frames)}')
         down = opt.downbeat
@@ -219,14 +201,12 @@ def main():
         'rise': video(bar_times[rise_bar]) if rise_bar is not None else None,
         'levels': [round(float(v), 1) for v in levels],
         'start': opt.start, 'from': opt.skip, 'file': opt.track,
-        **({'downbeatBy': 'viewer'} if kept else {}),
     }
     with open(opt.out, 'w', encoding='utf8') as f:
         json.dump(out, f, indent=1)
 
     print(f'tempo {out["tempo"]} BPM ({"measured" if not opt.bpm else "given"}), {len(times)} beats, '
-          f'{len(bar_frames)} bars of {opt.meter} from beat {down}'
-          f'{" (guessed: check by ear, set --downbeat)" if guessed else " (set in the viewer, kept)" if kept else ""}')
+          f'{len(bar_frames)} bars of {opt.meter} from beat {down}{" (guessed: check by ear, set --downbeat)" if guessed else ""}')
     print(f'first beat {out["beats"][0]:.3f} s, bar 1 at {out["bars"][0]:.3f} s, last beat {out["beats"][-1]:.3f} s (video time)')
     if rise_bar is not None:
         print(f'biggest rise: bar {rise_bar + 1} at {out["rise"]:.3f} s')

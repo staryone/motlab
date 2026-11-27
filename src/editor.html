@@ -454,7 +454,6 @@
       <button class="sq" id="next" data-i="next" data-label="nextScene"></button>
       <span id="time" class="num"><span id="now">00:00.00</span> <span class="muted">/ <span id="len">00:00.00</span></span><span id="fsScene" class="muted"></span></span>
       <button class="sq" id="rangeBtn" data-i="range" data-label="markRange" data-key="R" aria-pressed="false"></button>
-      <button class="sq" id="barBtn" data-i="bar" data-label="barHere" data-key="B" hidden></button>
       <button class="sq" id="zout" data-i="zout" data-label="zoomOut" data-key="−"></button>
       <button class="sq" id="zin" data-i="zin" data-label="zoomIn" data-key="+"></button>
       <button class="sq" id="laneBtn" data-i="lane" data-label="hideTimeline" aria-expanded="true" aria-controls="lane"></button>
@@ -486,7 +485,6 @@
   <span class="k"><kbd>Shift</kbd> + <span data-t="drag"></span></span><span class="dim" data-t="markRangeKey"></span>
   <span class="k"><kbd>I</kbd> <kbd>O</kbd></span><span class="dim" data-t="rangeEnds"></span>
   <span class="k"><kbd>X</kbd></span><span class="dim" data-t="sceneRange"></span>
-  <span class="k"><kbd>B</kbd></span><span class="dim" data-t="barKey"></span>
   <span class="k"><kbd>Ctrl</kbd> + scroll</span><span class="dim">zoom</span>
 </div></template>
 <script type="module">
@@ -550,10 +548,6 @@ const TEXT = {
   pause: ['Jeda', 'Pause'],
   space: ['Spasi', 'Space'],
   markRange: ['Tandai rentang', 'Mark a range'],
-  barHere: ['Hitungan 1 di sini', 'Count 1 here'],
-  barKey: ['hitungan 1 di ketukan terdekat', 'count 1 on the nearest beat'],
-  noBeatHere: ['Geser playhead ke sebuah ketukan dulu.', 'Move the playhead onto a beat first.'],
-  barSet: [b => `Bar sekarang dihitung mulai ketukan ${b}.`, b => `Bars now count from beat ${b}.`],
   beatsError: [(f, e) => `${f} tidak bisa dibaca (${e}), jadi beat tidak tampil di timeline.`, (f, e) => `${f} could not be read (${e}), so the timeline shows no beats.`],
   zoomOut: ['Perkecil timeline', 'Zoom out the timeline'],
   zoomIn: ['Perbesar timeline', 'Zoom in the timeline'],
@@ -663,7 +657,6 @@ const ICON = {
   tiles: svg('<rect x="2" y="4" width="5" height="8" rx="1.2"/><rect x="9" y="4" width="5" height="8" rx="1.2"/>'),   // scenes, as the tiles of the timeline
   aim: svg('<circle cx="8" cy="8" r="5"/><path d="M8 1.5v3M8 11.5v3M1.5 8h3M11.5 8h3"/>'),   // the selection
   range: svg('<path d="M5 3H3v10h2M11 3h2v10h-2M6.5 8h3"/>'),
-  bar: svg('<path d="M3 2.5v11M7 8.5v5M10.5 8.5v5M14 8.5v5"/>'),   // a bar line and the beats after it, as on the timeline
   note: svg('<path d="M3 3.5h10v7H8.5L5.5 13v-2.5H3z"/>'),
   x: svg('<path d="m4.5 4.5 7 7m0-7-7 7"/>'),
   arrow: svg('<path d="M3.5 8h9M8.5 4l4 4-4 4"/>'),   // Lucide arrow-right (ISC), in the 16 px box
@@ -973,8 +966,8 @@ try {
   const frameIn = (s, time) => Math.max(0, Math.min(Math.floor((time - s.start) * fps + 1e-6), Math.round(s.dur * fps) - 1));   // same frame grid as the render
 
   const ac = new AudioContext();
-  // The music's beats.json from beats.py, when "beats" in the project file names it: beats and bars on the timeline,
-  // and B to say where a bar starts. Times are seconds of the video.
+  // The music's beats.json from beats.py, when "beats" in the project file names it: beats and numbered bars on the
+  // timeline, read again when the agent changes it. Times are seconds of the video.
   const BEATS = typeof project.beats === 'string' ? project.beats.replaceAll('\\', '/') : null, beatsUrl = BEATS && BEATS.split(/[\\/]/).map(encodeURIComponent).join('/');
   let music = null;
   const readBeats = async () => {
@@ -985,7 +978,6 @@ try {
       if (!Array.isArray(j.beats) || !Array.isArray(j.bars)) throw new Error('no "beats" and "bars" lists');
       music = j;
     } catch (e) { music = null; note(L('beatsError', BEATS, e.message)); }
-    $('barBtn').hidden = !music;
   };
   if (BEATS) await readBeats();
   const tracks = await Promise.all(files.map(async a => {
@@ -1697,18 +1689,6 @@ try {
     if (on) note(L('rangeHow')); else $('note').hidden = true;
   }
   $('rangeBtn').onclick = () => setRangeMode(!rangeMode);
-  // B: the beat nearest the playhead starts a bar. The viewer rewrites beats.json (its downbeat and bars), so the
-  // scenes that read it show the new bars, and beats.py keeps the choice when it runs again.
-  async function markBar() {
-    const b = music.beats, k = b.reduce((best, x, i) => Math.abs(x - t) < Math.abs(b[best] - t) ? i : best, 0);
-    const half = (b.length > 1 ? (b.at(-1) - b[0]) / (b.length - 1) : 1) / 2;
-    if (Math.abs(b[k] - t) > half) return note(L('noBeatHere'));
-    const r = await fetch('beats', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ project: PROJECT, beat: k + 1 }) });
-    if (!r.ok) return note(await r.text());
-    music = await r.json(); drawTimeline();
-    note(L('barSet', music.downbeat, BEATS));
-  }
-  $('barBtn').onclick = () => music && markBar();
   const tagAt = e => {   // the note tag under the pointer, if any
     const r = tl.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top;
     return Math.abs(y - MK_Y) <= 9 ? hits.findLast(h => x >= h.x0 - 2 && x <= h.x1 + 2)?.m : null;
@@ -1733,7 +1713,6 @@ try {
     if (e.ctrlKey || e.metaKey || e.altKey || e.target.closest?.('input, textarea')) return;
     const k = e.key.toLowerCase(), at = snap(t);
     if (k === 'r' && !document.fullscreenElement) setRangeMode(!rangeMode);   // R picks the range tool, as in Final Cut Pro; full screen has no timeline to drag on
-    if (k === 'b' && music) markBar();
     if (k === 'x') { const s = sceneAt(t); setRange(snap(s.start), snap(s.start + s.dur), true); }   // X: the scene under the playhead, as Mark Clip
     if (k === 'i') setRange(at, range && range.end > at ? range.end : total, true);
     else if (k === 'o') setRange(range && range.start < at ? range.start : 0, at, true);

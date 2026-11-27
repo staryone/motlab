@@ -153,10 +153,10 @@ before bar 1 are a pickup.
 - The tempo can come out half or double the felt one. If the beats are twice too many or too few, pass `--bpm`.
 - Add `"beats": "audio/beats.json"` to `project.json`: the viewer then shows the beats and numbered bars on its
   timeline.
-- Bar 1 is a guess (the beat with the most kick in its place in the bar), and often wrong. Tell the user which beat
-  bar 1 starts on and ask them to listen. If it is off, they put the playhead on the beat where a bar starts and
-  press `B` (or the bar button) in the viewer, which rewrites the bars in `beats.json`; or pass `--downbeat K`
-  yourself. `beats.py` keeps the viewer's choice when it runs again for the same track. `--meter 3` for a waltz.
+- Bar 1 is a guess (the beat with the most kick in its place in the bar), and often wrong. Ask the user to listen
+  and count along: "Does count 1 land on the first beat, at 0.65 s?" When they say it is a beat later or earlier, run
+  `beats.py` again with `--downbeat K` (the beat they name, from 1); the viewer's timeline shows the new bars at once.
+  `--meter 3` for a waltz.
 - Plan the shots in bars: a cut on the first beat of a bar, the biggest change on `rise`. A scene reads `beats.json`
   in `ready` and compares `window.SCENE_START + t` with its times (`docs/projects.md`, "Where a scene starts"). Set
   each scene's `TOTAL` from the plan, as constants: a scene that ends on a bar line has the length of the bars it
