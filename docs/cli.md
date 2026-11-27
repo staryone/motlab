@@ -7,6 +7,7 @@ motlab edit   [project]                           open a project in the viewer, 
 motlab stop | restart                             end the viewer, or start it again from the same folder
 motlab working <project> [text] [--note 3,5] [--scene 2] [--done]  show in the open viewer what the agent is working on
 motlab stills <page.html> <outDir> <t1> <t2> ...  single frames as PNG or JPEG
+motlab stills <project> <outDir> <t1> <t2> ...    frames of the whole video at those times
 motlab video  <page.html> <out.mp4> [options]     one page as an MP4
 motlab events <page.html> <out.json>              the page's EVENTS, for syncing sound
 motlab help                                       this list and the engine folder (also motlab --help or -h)
@@ -30,6 +31,8 @@ motlab events page.html events.json
 ```
 
 `stills` writes files named after the time with two decimals, for example `0.50.png`, `2.00.png` and `4.25.png`, or JPEG with `--format jpg`. Times that round to the same name, or the same time twice, get `-2`, `-3` and so on: `1.001 1.004 2` writes `1.00.png`, `1.00-2.png` and `2.00.png`. Another run replaces files of the same name. Its default scale is 1.
+
+Given a project folder or project file instead of a page, `stills` takes times of the whole video and draws each frame as the render would there: the scene or the transition, with `SCENE_START` and the [overlays](projects.md#overlays). It opens every scene once first, to lay the scenes out.
 
 `stills`, `events` and `video` serve the nearest folder above the page that has a `project.json`, the same folder the viewer serves, so a scene can load `../` files. A page outside a project is served from its own folder. Pass `--root` to serve another folder.
 

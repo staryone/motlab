@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { doctor } from './doctor.js';
 import { startEditor } from './editor.js';
-import { renderProject } from './project.js';
+import { renderProject, renderProjectStills } from './project.js';
 import { dumpEvents, renderStills, renderVideo } from './render.js';
 import { uninstall } from './uninstall.js';
 import { PKG, update } from './update.js';
@@ -25,6 +25,7 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
                                                      show in the open viewer what the agent is working on, until
                                                      motlab working <project> --done (or 10 minutes without a change)
   motlab stills <page.html> <outDir> <t1> <t2> ...  [--scale 1] [--format png|jpg]
+  motlab stills <project> <outDir> <t1> <t2> ...     frames of the whole video at those times, with transitions and overlays
   motlab video  <page.html> <out.mp4> [--fps 24] [--scale 2] [--audio file] [--encoder auto|hw|sw] [--workers N]
   motlab events <page.html> <out.json>
   motlab help                                        this list (also motlab --help or -h)
@@ -122,6 +123,10 @@ export async function main(argv) {
   if (mode === 'stills') {
     const times = rest.map(t => num('time', t));
     if (!times.length) throw new Error('stills needs at least one time in seconds');
+    if (!/\.html?$/i.test(page)) {   // a project folder or file: times of the video, with transitions and overlays
+      await renderProjectStills({ dir: page, outDir: out, times, scale: num('scale', v.scale, { min: 0.01 }), format: oneOf('format', v.format, ['png', 'jpg']) });
+      return 0;
+    }
     await renderStills({ ...common, outDir: out, times, scale: num('scale', v.scale, { min: 0.01 }), format: oneOf('format', v.format, ['png', 'jpg']) });
     return 0;
   }

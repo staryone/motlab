@@ -8,7 +8,7 @@ import { basename, join } from 'node:path';
 import { after, test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { probeVideo } from '../src/ffmpeg.js';
-import { renderProject } from '../src/project.js';
+import { renderProject, renderProjectStills } from '../src/project.js';
 import { dumpEvents, renderStills, renderVideo } from '../src/render.js';
 
 const page = fileURLToPath(new URL('./fixtures/basic.html', import.meta.url));
@@ -359,4 +359,47 @@ test('project: scenes of different sizes stop the render, and a mono file plays 
     .stderr.match(/RMS level dB: -?[\d.]+/g).map(s => parseFloat(s.split(': ')[1]));
   const [src] = level(join(proj, 'tone.wav')), [l, r] = level(out);
   assert.ok(Math.abs(l - src) < 0.5 && Math.abs(r - src) < 0.5, `source ${src} dB, render ${l} / ${r} dB`);
+});
+
+test('project: an overlay is drawn over scenes and a transition at its own times, scaled, in project stills too, and only the parts it touches render again when it changes', async () => {
+  // a is black, b white, with a 0.5 s fade; c grey after a hard cut. The overlay paints a square whose grey counts its
+  // own frames, so each frame of the output tells whether it was drawn, when, and on top of the fade or under it.
+  const proj = join(dir, 'over'), flat = (name, colour) => writeFileSync(join(proj, name), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const s = +new URLSearchParams(location.search).get('scale') || 1, cv = document.getElementById('c'); cv.width = 320 * s; cv.height = 180 * s;
+    const c = cv.getContext('2d'); window.TOTAL = 1; window.ready = Promise.resolve(true);
+    window.renderAt = () => { c.fillStyle = '${colour}'; c.fillRect(0, 0, cv.width, cv.height); };</script>`);
+  mkdirSync(proj); flat('a.html', '#000'); flat('b.html', '#fff'); flat('c.html', '#808080');
+  writeFileSync(join(proj, 'ov.js'), `export function draw(ctx, t, W, H, o) {
+    if (W !== 320 || H !== 180) throw new Error('W x H is ' + W + 'x' + H);
+    const g = Math.round(t * 10) * 12 + o.params.base; ctx.fillStyle = 'rgb(' + g + ',' + g + ',' + g + ')'; ctx.fillRect(10, 10, 40, 40);
+  }`);
+  const write = to => writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 10, scenes: ['a.html', { file: 'b.html', transition: { type: 'fade', duration: 0.5, ease: 'linear' } }, 'c.html'],
+    overlays: [{ layer: 'ov.js', from: 0.2, to, params: { base: 40 } }] }));
+  write(1.3);
+  const out = join(dir, 'over1.mp4'), logs = [];
+  await renderProject({ dir: proj, out, scale: 2, parallel: 2, log: m => logs.push(m) });
+  assert.equal((await probeVideo(out)).frames, 25);
+  const square = f => meanRgb(out, '60:60:30:30', f)[0], wrong = [];   // the middle of the square, in 640x360 pixels
+  for (let f = 0; f < 25; f++) {
+    const want = f >= 2 && f < 13 ? (f - 2) * 12 + 40 : f < 5 ? 0 : f < 10 ? 255 * (f - 4.5) / 5 : f < 15 ? 255 : 128;
+    if (Math.abs(square(f) - want) > 6) wrong.push(`${f}: ${square(f)} not ${want}`);
+  }
+  assert.deepEqual(wrong, [], logs.join('\n'));
+  // project stills at times of the video draw the same: in the fade, on b's own frames, and on c after the overlay
+  const shots = await renderProjectStills({ dir: proj, outDir: join(dir, 'over-stills'), times: [0.7, 1.2, 2.0], scale: 2, ...quiet });
+  const at = f => meanRgb(f, '60:60:30:30')[0], bg = f => meanRgb(f, '100:100:400:200')[0];
+  assert.deepEqual(shots.map(f => [Math.round(at(f) / 4), Math.round(bg(f) / 4)]), [[25, 32], [40, 64], [32, 32]]);   // 100 over 127, 160 over 255, 128
+  // the overlay now ends at 0.4 s: scene b's own frames (1.0 to 1.5 s) lose it and render again, c never had it
+  write(0.4);
+  const logs2 = [];
+  await renderProject({ dir: proj, out: join(dir, 'over2.mp4'), scale: 2, only: [1], log: m => logs2.push(m) });
+  const seen = logs2.join('\n');
+  assert.ok(seen.includes('Scene 2/3: b.html (its overlays changed, so rendering it again)'), seen);
+  assert.ok(seen.includes('Scene 3/3: c.html (cached)'), seen);
+  assert.ok(Math.abs(meanRgb(join(dir, 'over2.mp4'), '60:60:30:30', 12)[0] - 255) <= 6);   // white b, no square
+  // a missing module or a bad span stops the render before anything renders
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 10, scenes: ['a.html'], overlays: [{ layer: 'nope.js' }] }));
+  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'over3.mp4'), scale: 1, ...quiet }), /the overlay file nope.js does not exist/);
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 10, scenes: ['a.html'], overlays: [{ layer: 'ov.js', from: 2, to: 1 }] }));
+  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'over3.mp4'), scale: 1, ...quiet }), /overlay 1: "from" must be 0 or more and "to" after it/);
 });

@@ -9,10 +9,12 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, renameSy
 import { freemem, availableParallelism, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { findChrome, launchChrome } from './chrome.js';
+import { frameCount } from './codecs.js';
 import { finalize, probeVideo, run } from './ffmpeg.js';
-import { findTransition, isTransitionFile, parseTransition, transitionHead, transitionOverlap, transitionProgress, transitionTail } from './page/transitions.js';
+import { parseOverlays, placeOverlays } from './page/overlays.js';
+import { findTransition, isTransitionFile, layerFrames, parseTransition, transitionHead, transitionOverlap, transitionProgress, transitionTail } from './page/transitions.js';
 import { cacheDir } from './probe.js';
-import { renderVideo } from './render.js';
+import { readPageInfo, renderShot, renderVideo } from './render.js';
 import { startServer } from './server.js';
 
 // How many parts render at once without --parallel: 3, fewer on a smaller machine. On the test laptop (16 threads) a
@@ -50,6 +52,14 @@ export function projectScenes(p, root) {
     }
     return scene;
   });
+}
+
+// The query of __motlab/transition.html for the transition from scene i into the next, given scene i's length in frames.
+// gap: how much later the next scene starts than this one, for the two pages' SCENE_START.
+function transitionQuery(scenes, i, pageFrames, fps) {
+  const next = scenes[i + 1].transition;
+  return new URLSearchParams({ from: scenes[i].file, to: scenes[i + 1].file, offset: (pageFrames - transitionTail(next)) / fps, frames: next.n,
+    gap: (pageFrames - transitionOverlap(next)) / fps, fps, ...(next.layer ? { layer: next.layer } : { type: next.type, ease: next.ease, params: JSON.stringify(next.params) }) });
 }
 
 // A project is named by its folder (which holds project.json) or by a .json file in it, such as storyboard.json.
@@ -137,25 +147,63 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       for (let j = 0; j < i; j++) frames += await framesOf(j, signal) - transitionOverlap(scenes[j + 1].transition);
       return frames / p.fps;
     };
-    const sameStart = async (i, m, signal) => !m.startRead || Math.abs(await startOf(i, signal) - m.sceneStart) < 1e-9;
+    const sceneKey = i => key({ kind: 'scene', file: scenes[i].file, hash: hashes[i], fps: p.fps, scale, qp, codec, version: VERSION,
+      head: transitionHead(scenes[i].transition), tail: transitionTail(scenes[i + 1]?.transition) });
+
+    // Overlays (src/page/overlays.js) are drawn into the parts they show in. Placing them takes every scene's length,
+    // so a project with overlays reads those first: from the cached part when there is one, else from the page.
+    const overlays = parseOverlays(p.overlays, scenes.length);
+    for (const o of overlays) if (!existsSync(join(dir, o.layer))) throw new Error(`the overlay file ${o.layer} does not exist`);
+    let placed = [];
+    if (overlays.length) {
+      const waiting = scenes.map((_, i) => i), width = Math.max(1, parallel ?? defaultParallel());
+      await Promise.all(Array.from({ length: Math.min(width, scenes.length) }, async () => {
+        for (let i; (i = waiting.shift()) !== undefined;) {
+          let m = null;
+          try { m = JSON.parse(readFileSync(join(cacheRoot, sceneKey(i) + '.json'), 'utf8')); } catch {}
+          if (m?.pageFrames) { learn(i, m.pageFrames); continue; }
+          const server = await getServer(), chrome = await takeChrome();
+          try {
+            const info = await readPageInfo({ page: join(dir, scenes[i].file), root: dir, server, browser: chrome, scale, signal });
+            if (!(info.total > 0)) throw new Error(`${scenes[i].file}: window.TOTAL must be a positive number of seconds`);
+            learn(i, frameCount(info.total, p.fps));
+          } finally { idleChromes.push(chrome); }
+        }
+      }));
+      const none = new AbortController().signal, starts = [];
+      for (let i = 0; i < scenes.length; i++) starts.push(await startOf(i, none));
+      placed = placeOverlays(overlays, starts, scenes.map((_, i) => known[i] / p.fps)).map(o => ({ ...o, hash: hash(o.layer) }));
+      log(`Overlays: ${placed.map(o => `${o.layer} ${o.start.toFixed(2)} to ${o.end.toFixed(2)} s`).join(', ')}`);
+    }
+    // The overlays that show between two times of the video, for the part there whose t = 0 is at videoAt, and what
+    // the cached part keeps of them (sig), so that a change to one renders again only the parts it touches.
+    const overlaysFor = (from, to, videoAt) => {
+      const list = placed.filter(o => o.start < to - 1e-6 && o.end > from + 1e-6);
+      if (!list.length) return {};
+      return { overlays: list.map(({ layer, start, end, params }) => ({ layer, start, end, params })), videoAt,
+        sig: key({ videoAt, list: list.map(o => [o.layer, o.hash, o.start, o.end, o.params]) }) };
+    };
+    // Why a cached part cannot be used although its scenes did not change, or ''.
+    const stale = async (i, m, sig, signal) => m.startRead && Math.abs(await startOf(i, signal) - m.sceneStart) >= 1e-9 ? 'it reads SCENE_START, which moved'
+      : (m.overlays ?? '') !== (sig ?? '') ? 'its overlays changed' : '';
     // A part is reused only when its cached file still probes as the manifest says, and its encoder and colour range
     // match the first part, because a stream copy join is only safe when codec, encoder and resolution match. A part
-    // whose page read SCENE_START is reused only at the same start, which fits(manifest) checks.
-    const getPart = async (k, forced, label, log, render, fits) => {
+    // whose page read SCENE_START, or that has overlays, is reused only as it was; stale(manifest) says why not.
+    const getPart = async (k, forced, label, log, render, fits, keep = {}) => {
       used.add(k);
       let suffix = '';
       if (!forced) {
-        let m = null, moved = false;
+        let m = null, why = '';
         try { m = JSON.parse(readFileSync(join(cacheRoot, k + '.json'), 'utf8')); } catch {}
         if (m?.key === k && existsSync(join(cacheRoot, k + '.mp4'))) {
           const v = await probeVideo(join(cacheRoot, k + '.mp4')).catch(() => null);
           if (v && v.frames === m.frames && Math.abs(v.duration - m.duration) <= 0.5 / p.fps && v.width === m.width && v.height === m.height
-              && (!parts[0] || (m.hw === parts[0].hw && m.codec === parts[0].codec && m.fullRange === parts[0].fullRange)) && !(moved = !await fits(m))) {
+              && (!parts[0] || (m.hw === parts[0].hw && m.codec === parts[0].codec && m.fullRange === parts[0].fullRange)) && !(why = await fits(m))) {
             log(`${label} (cached)`);
             return { out: join(cacheRoot, k + '.mp4'), width: m.width, height: m.height, duration: m.duration, frames: m.frames, pageFrames: m.pageFrames, fullRange: m.fullRange, codec: m.codec, hw: m.hw, startRead: m.startRead, sceneStart: m.sceneStart };
           }
         }
-        suffix = moved ? ' (it reads SCENE_START, which moved, so rendering it again)' : ' (no cached part, rendering it)';
+        suffix = why ? ` (${why}, so rendering it again)` : ' (no cached part, rendering it)';
       }
       log(label + suffix);
       const summary = await render();
@@ -163,7 +211,7 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
         mkdirSync(cacheRoot, { recursive: true });
         writeFileSync(join(cacheRoot, k + '.json'), JSON.stringify({ key: k, codec: summary.codec, hw: summary.hw, fullRange: summary.fullRange,
           width: summary.width, height: summary.height, frames: summary.frames, pageFrames: summary.pageFrames, duration: summary.duration,
-          ...(summary.startRead ? { startRead: true, sceneStart: summary.sceneStart } : {}) }));
+          ...(summary.startRead ? { startRead: true, sceneStart: summary.sceneStart } : {}), ...keep }));
       } catch (e) { log(`(could not save the cached part: ${e.message})`); }
       return summary;
     };
@@ -176,10 +224,11 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       const { i } = jobs[j], scene = scenes[i], into = scene.transition, next = scenes[i + 1]?.transition;
       signal.throwIfAborted();
       if (jobs[j].kind === 'scene') {
-        const k = key({ kind: 'scene', file: scene.file, hash: hashes[i], fps: p.fps, scale, qp, codec, version: VERSION, head: transitionHead(into), tail: transitionTail(next) });
+        const k = sceneKey(i), at = placed.length ? await startOf(i, signal) : 0;
+        const { sig, ...over } = placed.length ? overlaysFor(at + transitionHead(into) / p.fps, at + (known[i] - transitionTail(next)) / p.fps, at) : {};
         const part = await getPart(k, !only || only.includes(i + 1), `\nScene ${i + 1}/${scenes.length}: ${scene.file}`, log, () => renderPart({ page: join(dir, scene.file), root: dir,
-          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, qp, codec, log, progress, head: transitionHead(into), tail: transitionTail(next), ...same(),
-          sceneStart: frames => { learn(i, frames); return startOf(i, signal); } }, signal), m => { learn(i, m.pageFrames); return sameStart(i, m, signal); });
+          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, qp, codec, log, progress, head: transitionHead(into), tail: transitionTail(next), ...same(), ...over,
+          sceneStart: frames => { learn(i, frames); return startOf(i, signal); } }, signal), m => { learn(i, m.pageFrames); return stale(i, m, sig, signal); }, sig ? { overlays: sig } : {});
         // a stream copy join of parts with different sizes makes an MP4 that changes resolution partway through
         if (parts[0] && (part.width !== parts[0].width || part.height !== parts[0].height))
           throw Object.assign(new Error(`${scene.file} is ${part.width}x${part.height} but ${scenes[0].file} is ${parts[0].width}x${parts[0].height}. All scenes in a project must have the same canvas size`), { final: true });
@@ -188,13 +237,12 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       const from = parts[j - 1];
       const tk = key({ kind: 'transition', from: scene.file, to: scenes[i + 1].file, fromHash: hashes[i], toHash: hashes[i + 1],
         type: next.type, glsl: isTransitionFile(next.type) ? hash(next.type) : undefined, layer: next.layer, layerHash: next.layer ? hash(next.layer) : undefined, n: next.n, ease: next.ease, params: next.params, fps: p.fps, scale, qp, codec, version: VERSION });
-      // gap: how much later the next scene starts than this one, for the two pages' SCENE_START
-      const query = new URLSearchParams({ from: scene.file, to: scenes[i + 1].file, offset: (from.pageFrames - transitionTail(next)) / p.fps, frames: next.n,
-        gap: (from.pageFrames - transitionOverlap(next)) / p.fps,
-        fps: p.fps, ...(next.layer ? { layer: next.layer } : { type: next.type, ease: next.ease, params: JSON.stringify(next.params) }) });
+      const query = transitionQuery(scenes, i, from.pageFrames, p.fps);
+      const at = placed.length ? await startOf(i, signal) + (from.pageFrames - transitionTail(next)) / p.fps : 0;
+      const { sig, ...over } = placed.length ? overlaysFor(at, at + next.n / p.fps, at) : {};
       return getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.layer ? `layer ${next.layer}` : next.type}, ${next.n} frames`, log,
         () => renderPart({ url: '__motlab/transition.html', query: String(query), root: dir, out: join(cacheRoot, tk + '.mp4'),
-          fps: p.fps, scale, qp, codec, log, progress, ...same(), sceneStart: () => startOf(i, signal) }, signal), m => sameStart(i, m, signal));
+          fps: p.fps, scale, qp, codec, log, progress, ...same(), ...over, sceneStart: () => startOf(i, signal) }, signal), m => stale(i, m, sig, signal), sig ? { overlays: sig } : {});
     };
     // Runs the parts that have no result yet, `width` at a time. When one fails the others are stopped, and the parts
     // that finished are kept. A part's log is printed in one piece when it ends, so parallel logs do not interleave.
@@ -269,4 +317,42 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
     await Promise.all([closingChromes, closeChromes(), serverPromise?.then(s => s.close())]);
     rmSync(partial, { force: true }); rmSync(tmp, { recursive: true, force: true });
   }
+}
+
+// Stills of a project at times of the video, as the render draws them there: the scene or the transition, with
+// SCENE_START and the overlays. Files are named by time, as for a page.
+export async function renderProjectStills({ dir, outDir, times, scale = 1, format = 'png', log = console.log }) {
+  const { root, file } = projectPaths(dir), p = JSON.parse(readFileSync(file, 'utf8')), fps = p.fps;
+  const scenes = projectScenes(p, root), overlays = parseOverlays(p.overlays, scenes.length);
+  for (const o of overlays) if (!existsSync(join(root, o.layer))) throw new Error(`the overlay file ${o.layer} does not exist`);
+  outDir = resolve(outDir); mkdirSync(outDir, { recursive: true });
+  const server = await startServer({ root }), chrome = await launchChrome({ chromePath: findChrome() });
+  try {
+    const frames = [], first = [];   // each scene's length, and the frame of the video where it starts
+    let end = 0;
+    for (const [i, s] of scenes.entries()) {
+      const info = await readPageInfo({ page: join(root, s.file), root, server, browser: chrome, scale });
+      if (!(info.total > 0)) throw new Error(`${s.file}: window.TOTAL must be a positive number of seconds`);
+      frames.push(frameCount(info.total, fps)); first.push(end - transitionOverlap(s.transition)); end = first[i] + frames[i];
+    }
+    const starts = first.map(f => f / fps), placed = placeOverlays(overlays, starts, frames.map(f => f / fps)), files = [], counts = new Map();
+    for (const t of times) {
+      if (!(t >= 0 && t < end / fps)) throw new Error(`${t} s is outside the video, which is ${(end / fps).toFixed(3)} s long`);
+      const at = Math.floor(t * fps + 1e-6), i = first.findLastIndex(f => f <= at), f = at - first[i];
+      const into = scenes[i].transition, out = scenes[i + 1]?.transition, cut = out?.layer ? frames[i] - layerFrames(out.n).before : Infinity;
+      // the transition this frame is in, as [scene it comes from, frame k of the transition], or none
+      const tr = into && !into.layer && f < into.n ? [i - 1, f] : into?.layer && f < layerFrames(into.n).after ? [i - 1, layerFrames(into.n).before + f]
+        : f >= cut ? [i, f - cut] : null;
+      const shot = tr
+        ? { url: '__motlab/transition.html', query: String(transitionQuery(scenes, tr[0], frames[tr[0]], fps)), t: tr[1] / fps, sceneStart: starts[tr[0]],
+            videoAt: starts[tr[0]] + (frames[tr[0]] - transitionTail(scenes[tr[0] + 1].transition)) / fps }
+        : { page: join(root, scenes[i].file), t: f / fps, sceneStart: starts[i], videoAt: starts[i] };
+      const name = t.toFixed(2), count = (counts.get(name) || 0) + 1;
+      counts.set(name, count);
+      const over = placed.filter(o => o.start < at / fps + 1e-6 && o.end > at / fps + 1e-6).map(({ layer, start, end, params }) => ({ layer, start, end, params }));
+      files.push(await renderShot({ ...shot, root, server, browser: chrome, scale, format, overlays: over, out: join(outDir, `${name}${count > 1 ? `-${count}` : ''}.${format === 'jpg' ? 'jpg' : 'png'}`) }));
+    }
+    log(`stills -> ${outDir} (${files.length})`);
+    return files;
+  } finally { await chrome.close(); await server.close(); }
 }

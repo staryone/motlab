@@ -70,6 +70,14 @@ async function openPages(count, args) {
   return settled.map(s => s.value);
 }
 
+// A page's info (size, TOTAL, EVENTS) without rendering it: for a project, the lengths of its scenes. o as for
+// renderVideo, with o.browser a Chrome to open a tab in.
+export async function readPageInfo(o) {
+  const { url } = locate(o);
+  const page = await openPage({ server: o.server, browser: o.browser, chromePath: o.browser ? undefined : findChrome(o.chrome), url, scale: o.scale ?? 1, query: o.query, signal: o.signal });
+  try { return await page.evaluate('window.__motlab.info()'); } finally { await closePage(page); }
+}
+
 async function readInfo(page, log) {
   const info = await page.evaluate('window.__motlab.info()');
   log(`GPU: ${info.gpu.renderer || 'none (no WebGL: Chrome is not using a GPU)'}`);
@@ -122,7 +130,7 @@ export async function renderVideo(o) {
       const t0 = Date.now(); let stats;
       try {
         stats = await Promise.all(ranges.map((r, i) => pages[i].evaluate(`window.__motlab.encodeRange(${JSON.stringify({
-          ...r, sceneStart, fps, codec: enc.codec, codecString: enc.codecString, hw: enc.hw, rc: enc.rc, qp: enc.qp, bitrate: enc.bitrate, mux, base: server.base, sink: jobs[i].id,
+          ...r, sceneStart, overlays: o.overlays, videoAt: o.videoAt ?? sceneStart, scale, fps, codec: enc.codec, codecString: enc.codecString, hw: enc.hw, rc: enc.rc, qp: enc.qp, bitrate: enc.bitrate, mux, base: server.base, sink: jobs[i].id,
           keyInterval: Math.max(1, Math.round(fps * 2)) })})`)));
       } catch (e) { o.signal?.throwIfAborted(); throw e; } finally { await Promise.all(jobs.map(j => j.close())); }
       const encodeMs = Date.now() - t0;
@@ -188,6 +196,18 @@ export async function renderStills(o) {
     log(`stills -> ${outDir} (${files.length})`);
     return files;
   } finally { if (page) await page.chrome.close(); await server.close(); }
+}
+
+// One still of a page into o.out, in a tab of o.browser served by o.server: frame o.t, with SCENE_START o.sceneStart and
+// the overlays (o.overlays, o.videoAt) as a project render draws them. For `motlab stills` of a project.
+export async function renderShot(o) {
+  const { url } = locate(o), page = await openPage({ server: o.server, browser: o.browser, url, scale: o.scale ?? 1, query: o.query });
+  const sink = await o.server.createSink(o.out);
+  try {
+    await page.evaluate(`window.__motlab.still(${JSON.stringify({ t: o.t, type: o.format === 'jpg' ? 'image/jpeg' : 'image/png', quality: o.quality ?? 0.92,
+      base: o.server.base, sink: sink.id, sceneStart: o.sceneStart, overlays: o.overlays, videoAt: o.videoAt, scale: o.scale ?? 1 })})`);
+  } finally { await sink.close(); await closePage(page); }
+  return o.out;
 }
 
 export async function dumpEvents(o) {

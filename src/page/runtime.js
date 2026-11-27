@@ -93,13 +93,32 @@
     };
   }
 
+  // The project's overlays over this page's frames, or null: o.overlays lists the ones that show in this part, with
+  // their span in seconds of the video, and o.videoAt is the time of the video at the page's t = 0. A frame with an
+  // overlay is copied onto a 2D canvas of its own first, since the page's canvas may be WebGL.
+  async function overlayLayer(o, cv) {
+    if (!o.overlays?.length) return null;
+    const { loadOverlay, drawOverlays, overlayAt } = await import(`${location.origin}/__motlab/overlays.js`);
+    const list = await Promise.all(o.overlays.map(async x => ({ ...x,
+      mod: await loadOverlay(`${location.origin}/${x.layer.split(/[\\/]/).map(encodeURIComponent).join('/')}`, x.layer) })));
+    const comp = document.createElement('canvas'); comp.width = cv.width; comp.height = cv.height;
+    const ctx = comp.getContext('2d'), W = cv.width / (o.scale || 1), H = cv.height / (o.scale || 1);
+    return async t => {
+      const time = o.videoAt + t;
+      if (!list.some(x => overlayAt(x, time))) return cv;
+      ctx.clearRect(0, 0, comp.width, comp.height); ctx.drawImage(cv, 0, 0);
+      await drawOverlays(ctx, list, time, W, H);
+      return comp;
+    };
+  }
+
   // Render frames [start, end) with renderAt(frame / fps) and encode them. Timestamps start at 0 for each range.
   async function encodeRange(o) {
     const cv = canvas(), frames = o.end - o.start;
     setStart(o.sceneStart || 0);
     const cfg = encoderConfig(o, cv.width, cv.height, o.mux === 'raw');
     if (!(await VideoEncoder.isConfigSupported(cfg)).supported) throw new Error(`encoder config not supported: ${cfg.codec} ${cfg.hardwareAcceleration} ${cv.width}x${cv.height}`);
-    const sink = await openSink(o);
+    const sink = await openSink(o), over = await overlayLayer(o, cv);
 
     let chain = Promise.resolve(), queued = 0, failure = null, bytes = 0, full = false;
     const enc = new VideoEncoder({
@@ -116,8 +135,9 @@
     for (let i = 0; i < frames && !failure; i++) {
       const r0 = performance.now();
       await window.renderAt((o.start + i) / o.fps);
+      const src = over ? await over((o.start + i) / o.fps) : cv;
       renderMs += performance.now() - r0;
-      const vf = new VideoFrame(cv, { timestamp: Math.round(i * frameUs), duration: Math.round(frameUs) });
+      const vf = new VideoFrame(src, { timestamp: Math.round(i * frameUs), duration: Math.round(frameUs) });
       enc.encode(vf, frameOptions(o, i % o.keyInterval === 0));
       vf.close();
       while (enc.encodeQueueSize > 2 && !failure) await drained(enc);
@@ -187,8 +207,10 @@
 
   async function still(o) {
     setStart(o.sceneStart || 0);
+    const over = await overlayLayer(o, canvas());
     await window.renderAt(o.t);
-    const blob = await new Promise(r => canvas().toBlob(r, o.type, o.quality));
+    const src = over ? await over(o.t) : canvas();
+    const blob = await new Promise(r => src.toBlob(r, o.type, o.quality));
     if (!blob) throw new Error('canvas.toBlob returned nothing');
     // An ArrayBuffer, not the Blob: Chrome frees a Blob only when garbage collection runs, and Blob memory does not
     // count towards the JavaScript heap, so nothing starts one. At 4K (4.6 MB PNGs) the uploads failed with "Failed to
