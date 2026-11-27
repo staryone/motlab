@@ -10,7 +10,7 @@ import { freemem, availableParallelism, tmpdir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { findChrome, launchChrome } from './chrome.js';
 import { finalize, probeVideo, run } from './ffmpeg.js';
-import { findTransition, isTransitionFile, parseTransition, transitionHead, transitionProgress, transitionTail } from './page/transitions.js';
+import { findTransition, isTransitionFile, parseTransition, transitionHead, transitionOverlap, transitionProgress, transitionTail } from './page/transitions.js';
 import { cacheDir } from './probe.js';
 import { renderVideo } from './render.js';
 import { startServer } from './server.js';
@@ -121,30 +121,49 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
     const hash = f => createHash('sha256').update(readFileSync(join(dir, f))).digest('hex');
     const hashes = scenes.map(s => hash(s.file));
     const key = o => createHash('sha256').update(JSON.stringify(o)).digest('hex');
+    // Each scene's SCENE_START: the lengths of the scenes before it, less the frames their transitions overlap, as the
+    // viewer lays them out. A scene's length is known once its page has loaded or its cached part is found, and a scene
+    // waits for the ones before it, which started first.
+    const known = [], learned = new EventTarget();
+    const learn = (i, frames) => { known[i] = frames; learned.dispatchEvent(new Event('frames')); };
+    const framesOf = (i, signal) => known[i] !== undefined ? known[i] : new Promise((ok, no) => {
+      const done = () => { learned.removeEventListener('frames', check); signal.removeEventListener('abort', abort); };
+      const check = () => { if (known[i] !== undefined) { done(); ok(known[i]); } };
+      const abort = () => { done(); no(signal.reason); };
+      learned.addEventListener('frames', check); signal.addEventListener('abort', abort);
+    });
+    const startOf = async (i, signal) => {
+      let frames = 0;
+      for (let j = 0; j < i; j++) frames += await framesOf(j, signal) - transitionOverlap(scenes[j + 1].transition);
+      return frames / p.fps;
+    };
+    const sameStart = async (i, m, signal) => !m.startRead || Math.abs(await startOf(i, signal) - m.sceneStart) < 1e-9;
     // A part is reused only when its cached file still probes as the manifest says, and its encoder and colour range
-    // match the first part, because a stream copy join is only safe when codec, encoder and resolution match.
-    const getPart = async (k, forced, label, log, render) => {
+    // match the first part, because a stream copy join is only safe when codec, encoder and resolution match. A part
+    // whose page read SCENE_START is reused only at the same start, which fits(manifest) checks.
+    const getPart = async (k, forced, label, log, render, fits) => {
       used.add(k);
       let suffix = '';
       if (!forced) {
-        let m = null;
+        let m = null, moved = false;
         try { m = JSON.parse(readFileSync(join(cacheRoot, k + '.json'), 'utf8')); } catch {}
         if (m?.key === k && existsSync(join(cacheRoot, k + '.mp4'))) {
           const v = await probeVideo(join(cacheRoot, k + '.mp4')).catch(() => null);
           if (v && v.frames === m.frames && Math.abs(v.duration - m.duration) <= 0.5 / p.fps && v.width === m.width && v.height === m.height
-              && (!parts[0] || (m.hw === parts[0].hw && m.codec === parts[0].codec && m.fullRange === parts[0].fullRange))) {
+              && (!parts[0] || (m.hw === parts[0].hw && m.codec === parts[0].codec && m.fullRange === parts[0].fullRange)) && !(moved = !await fits(m))) {
             log(`${label} (cached)`);
-            return { out: join(cacheRoot, k + '.mp4'), width: m.width, height: m.height, duration: m.duration, frames: m.frames, pageFrames: m.pageFrames, fullRange: m.fullRange, codec: m.codec, hw: m.hw };
+            return { out: join(cacheRoot, k + '.mp4'), width: m.width, height: m.height, duration: m.duration, frames: m.frames, pageFrames: m.pageFrames, fullRange: m.fullRange, codec: m.codec, hw: m.hw, startRead: m.startRead, sceneStart: m.sceneStart };
           }
         }
-        suffix = ' (no cached part, rendering it)';
+        suffix = moved ? ' (it reads SCENE_START, which moved, so rendering it again)' : ' (no cached part, rendering it)';
       }
       log(label + suffix);
       const summary = await render();
       try {
         mkdirSync(cacheRoot, { recursive: true });
         writeFileSync(join(cacheRoot, k + '.json'), JSON.stringify({ key: k, codec: summary.codec, hw: summary.hw, fullRange: summary.fullRange,
-          width: summary.width, height: summary.height, frames: summary.frames, pageFrames: summary.pageFrames, duration: summary.duration }));
+          width: summary.width, height: summary.height, frames: summary.frames, pageFrames: summary.pageFrames, duration: summary.duration,
+          ...(summary.startRead ? { startRead: true, sceneStart: summary.sceneStart } : {}) }));
       } catch (e) { log(`(could not save the cached part: ${e.message})`); }
       return summary;
     };
@@ -159,7 +178,8 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       if (jobs[j].kind === 'scene') {
         const k = key({ kind: 'scene', file: scene.file, hash: hashes[i], fps: p.fps, scale, qp, codec, version: VERSION, head: transitionHead(into), tail: transitionTail(next) });
         const part = await getPart(k, !only || only.includes(i + 1), `\nScene ${i + 1}/${scenes.length}: ${scene.file}`, log, () => renderPart({ page: join(dir, scene.file), root: dir,
-          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, qp, codec, log, progress, head: transitionHead(into), tail: transitionTail(next), ...same() }, signal));
+          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, qp, codec, log, progress, head: transitionHead(into), tail: transitionTail(next), ...same(),
+          sceneStart: frames => { learn(i, frames); return startOf(i, signal); } }, signal), m => { learn(i, m.pageFrames); return sameStart(i, m, signal); });
         // a stream copy join of parts with different sizes makes an MP4 that changes resolution partway through
         if (parts[0] && (part.width !== parts[0].width || part.height !== parts[0].height))
           throw Object.assign(new Error(`${scene.file} is ${part.width}x${part.height} but ${scenes[0].file} is ${parts[0].width}x${parts[0].height}. All scenes in a project must have the same canvas size`), { final: true });
@@ -168,11 +188,13 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       const from = parts[j - 1];
       const tk = key({ kind: 'transition', from: scene.file, to: scenes[i + 1].file, fromHash: hashes[i], toHash: hashes[i + 1],
         type: next.type, glsl: isTransitionFile(next.type) ? hash(next.type) : undefined, layer: next.layer, layerHash: next.layer ? hash(next.layer) : undefined, n: next.n, ease: next.ease, params: next.params, fps: p.fps, scale, qp, codec, version: VERSION });
+      // gap: how much later the next scene starts than this one, for the two pages' SCENE_START
       const query = new URLSearchParams({ from: scene.file, to: scenes[i + 1].file, offset: (from.pageFrames - transitionTail(next)) / p.fps, frames: next.n,
+        gap: (from.pageFrames - transitionOverlap(next)) / p.fps,
         fps: p.fps, ...(next.layer ? { layer: next.layer } : { type: next.type, ease: next.ease, params: JSON.stringify(next.params) }) });
       return getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.layer ? `layer ${next.layer}` : next.type}, ${next.n} frames`, log,
         () => renderPart({ url: '__motlab/transition.html', query: String(query), root: dir, out: join(cacheRoot, tk + '.mp4'),
-          fps: p.fps, scale, qp, codec, log, progress, ...same() }, signal));
+          fps: p.fps, scale, qp, codec, log, progress, ...same(), sceneStart: () => startOf(i, signal) }, signal), m => sameStart(i, m, signal));
     };
     // Runs the parts that have no result yet, `width` at a time. When one fails the others are stopped, and the parts
     // that finished are kept. A part's log is printed in one piece when it ends, so parallel logs do not interleave.

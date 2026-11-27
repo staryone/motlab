@@ -30,6 +30,15 @@
     } catch (e) { return { renderer: null, vendor: null, error: String(e && e.message) }; }
   }
 
+  // SCENE_START: where t = 0 of this page falls in the whole video, in seconds (0 outside a project). It is set before
+  // the first renderAt, and reading it is noted, so a project render knows which scenes to render again when a scene
+  // before them changes length.
+  let startRead = false;
+  function setStart(start) {
+    startRead = false;
+    Object.defineProperty(window, 'SCENE_START', { get: () => { startRead = true; return start; }, configurable: true });
+  }
+
   function info() {
     const c = canvas();
     return { width: c.width, height: c.height, total: Number(window.TOTAL), events: Array.isArray(window.EVENTS) ? window.EVENTS : [], gpu: gpu() };
@@ -87,6 +96,7 @@
   // Render frames [start, end) with renderAt(frame / fps) and encode them. Timestamps start at 0 for each range.
   async function encodeRange(o) {
     const cv = canvas(), frames = o.end - o.start;
+    setStart(o.sceneStart || 0);
     const cfg = encoderConfig(o, cv.width, cv.height, o.mux === 'raw');
     if (!(await VideoEncoder.isConfigSupported(cfg)).supported) throw new Error(`encoder config not supported: ${cfg.codec} ${cfg.hardwareAcceleration} ${cv.width}x${cv.height}`);
     const sink = await openSink(o);
@@ -120,7 +130,7 @@
     await chain;
     if (failure) throw new Error(`encode failed: ${failure.message || failure}`);
     await sink.finish();
-    return { frames, bytes, ms: performance.now() - t0, renderMs, fullRange: full };
+    return { frames, bytes, ms: performance.now() - t0, renderMs, fullRange: full, startRead };
   }
 
   // ---- encoder probe: how fast is one encoder config at this size, with drawing kept cheap? ----
@@ -176,6 +186,7 @@
   const probeDone = () => { if (scene) { scene.cv.width = scene.cv.height = 0; scene = null; } };
 
   async function still(o) {
+    setStart(o.sceneStart || 0);
     await window.renderAt(o.t);
     const blob = await new Promise(r => canvas().toBlob(r, o.type, o.quality));
     if (!blob) throw new Error('canvas.toBlob returned nothing');

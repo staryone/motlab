@@ -6,10 +6,11 @@
 // Both scene pages are loaded in iframes. Frame k shows frame (offset * fps + k) of `from` and frame k of `to`,
 // mixed by src/page/transitions.js, the same code the viewer uses.
 // Query: from, to (page paths from the served root), offset (seconds into `from`), frames, fps, type (a built-in name or
-// a .glsl path from the served root), ease, params (JSON), scale. With `layer` (a module's path) instead of `type`, the
+// a .glsl path from the served root), ease, params (JSON), scale, gap (how much later `to` starts in the video than
+// `from`, in seconds). With `layer` (a module's path) instead of `type`, the
 // scenes do not overlap: the first frames are the end of `from`, the rest the start of `to`, with the layer drawn on top.
 import { createMixer, layerFrames, layerProgress, loadLayer, loadTransition, transitionProgress } from '/__motlab/transitions.js';
-const q = new URLSearchParams(location.search), fps = +q.get('fps'), n = +q.get('frames'), offset = +q.get('offset');
+const q = new URLSearchParams(location.search), fps = +q.get('fps'), n = +q.get('frames'), offset = +q.get('offset'), gap = +q.get('gap') || 0;
 const type = q.get('type'), easing = q.get('ease') || 'inOutCubic', params = JSON.parse(q.get('params') || '{}'), scale = q.get('scale') || '1';
 const cv = document.getElementById('c'), ctx = cv.getContext('2d');
 const layerPath = q.get('layer'), split = layerFrames(n);
@@ -38,6 +39,9 @@ window.ready = (async () => {
   if (layerPath) layer = await loadLayer('/' + layerPath.split('/').map(encodeURIComponent).join('/'), layerPath);
   else { def = await loadTransition(type, readText); transitionProgress(0, n, easing); }   // a wrong name fails here, before any frame
   [A, B] = await Promise.all([open(q.get('from')), open(q.get('to'))]);
+  // This page's SCENE_START is where `from` starts. The scenes read it through these, so the runtime sees whether they use it.
+  Object.defineProperty(A.w, 'SCENE_START', { get: () => window.SCENE_START, configurable: true });
+  Object.defineProperty(B.w, 'SCENE_START', { get: () => window.SCENE_START + gap, configurable: true });
   cv.width = A.c.width; cv.height = A.c.height;
   if (!layer) { mix = createMixer(); mix.check(def); }
   return true;

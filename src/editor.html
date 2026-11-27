@@ -894,6 +894,7 @@ try {
     if (s.win) { live.push(...live.splice(live.indexOf(s), 1)); return s; }
     return s.loading ??= (async () => {
       Object.assign(s, await openPage(s.file, 60000)); live.push(s); usedBy(s); trim(s);
+      if (s.start !== undefined) s.win.SCENE_START = s.start;   // where the scene starts in the video, as the render gives it
       return s;
     })().finally(() => s.loading = null);
   }
@@ -908,6 +909,8 @@ try {
   })();
   for (const [i, s] of scenes.entries()) {
     $('msg').textContent = L('loadingScene', i + 1, scenes.length);
+    const prev = scenes[i - 1];
+    s.start = prev ? prev.start + prev.dur - transitionOverlap(s.transition) / fps : 0;   // lay() below works it out again
     try {
       await load(s);
       Object.assign(s, { dur: Math.round(s.win.TOTAL * fps) / fps, w: s.canvas.width, h: s.canvas.height, thumbs: [] });
@@ -930,6 +933,7 @@ try {
       const n = transitionHead(s.transition), out = transitionTail(scenes[i + 1]?.transition);   // the renderer's rule: a scene keeps at least one frame of its own
       if (s.state !== 'error' && n + out >= Math.round(s.dur * fps)) bad ??= { s, text: L('tooShort', i + 1, Math.round(s.dur * fps), n, out) };
       s.start = total - transitionOverlap(s.transition) / fps; total = s.start + s.dur;
+      if (s.win) s.win.SCENE_START = s.start;
     }
     return bad;
   }
@@ -1935,6 +1939,7 @@ try {
         const s = queued.values().next().value; queued.delete(s);
         try {
           const page = await openPage(s.file, 20000);
+          page.win.SCENE_START = s.start;   // its own length does not move its start
           const dur = Math.round(page.win.TOTAL * fps) / fps, n = Math.min(12, Math.max(1, Math.round(dur / 2))), thumbs = [];
           for (let k = 0; k < n; k++) thumbs.push(await thumbAt(page, (k + 0.5) / n * dur));
           if (queued.has(s)) { page.frame.remove(); continue; }

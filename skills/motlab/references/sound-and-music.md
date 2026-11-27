@@ -11,8 +11,10 @@ Never type beat times into the mix by hand. Give each scene a `window.EVENTS` li
 drive its animation, for example `[{ name: 'card.open', t: T.cardOpen }, ...]`, and include beats that are computed
 (every step of a sequence, every landing, every word of a headline). Export it with
 `motlab events page.html events.json`. A cue that names `"event": "card.open"` then follows the animation when it is
-re-timed. `EVENTS` times are per scene: for cues across several scenes, add each scene's start time (the `TOTAL`s of
-the scenes before it).
+re-timed. `EVENTS` times are per scene: for cues across several scenes, add each scene's start in the video. That is
+the end of the scene before it, less the length of a shader transition into it (not a layer transition), so not the sum
+of the `TOTAL`s before it when there are transitions. The page itself gets it as `window.SCENE_START`, but only once
+`renderAt` runs, so `EVENTS` cannot use it.
 
 When the animation holds poses (8 or 12 a second), pass the same number as `--quant`: each event moves to the start of
 the pose in which its change is first visible.
@@ -31,6 +33,10 @@ the pose in which its change is first visible.
   line for each. Without a key Openverse allows 20 requests a minute and 200 a day. Most results are Freesound's MP3
   previews, which are fine for UI sounds and whooshes. Ask before downloading, and tell the user which sounds need a
   credit.
+
+On music: with the track's `beats.json` from `beats.py` (see [Timing to music](#timing-to-music)), pass
+`--beats beats.json` and a cue can say `"bar": 5` (the first beat of bar 5, from 1), `"bar": 5, "beat": 3` (its third
+beat) or `"beat": 12` (the twelfth beat of the track). A bed can end on `"to_bar"`.
 
 ### 3. Write the cues
 
@@ -129,6 +135,39 @@ credits, so make one only on request. Without the connection, the user pastes yo
 - Only claims the user can back up; no promised results.
 - Add delivery notes (pace, mood, pauses, which word carries the stress) and offer a second version aimed at another
   audience. When the real take arrives, re-time the scene constants to it.
+
+## Timing to music
+
+When the music is there before the animation, the shots follow it. `scripts/beats.py` measures the track and writes
+its tempo, beats and bars in video time:
+
+```bash
+python3 scripts/beats.py <video>/audio/music.mp3 <video>/audio/beats.json --start 0 --from 0
+```
+
+Give it the same `start`, `from` and `duration` as the track's entry in `project.json`, and run it again when they
+change. It prints the tempo, how many bars there are, where bar 1 is, the bar with the biggest rise (a drop or a
+chorus) and the loudness of each bar. In `beats.json`, `beats` and `bars` are lists of seconds, bar 1 first; beats
+before bar 1 are a pickup.
+
+- The tempo can come out half or double the felt one. If the beats are twice too many or too few, pass `--bpm`.
+- Bar 1 is a guess (the beat with the most kick in its place in the bar), and often wrong. Tell the user which beat
+  bar 1 starts on, ask them to listen, and pass `--downbeat K` when they say it starts elsewhere. `--meter 3` for a
+  waltz.
+- Plan the shots in bars: a cut on the first beat of a bar, the biggest change on `rise`. A scene reads `beats.json`
+  in `ready` and compares `window.SCENE_START + t` with its times (`docs/projects.md`, "Where a scene starts"). Set
+  each scene's `TOTAL` from the plan, as constants: a scene that ends on a bar line has the length of the bars it
+  covers, and the next one starts on it. A scene's length is rounded to whole frames, so a cut lands up to half a
+  frame from its beat.
+- A visible hit goes on the frame on or just before its beat: sound ahead of the picture is noticed sooner (about
+  45 ms) than sound behind it (about 125 ms, ITU-R BT.1359).
+- `mix.py --beats` places effects on bars and beats (above).
+
+Tried on one 32 s hip-hop track (MP3): 103.8 BPM and 56 beats. earshot's own beat tracker also heard 103.8 BPM and 56
+beats, and all 56 of ours fell on its beat grid. On a made-up click track at 120 BPM the beats were within 3 ms of
+the clicks (`test/beats.test.js`), but the 11 ms that every beat is moved later was measured on that same track. The
+guess for bar 1 on the real track agreed with earshot's guess, which is not a check by ear. Not tried: tracks that
+change tempo, swing, or start with a long intro without drums.
 
 ## Music
 

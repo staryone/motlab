@@ -17,6 +17,7 @@ A project is a folder with scene pages, audio files and a `project.json`:
 - A scene can be an object with a `transition` from the scene before it (see [Transitions](#transitions)). A plain path is a hard cut.
 - All scenes must have the same canvas size, and the render stops with an error that names the scene that differs. That size sets the orientation: landscape, portrait and square all work.
 - `start` is seconds from the start of the video, and `volume` is a multiplier (1 leaves it as is).
+- Scene pages learn where they start in the video from `window.SCENE_START` ([Where a scene starts](#where-a-scene-starts)).
 - A mono file plays at the same level on both channels, in the viewer and in the render.
 - An audio entry can also be a video file, whose sound is used. Any entry can take `from` (seconds into the file) and `duration` to use only part of it.
 - Audio that runs past the end of the video is cut.
@@ -55,6 +56,25 @@ The renderer and the viewer serve a few files for scene pages at fixed paths, so
 The skill's `references/motion-and-libraries.md` lists what is in `motion.js` and how GSAP, Anime.js, Lottie and Theatre.js are driven from `renderAt`.
 
 Opened by hand, a template plays on a loop. Inside the viewer (an iframe) or with `?t=`, it draws only when `renderAt` is called. A scene of your own that loops with `requestAnimationFrame` should do the same: in the viewer, a three.js scene that kept its loop running drew 900 frames in 3 seconds while nothing played, against none with the check.
+
+### Where a scene starts
+
+Each scene's `renderAt(t)` gets the time from its own start, but music and an overlay across scenes run in the time of the whole video. The renderer and the viewer set `window.SCENE_START` on each scene page to where its `t = 0` falls in the video, so `SCENE_START + t` is the video time of a frame:
+
+```js
+const beats = await (await fetch('../audio/beats.json')).json();   // in ready
+window.renderAt = async t => {
+  const now = window.SCENE_START + t;   // seconds of the whole video
+  const beat = beats.beats.findLastIndex(b => b <= now);   // the beat that has last landed
+  // ...
+};
+```
+
+A scene starts where the one before it ends, less the frames of the shader transition into it, so it is not the sum of the `TOTAL`s before it: with a 5 s and a 6 s scene and a 0.5 s fade, the second starts at 4.5 s. A layer transition does not overlap the scenes. In a transition, each of the two scenes gets its own start. `SCENE_START` is set before the first `renderAt`, not while the page loads, so a page reads it there, and `TOTAL` must not depend on it: the start of a scene depends on the lengths of the scenes before it.
+
+`SCENE_START` is 0 for a page rendered on its own with `motlab render page.html` and for `motlab stills`. In the viewer it changes when a scene before it changes length, without the page loading again.
+
+A scene's cached part (below) remembers whether its page read `SCENE_START`. When a scene before it changes length, `--only` renders that one again too and prints that its start moved; a scene that never reads it stays cached. `test/render.test.js` renders four scenes at 10 fps, three of which paint the video time they are at as a grey, with a fade between the first two: every frame of the output, the mixed ones too, showed its own frame number, and after the first scene got 0.2 s longer, `--only 1` rendered the two scenes that read `SCENE_START` again and kept the fourth, which does not, from the cache.
 
 ## Rendering a project
 
