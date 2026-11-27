@@ -59,7 +59,7 @@ The name after the project in the header is the version menu. It lists every pro
 | Mark a note done | Mark done in the open note; Reopen opens it again |
 | See the done notes | Done at the end of the Notes list |
 | Delete all done notes | Delete all done notes, under the unfolded done notes, then click it again within 4 s |
-| A bar starts on this beat | `B`, or the bar button in the play toolbar, with the playhead on a beat (projects with `"beats"`) |
+| Count 1 here (a bar starts on this beat) | `B`, or the bar button in the play toolbar ("Hitungan 1 di sini"), with the playhead on a beat (projects with `"beats"`) |
 | Hide the timeline | the last button in the play toolbar |
 | Hide the side panel | the button in the top left |
 | Full screen | the button in the top right of the preview, or `F`; Escape, `F` or the button on the right of the player bar to leave |
