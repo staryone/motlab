@@ -88,6 +88,7 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
   if (codec !== undefined && !['auto', 'h264', 'hevc', 'prores4444'].includes(codec)) throw new Error(`codec must be auto, h264, hevc or prores4444, not ${JSON.stringify(codec)}`);
   const partExt = codec === 'prores4444' ? 'mov' : 'mp4';
   dir = root; out = resolve(out || join(dir, 'out', `${name}.${partExt}`));
+  if (codec === 'prores4444' && !out.toLowerCase().endsWith('.mov')) throw new Error(`--codec prores4444 writes a .mov file, not ${out}`);
   const tmp = mkdtempSync(join(tmpdir(), 'motlab-project-')), partial = out + '.part';
   // Share one static server and a small pool of headless Chrome processes across parts, opening a fresh tab per part
   // instead of cold-starting Chrome for every scene and transition. A Chrome that hits an error or abort is closed, not reused.

@@ -196,16 +196,18 @@ What came out of it:
 
 ## Alpha output
 
-`--codec prores4444` (or `"codec": "prores4444"` in `project.json`, which Export also uses) writes a QuickTime `.mov` with straight alpha (`prores_ks`, profile `4444`, `yuva444p10le`, 16-bit alpha) and 16-bit 48 kHz PCM audio instead of AAC, for transparent overlays in video editors.
+`--codec prores4444` (or `"codec": "prores4444"` in `project.json`, which Export also uses) writes a QuickTime `.mov` with straight alpha (`prores_ks`, profile `4444`, `yuva444p10le`, 16-bit alpha) and 16-bit 48 kHz PCM audio instead of AAC, for transparent video to put over footage in an editor. Output paths must end in `.mov`.
 
-WebCodecs in Chrome does not support `alpha: 'keep'` on `VideoEncoder`, so the page reads straight RGBA bytes from each `VideoFrame` (`copyTo(..., { format: 'RGBA' })`) and streams them straight into `ffmpeg`'s stdin (no raw RGBA temp file is written to disk). Reading frames back from Chrome and encoding ProRes on the CPU is much slower than WebCodecs H.264/HEVC:
+WebCodecs in Chrome does not support `alpha: 'keep'` on `VideoEncoder`, so the page reads straight RGBA bytes from each `VideoFrame` (`copyTo(..., { format: 'RGBA' })`) and streams them straight into `ffmpeg`'s stdin (no raw RGBA temp file is written to disk). Reading frames back from Chrome and encoding ProRes on the CPU is much slower than WebCodecs H.264/HEVC.
 
-Measured on Windows 11 Pro (Intel Core i5-8250U, 16 GB RAM, Intel UHD Graphics 620 with `MOTLAB_GPU=default`, Chrome 158) on `example/` (3 scenes, 9.0 s, 270 frames, 4 audio files):
+Measured on `example/` (3 scenes, 9.0 s, 270 frames, 4 audio files):
 
-| Resolution | ProRes 4444 (`.mov`) | H.264 hardware QP 18 (`.mp4`, same machine) |
+| Machine and resolution | ProRes 4444 (`.mov`) | H.264 hardware QP 18 (`.mp4`, same machine) |
 |---|---|---|
-| 1080p (`--scale 1`) | ~35 s total (Scene 1: 8.7 fps; Scenes 2–3 in parallel: 7.9 & 5.6 fps; ~37 MB) | 11.2 s |
-| 4K (`--scale 2`) | ~124 s total (Scene 1: 2.1 fps; Scenes 2–3 in parallel: 1.3 & 1.1 fps; ~90 MB) | 17.4 s |
+| Test laptop (Ryzen 7 5800H, RTX 3060 Laptop), 1080p | 13 to 14.5 s | 10.5 s |
+| Test laptop (Ryzen 7 5800H, RTX 3060 Laptop), 4K | 44 to 46.5 s | 13 s |
+| Windows 11 Pro (i5-8250U, Intel UHD 620 with `MOTLAB_GPU=default`, Chrome 158), 1080p | ~35 s (Scene 1: 8.7 fps; Scenes 2 and 3 in parallel: 7.9 and 5.6 fps; ~37 MB) | 11.2 s |
+| Windows 11 Pro (i5-8250U, Intel UHD 620 with `MOTLAB_GPU=default`, Chrome 158), 4K | ~124 s (Scene 1: 2.1 fps; Scenes 2 and 3 in parallel: 1.3 and 1.1 fps; ~90 MB) | 17.4 s |
 
 ## Quirks
 

@@ -87,6 +87,7 @@ async function readInfo(page, log) {
 export async function renderVideo(o) {
   const log = o.log || console.log, fps = o.fps ?? 24, scale = o.scale ?? 2, workers = Math.max(1, o.workers ?? 1), started = Date.now();
   const { root, url } = locate(o), out = resolve(o.out), part = out + '.part';   // written here first, renamed when complete
+  if (o.codec === 'prores4444' && !out.toLowerCase().endsWith('.mov')) throw new Error(`--codec prores4444 writes a .mov file, not ${out}`);
   const ownServer = !o.server, server = o.server || await startServer({ root }), tmp = mkdtempSync(join(tmpdir(), 'motlab-render-'));
   let pages = [];
   // o.signal (an AbortSignal) stops the render: closing Chrome (or its tab) rejects whatever the render is waiting on.

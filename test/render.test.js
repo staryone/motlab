@@ -404,7 +404,7 @@ test('project: an overlay is drawn over scenes and a transition at its own times
   await assert.rejects(renderProject({ dir: proj, out: join(dir, 'over3.mp4'), scale: 1, ...quiet }), /overlay 1: "from" must be 0 or more and "to" after it/);
 });
 
-test('prores4444: preserves straight alpha with PCM audio, parallel workers, and project .mov default/cache', async () => {
+test('prores4444: preserves straight alpha with PCM audio, transparent transitions, parallel workers, and project .mov default/cache', async () => {
   const proj = join(dir, 'alpha');
   mkdirSync(proj);
   const alphaPage = `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
@@ -414,10 +414,21 @@ test('prores4444: preserves straight alpha with PCM audio, parallel workers, and
       ctx.fillStyle = 'rgba(48, 226, 168, 0.5)';
       ctx.fillRect(160, 0, 160, 180);
     };</script>`;
+  // Moving square on a transparent canvas so a fade transition catches any uncleared frame trails
+  const movingPage = `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const ctx = document.getElementById('c').getContext('2d'); window.TOTAL = 0.5; window.ready = Promise.resolve(true);
+    window.renderAt = t => {
+      ctx.clearRect(0, 0, 320, 180);
+      ctx.fillStyle = 'rgba(245, 208, 78, 1)';
+      ctx.fillRect(Math.round(t * 480), 40, 40, 100);
+    };</script>`;
   writeFileSync(join(proj, 'a.html'), alphaPage);
-  writeFileSync(join(proj, 'b.html'), alphaPage);
+  writeFileSync(join(proj, 'b.html'), movingPage);
   const wav = join(proj, 'tone.wav');
   spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', wav]);
+
+  // Non-.mov output paths are refused
+  await assert.rejects(renderVideo({ page: join(proj, 'a.html'), out: join(dir, 'wrong.mp4'), fps: 30, scale: 1, codec: 'prores4444', ...quiet }), /\.mov/);
 
   // Single page with 2 workers and PCM audio
   const mov = join(dir, 'alpha-workers.mov');
@@ -434,19 +445,27 @@ test('prores4444: preserves straight alpha with PCM audio, parallel workers, and
   assert.equal(a.codec_name, 'pcm_s16le');
   assert.ok(Math.abs(Number(a.duration) - 0.5) < 0.05, `audio duration ${a.duration}`);
 
-  const meanRgba = (file, crop) => [...spawnSync('ffmpeg', ['-v', 'error', '-i', file, '-vf', `select=eq(n\\,0),crop=${crop},scale=1:1:flags=area,format=rgba`, '-frames:v', '1', '-f', 'rawvideo', '-']).stdout.subarray(0, 4)];
+  const meanRgba = (file, crop, frame = 0) => [...spawnSync('ffmpeg', ['-v', 'error', '-i', file, '-vf', `select=eq(n\\,${frame}),crop=${crop},scale=1:1:flags=area,format=rgba`, '-frames:v', '1', '-f', 'rawvideo', '-']).stdout.subarray(0, 4)];
   const left = meanRgba(mov, '100:100:20:40'), right = meanRgba(mov, '100:100:200:40');
   assert.deepEqual(left, [0, 0, 0, 0], `transparent half decoded as ${left}`);
   assert.ok(right.every((val, i) => Math.abs(val - [48, 226, 168, 128][i]) <= 3), `semi-transparent half decoded as ${right}`);
 
-  // Project with codec: prores4444 defaults to out/<name>.mov and reuses cached .mov parts
-  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, codec: 'prores4444', scenes: ['a.html', 'b.html'], audio: [{ file: 'tone.wav', start: 0 }] }));
+  // Project with codec: prores4444 and a fade transition defaults to out/<name>.mov, leaves no trails, and reuses cached .mov parts
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({
+    fps: 30, codec: 'prores4444',
+    scenes: ['a.html', { file: 'b.html', transition: { type: 'fade', duration: 0.2, ease: 'linear' } }],
+    audio: [{ file: 'tone.wav', start: 0 }],
+  }));
+  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'wrong-proj.mp4'), scale: 1, ...quiet }), /\.mov/);
   await renderProject({ dir: proj, scale: 1, ...quiet });
   const projOut = join(proj, 'out', 'alpha.mov');
   assert.ok(existsSync(projOut), 'default output should be .mov for prores4444');
   const pv = await probeVideo(projOut);
-  assert.equal(pv.frames, 30);
+  assert.equal(pv.frames, 24);   // 15 + 15 - 6 frame fade
   assert.match(pv.pix_fmt, /^yuva444p(10|12)le$/);
+  // Frame 14 is the last frame of the 6-frame fade (k=5, b's square is at x=80..120; x=0..30 must be fully transparent, no trail from k=0)
+  const trailSpot = meanRgba(projOut, '24:60:4:60', 14);
+  assert.deepEqual(trailSpot, [0, 0, 0, 0], `fade left a trail at x=4..28: ${trailSpot}`);
   const logs = [];
   await renderProject({ dir: proj, scale: 1, only: [2], log: m => logs.push(m) });
   assert.ok(logs.some(l => l.includes('Scene 1/2: a.html (cached)')), logs.join('\n'));
