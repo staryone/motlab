@@ -166,7 +166,7 @@ before bar 1 are a pickup.
 Tried on one 32 s hip-hop track (MP3): 103.8 BPM and 56 beats. earshot's own beat tracker also heard 103.8 BPM and 56
 beats, and all 56 of ours fell on its beat grid. On a made-up click track at 120 BPM the beats were within 3 ms of
 the clicks (`test/beats.test.js`), but the 11 ms that every beat is moved later was measured on that same track. The
-guess for bar 1 on the real track agreed with earshot's guess, which is not a check by ear. Not tried: tracks that
+guess for bar 1 on the real track was right by ear, with a tick mixed in on every bar. Not tried: tracks that
 change tempo, swing, or start with a long intro without drums.
 
 ## Music
