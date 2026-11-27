@@ -220,5 +220,26 @@
     return size;
   }
 
-  window.__motlab = { info, gpu, encodeRange, probeEncoder, probeDone, still };
+  // Read straight RGBA frames from the canvas and stream them to Node for ffmpeg ProRes 4444 (alpha) encoding.
+  async function captureRange(o) {
+    const cv = canvas(), frames = o.end - o.start;
+    setStart(o.sceneStart || 0);
+    const over = await overlayLayer(o, cv);
+    const buf = new Uint8Array(cv.width * cv.height * 4);
+    const t0 = performance.now(); let renderMs = 0, lastEmit = t0;
+    for (let i = 0; i < frames; i++) {
+      const r0 = performance.now();
+      await window.renderAt((o.start + i) / o.fps);
+      const src = over ? await over((o.start + i) / o.fps) : cv;
+      renderMs += performance.now() - r0;
+      const vf = new VideoFrame(src, { timestamp: 0 });
+      try { await vf.copyTo(buf, { format: 'RGBA' }); } finally { vf.close(); }
+      await post(`${o.base}/append?id=${o.sink}`, buf);
+      const now = performance.now();
+      if (now - lastEmit > 250 || i === frames - 1) { lastEmit = now; emit('progress', { done: i + 1 }); }
+    }
+    return { frames, bytes: buf.byteLength * frames, ms: performance.now() - t0, renderMs, fullRange: false, startRead };
+  }
+
+  window.__motlab = { info, gpu, encodeRange, captureRange, probeEncoder, probeDone, still };
 })();

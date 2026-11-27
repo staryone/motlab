@@ -328,7 +328,7 @@ test('project: qp from project.json reaches the encoder, a wrong one is refused,
     window.renderAt = t => { c.fillStyle = '#123'; c.fillRect(0, 0, 320, 180); c.fillStyle = '#fc6'; c.fillRect(20 + t * 200, 40, 80, 80); };</script>`);
   writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes: ['a.html'], qp: 60 }));
   await assert.rejects(renderProject({ dir: proj, out: join(dir, 'qp0.mp4'), scale: 1, ...quiet }), /qp must be a whole number from 0 to 51, not 60/);
-  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'qp0.mp4'), scale: 1, qp: 20, codec: 'av1', ...quiet }), /codec must be auto, h264 or hevc/);
+  await assert.rejects(renderProject({ dir: proj, out: join(dir, 'qp0.mp4'), scale: 1, qp: 20, codec: 'av1', ...quiet }), /codec must be auto, h264, hevc or prores4444/);
   writeFileSync(join(proj, 'b.html'), readFileSync(join(proj, 'a.html'), 'utf8'));
   writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, scenes: ['a.html', 'b.html'], qp: 30 }));
   const logs = [];
@@ -402,4 +402,52 @@ test('project: an overlay is drawn over scenes and a transition at its own times
   await assert.rejects(renderProject({ dir: proj, out: join(dir, 'over3.mp4'), scale: 1, ...quiet }), /the overlay file nope.js does not exist/);
   writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 10, scenes: ['a.html'], overlays: [{ layer: 'ov.js', from: 2, to: 1 }] }));
   await assert.rejects(renderProject({ dir: proj, out: join(dir, 'over3.mp4'), scale: 1, ...quiet }), /overlay 1: "from" must be 0 or more and "to" after it/);
+});
+
+test('prores4444: preserves straight alpha with PCM audio, parallel workers, and project .mov default/cache', async () => {
+  const proj = join(dir, 'alpha');
+  mkdirSync(proj);
+  const alphaPage = `<!doctype html><canvas id="c" width="320" height="180"></canvas><script>
+    const ctx = document.getElementById('c').getContext('2d'); window.TOTAL = 0.5; window.ready = Promise.resolve(true);
+    window.renderAt = () => {
+      ctx.clearRect(0, 0, 320, 180);
+      ctx.fillStyle = 'rgba(48, 226, 168, 0.5)';
+      ctx.fillRect(160, 0, 160, 180);
+    };</script>`;
+  writeFileSync(join(proj, 'a.html'), alphaPage);
+  writeFileSync(join(proj, 'b.html'), alphaPage);
+  const wav = join(proj, 'tone.wav');
+  spawnSync('ffmpeg', ['-v', 'error', '-y', '-f', 'lavfi', '-i', 'sine=frequency=440:duration=3', wav]);
+
+  // Single page with 2 workers and PCM audio
+  const mov = join(dir, 'alpha-workers.mov');
+  const s = await renderVideo({ page: join(proj, 'a.html'), out: mov, fps: 30, scale: 1, codec: 'prores4444', workers: 2, audio: wav, ...quiet });
+  assert.equal(s.codec, 'prores4444');
+  assert.equal(s.workers, 2);
+  const v = await probeVideo(mov);
+  assert.equal(v.codec_name, 'prores');
+  assert.equal(v.profile, '4444');
+  assert.match(v.pix_fmt, /^yuva444p(10|12)le$/);
+  assert.equal(v.frames, 15);
+  assert.deepEqual([v.color_range, v.color_space, v.color_transfer, v.color_primaries], ['tv', 'bt709', 'bt709', 'bt709']);
+  const a = JSON.parse(spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_name,duration', '-of', 'json', mov], { encoding: 'utf8' }).stdout).streams[0];
+  assert.equal(a.codec_name, 'pcm_s16le');
+  assert.ok(Math.abs(Number(a.duration) - 0.5) < 0.05, `audio duration ${a.duration}`);
+
+  const meanRgba = (file, crop) => [...spawnSync('ffmpeg', ['-v', 'error', '-i', file, '-vf', `select=eq(n\\,0),crop=${crop},scale=1:1:flags=area,format=rgba`, '-frames:v', '1', '-f', 'rawvideo', '-']).stdout.subarray(0, 4)];
+  const left = meanRgba(mov, '100:100:20:40'), right = meanRgba(mov, '100:100:200:40');
+  assert.deepEqual(left, [0, 0, 0, 0], `transparent half decoded as ${left}`);
+  assert.ok(right.every((val, i) => Math.abs(val - [48, 226, 168, 128][i]) <= 3), `semi-transparent half decoded as ${right}`);
+
+  // Project with codec: prores4444 defaults to out/<name>.mov and reuses cached .mov parts
+  writeFileSync(join(proj, 'project.json'), JSON.stringify({ fps: 30, codec: 'prores4444', scenes: ['a.html', 'b.html'], audio: [{ file: 'tone.wav', start: 0 }] }));
+  await renderProject({ dir: proj, scale: 1, ...quiet });
+  const projOut = join(proj, 'out', 'alpha.mov');
+  assert.ok(existsSync(projOut), 'default output should be .mov for prores4444');
+  const pv = await probeVideo(projOut);
+  assert.equal(pv.frames, 30);
+  assert.match(pv.pix_fmt, /^yuva444p(10|12)le$/);
+  const logs = [];
+  await renderProject({ dir: proj, scale: 1, only: [2], log: m => logs.push(m) });
+  assert.ok(logs.some(l => l.includes('Scene 1/2: a.html (cached)')), logs.join('\n'));
 });

@@ -275,7 +275,7 @@ These are about direction: what each kind of video has to get across. Its look i
 - **Long videos.** A 10-minute test render at 4K took about 19 minutes on the test laptop and made a 3.2 GB file, and
   a real 2-minute video has been exported at 4K. Suggest a 1080p export first for a long video, and say how long 4K will take.
 
-Transparent (alpha) output is not available yet.
+- **Transparent overlays (alpha).** Set `"codec": "prores4444"` in `project.json` (or pass `--codec prores4444` to `motlab render` / `motlab video`) to render a ProRes 4444 `.mov` with alpha and 16-bit PCM audio. Leave the canvas background transparent (`clearRect` without an opaque fill). Reading RGBA frames back from Chrome is slower than WebCodecs H.264/HEVC, so mention that for long or 4K renders.
 
 ## Keep it above board
 

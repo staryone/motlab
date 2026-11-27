@@ -194,6 +194,19 @@ What came out of it:
 - A second pass with ffmpeg was not worth it. `hevc_nvenc` was no smaller than raising the QP at the same SSIM. x264 (`-preset slow -crf 20 -tune animation`), measured on the templates only, came out about as large as QP 22 with a lower VMAF. SVT-AV1 was smaller only at a lower SSIM, and adds about one second for every second of 4K video.
 - A keyframe every 10 s instead of every 2 s saved 1 to 5%, and a QP for P-frames 2 above the keyframes' saved what raising the QP by 2 saves, at the same loss. Neither was worth a change.
 
+## Alpha output
+
+`--codec prores4444` (or `"codec": "prores4444"` in `project.json`, which Export also uses) writes a QuickTime `.mov` with straight alpha (`prores_ks`, profile `4444`, `yuva444p10le`, 16-bit alpha) and 16-bit 48 kHz PCM audio instead of AAC, for transparent overlays in video editors.
+
+WebCodecs in Chrome does not support `alpha: 'keep'` on `VideoEncoder`, so the page reads straight RGBA bytes from each `VideoFrame` (`copyTo(..., { format: 'RGBA' })`) and streams them straight into `ffmpeg`'s stdin (no raw RGBA temp file is written to disk). Reading frames back from Chrome and encoding ProRes on the CPU is much slower than WebCodecs H.264/HEVC:
+
+Measured on Windows 11 Pro (Intel Core i5-8250U, 16 GB RAM, Intel UHD Graphics 620 with `MOTLAB_GPU=default`, Chrome 158) on `example/` (3 scenes, 9.0 s, 270 frames, 4 audio files):
+
+| Resolution | ProRes 4444 (`.mov`) | H.264 hardware QP 18 (`.mp4`, same machine) |
+|---|---|---|
+| 1080p (`--scale 1`) | ~35 s total (Scene 1: 8.7 fps; Scenes 2–3 in parallel: 7.9 & 5.6 fps; ~37 MB) | 11.2 s |
+| 4K (`--scale 2`) | ~124 s total (Scene 1: 2.1 fps; Scenes 2–3 in parallel: 1.3 & 1.1 fps; ~90 MB) | 17.4 s |
+
 ## Quirks
 
 - Headless Chrome uses the integrated Radeon GPU by default. `--force_high_performance_gpu` moves it to the RTX 3060. Check with `WEBGL_debug_renderer_info`.

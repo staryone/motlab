@@ -233,7 +233,7 @@ Footage is decoded inside the page with Mediabunny, so a scene can cut and trim 
 
 ## Status
 
-motlab is young and has been built and measured on one Windows laptop with an RTX 3060. The skill has made two real videos from start to finish, a 2-minute demo of motlab in 10 scenes and a 19-second ad in 7, both rendered at 4K, and the viewer has been tried with a 45-scene project. Alpha output is not built. The Blender path has rendered a whole test sequence on Blender 5.2, played by a scene page into an MP4, and the asset skill has baked, exported and re-imported test assets, a Rigify rig among them. The [roadmap](ROADMAP.md) lists what is open.
+motlab is young and has been built and measured on one Windows laptop with an RTX 3060. The skill has made two real videos from start to finish, a 2-minute demo of motlab in 10 scenes and a 19-second ad in 7, both rendered at 4K, and the viewer has been tried with a 45-scene project. Alpha output (`--codec prores4444`, `.mov` with PCM audio) is supported for transparent overlays. The Blender path has rendered a whole test sequence on Blender 5.2, played by a scene page into an MP4, and the asset skill has baked, exported and re-imported test assets, a Rigify rig among them. The [roadmap](ROADMAP.md) lists what is open.
 
 ## Contributing
 
