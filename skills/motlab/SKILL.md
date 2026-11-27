@@ -207,7 +207,8 @@ promo/
   `{ type, from, frame, frames }` and the note is about the transition (`from` is the scene it comes from); `scene` is
   the one it leads into, and stills of either page alone will not show the mix: `motlab stills <video> <dir> <time>`
   does. Inside a layer over the cut it is `{ layer, from, frame, frames }`, and `scene` is the one on screen under
-  the layer. `overlays`, when there are any at that time, lists them as `{ n, layer }`: a note on a lower third or a
+  the layer. With `"beats"` in the project file, `music` is `{ beat, bar, inBar }` there: "on bar 5" means that bar.
+  `overlays`, when there are any at that time, lists them as `{ n, layer }`: a note on a lower third or a
   logo may be about the overlay, not the scene.
 - `range` is `{ start, end, scenes }` when the user marked a stretch of time on the timeline (the range button or `R`, Shift+drag, `X` for a scene, or `I` and
   `O`): video seconds on the frame grid and the scene numbers it covers. A note like "ini terlalu lambat" with a range

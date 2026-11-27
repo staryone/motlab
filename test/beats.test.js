@@ -83,3 +83,19 @@ mix.Timeline({}, 0, json.load(open(sys.argv[2]))).cue_time({'bar': 9})
 `, mix, join(dir, 'beats.json')], { encoding: 'utf8' });
   assert.match(outside.stderr, /bar 9 beat 1 is beat 34, outside the 32 beats of the music/);
 });
+
+test('beats: bar 1 set in the viewer is kept when beats.py runs again, and --downbeat overrides it', async () => {
+  const { setDownbeat } = await import('../src/editor.js');
+  run('--start', '2', '--from', '0.25');
+  const before = JSON.parse(readFileSync(join(dir, 'beats.json'), 'utf8'));
+  const out = setDownbeat(join(dir, 'beats.json'), 7);   // beat 7 starts a bar, so bar 1 starts on beat 3
+  assert.equal(out.downbeat, 3); assert.equal(out.downbeatBy, 'viewer'); assert.equal(out.levels, undefined);
+  assert.deepEqual(out.bars, before.beats.filter((_, i) => i >= 2 && (i - 2) % 4 === 0));
+  assert.ok(out.bars.includes(out.rise));
+  assert.throws(() => setDownbeat(join(dir, 'beats.json'), 99), /beat must be from 1 to 32/);
+  const again = run('--start', '2', '--from', '0.25');
+  assert.equal(again.out.downbeat, 3); assert.match(again.log, /set in the viewer, kept/);
+  assert.equal(run('--start', '2', '--from', '0.25', '--downbeat', '1').out.downbeat, 1);
+  setDownbeat(join(dir, 'beats.json'), 7);
+  assert.equal(run('--start', '3').out.downbeat, 1);   // another place in the video: the old choice no longer holds
+});

@@ -59,6 +59,7 @@ The name after the project in the header is the version menu. It lists every pro
 | Mark a note done | Mark done in the open note; Reopen opens it again |
 | See the done notes | Done at the end of the Notes list |
 | Delete all done notes | Delete all done notes, under the unfolded done notes, then click it again within 4 s |
+| A bar starts on this beat | `B`, or the bar button in the play toolbar, with the playhead on a beat (projects with `"beats"`) |
 | Hide the timeline | the last button in the play toolbar |
 | Hide the side panel | the button in the top left |
 | Full screen | the button in the top right of the preview, or `F`; Escape, `F` or the button on the right of the player bar to leave |
@@ -68,6 +69,12 @@ Every button in the toolbars has a tooltip with its shortcut, and resting the po
 A project with overlays has a thin row for each under the scenes, from where it starts to where it ends, with its file name. The timeline zooms up to 24 px per frame, and close in the ruler gets a tick per frame. While it plays zoomed in, the view follows the playhead. Hiding the timeline gives the preview the whole canvas, up to the side panel, or the full width with the panel closed. The browser remembers that choice and the last export resolution.
 
 Over the preview the cursor is a +. It is dark over light parts of the frame and white over dark ones.
+
+## Beats on the timeline
+
+With `"beats": "audio/beats.json"` in the project file (the motlab skill's `beats.py` writes that file), the foot of the ruler has a short tick on every beat of the music and a taller one on the first beat of each bar, with the bar's number when there is room. Bar 1 is the script's guess. To move it, put the playhead on the beat where a bar starts and press `B` or the bar button in the play toolbar: the nearest beat within half a beat starts a bar, the viewer rewrites `downbeat`, `bars` and `rise` in `beats.json` (and drops `levels`, measured on the old bars), and the scenes that read it load again. `beats.py` keeps that choice when it runs again for the same track and the same `start` and `from`, unless it is given `--downbeat`. It is the one file the viewer writes that scenes read.
+
+Checked in the desktop app's browser (Windows) on a 32 s track at 103.8 BPM: the ticks and bar numbers, `B` on the second beat moving bar 1 there, the three scenes that read the file loading again, and `beats.py` keeping it. `test/beats.test.js` checks the rewrite and that `beats.py` keeps it, and drops it for another place in the video. At 360 px wide the play toolbar with the bar button still fits. Not checked: a long track zoomed out, and pressing the button on a real phone.
 
 ## selection.json
 
@@ -108,6 +115,7 @@ Every click on a scene, an audio clip or a point on the timeline is saved to `se
 | `frame` | the frame of that scene the preview shows; `frame / fps` is its time on the render's frame grid |
 | `transition` | inside a transition: `{ type, from, frame, frames }`, the scene number it comes from and its frame `frame` of `frames`; else `null`. `scene` is then the scene it leads into. Inside a layer over a cut it is `{ layer, from, frame, frames }`, and `scene` is the one under the layer |
 | `audio` | `{ file, start, index }` when the click was on an audio clip, else `null` |
+| `music` | with `"beats"` in the project file: `{ beat, bar, inBar }`, the beat that has last landed (from 1), its bar (0 before bar 1) and its place in the bar |
 | `overlays` | the [overlays](projects.md#overlays) showing there, as `{ n, layer }` with `n` their place in `overlays` from 1; left out when none |
 | `range` | `{ start, end, scenes }` when a range is marked, else `null`: seconds from the start of the video, on the frame grid, and the scene numbers it covers |
 | `marks` | the notes, see below |
