@@ -57,13 +57,14 @@ When the page throws while loading, the error names the file, line and column, f
 | `--chrome` | Path to Chrome. Default: found automatically, or the `CHROME` environment variable |
 | `--format` | `png` or `jpg`, for `stills` |
 
-`--gpu` is accepted and ignored, so older commands that pass it keep working. Chrome always runs with `--enable-gpu --force_high_performance_gpu --enable-unsafe-swiftshader`; the last lets WebGL fall back to software where there is no GPU. When motlab runs as root, as in a container or on a VPS logged in as root, Chrome also gets `--no-sandbox`, because Chrome refuses to start as root without it; motlab only opens the user's own pages.
+`--gpu` is accepted and ignored, so older commands that pass it keep working. Chrome runs with `--enable-gpu --force_high_performance_gpu --enable-unsafe-swiftshader` (set `MOTLAB_GPU=default` to leave out `--force_high_performance_gpu` and stay on the default/integrated GPU); the last lets WebGL fall back to software where there is no GPU. When motlab runs as root, as in a container or on a VPS logged in as root, Chrome also gets `--no-sandbox`, because Chrome refuses to start as root without it; motlab only opens the user's own pages.
 
 ## Environment
 
 | Variable | Meaning |
 |---|---|
 | `CHROME` | Path to Chrome or Chromium |
+| `MOTLAB_GPU` | Set to `default` to leave out `--force_high_performance_gpu` so headless Chrome uses its default (integrated) GPU — useful on dual-GPU laptops whose discrete GPU has no hardware video encoder |
 | `MOTLAB_VIEWER_PASSWORD` | The viewer's password with `motlab start --domain` or `motlab restart` on a domain, at least 12 characters. See [On a VPS with a domain](viewer.md#on-a-vps-with-a-domain) |
 | `MOTLAB_CACHE_DIR` | Where the encoder timings and the cached scene parts are saved. Default `%LOCALAPPDATA%\motlab` on Windows, `~/.cache/motlab` elsewhere |
 

@@ -6,11 +6,22 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
-import { SANDBOX_FLAGS, playwrightChrome } from '../src/chrome.js';
+import { GPU_FLAGS, SANDBOX_FLAGS, gpuFlags, playwrightChrome } from '../src/chrome.js';
 
 test('--no-sandbox is passed exactly when running as root', () => {
   const root = typeof process.getuid === 'function' && process.getuid() === 0;
   assert.deepEqual(SANDBOX_FLAGS, root ? ['--no-sandbox'] : []);
+});
+
+test('MOTLAB_GPU=default leaves out --force_high_performance_gpu and keeps the other GPU flags', () => {
+  assert.deepEqual(gpuFlags({}), GPU_FLAGS);
+  assert.ok(gpuFlags({}).includes('--force_high_performance_gpu'));
+  for (const value of ['default', 'DEFAULT']) {
+    const flags = gpuFlags({ MOTLAB_GPU: value });
+    assert.ok(!flags.includes('--force_high_performance_gpu'));
+    assert.ok(flags.includes('--enable-gpu'));
+    assert.ok(flags.includes('--enable-unsafe-swiftshader'));
+  }
 });
 
 test("Playwright's newest Chromium is found, by revision number, and only where its executable is", () => {
