@@ -157,19 +157,21 @@ Each version has its own notes. The numbers run across all versions of the folde
 
 ## History
 
-The clock button next to Export opens the project's history: checkpoints of the project folder, newest first. One is kept before and after each round of the agent's work (`motlab working` and `motlab working --done` keep them), one when someone types a name in the menu and presses Keep, and one before every restore. A round that changed nothing adds none. Each row says what it is ("Before the agent worked (notes 3, 5): …", or its name), when, and which files changed in it, and has three kinds of buttons:
+The clock button next to Export opens the project's history: checkpoints of the project folder, newest first. One is kept before and after each round of the agent's work (`motlab working` and `motlab working --done` keep them), one when someone types a name under "Keep how it is now", and one before every restore. A round that changed nothing adds none. Each row is one line saying what it was ("Before the agent worked on notes 3, 5", "After the agent worked", or its name) and its time under it.
 
-- Compare opens that checkpoint's own preview at the left of this one, read only, with a bar at the top that says which is which. It follows the playhead: play, scrub or step, and both show the same time of the video. × closes it.
-- Restore all puts every file of the project back as it was then. A file that did not exist then is deleted.
-- "<scene> only" puts back one scene page, for each scene that differs from now.
+A click on a row puts that checkpoint next to how it is now: its own preview at the left, read only, under its time, and this one at the right under "Now". Both follow the playhead, so play, scrub or step and they show the same moment of the video. Then:
 
-Before a restore the files as they are now are kept as a checkpoint (or the last checkpoint already holds them), so a restore can be undone from the same menu. A row that is the same as now says so and has no restore. The page and the scenes load again by themselves, as after any save.
+- Restore all, over the old one, puts every file of the project back as it was then. A file that did not exist then is deleted. When the checkpoint is the same as now it says so instead.
+- "Restore scene 2 only" appears there too when the scene on screen differs and something else differs as well, and puts back only that scene's page.
+- Close, over now, or Escape, goes back to one preview.
+
+Before a restore the files as they are now are kept as a checkpoint (or the last checkpoint already holds them), so a restore can be undone from the same menu. The page and the scenes load again by themselves, as after any save.
 
 `motlab history <project>` lists the same checkpoints for the agent, `motlab history <project> save <name>` keeps one, and `motlab history <project> restore <id> [--file scenes/02.html]` restores, printing the checkpoint that undoes it.
 
 The history is in `.motlab/history/` in the project folder, which the file watcher, the project menu and the history itself leave out. Every file is stored once by its hash, so a checkpoint that changes one scene adds one small file; renders in `out/`, `backup/`, `selection.json` and `selection/` are not kept. A file is hashed again only when its size or time changed. The last 50 unnamed checkpoints stay, with every named one, and stored files no checkpoint holds any more are deleted. Footage that was replaced stays in the history until its checkpoints are pruned, so a project with large clips can grow: the folder is safe to delete, which ends the history. Versions are not points in time: `project-tiktok.json` is a file like any other, kept and restored with the rest.
 
-Checked in the desktop app's browser (Windows) with a copy of `example/`: the menu with a named checkpoint and one after a changed title, Compare showing the old and the new title side by side at the same time, and "01-judul only" putting the old title back, with scene 1 loading again. At 375 px wide the two previews stack, the checkpoint above. `test/history.test.js` checks what is kept and left out, skipping a round with no change, restoring all or one file, the way back, pruning, the commands and the viewer's routes. Not tried: a project with large footage, a real phone, and two viewer pages restoring at once.
+Checked in the desktop app's browser (Windows) with a copy of `example/`: the menu with a named checkpoint and one after a changed title, Compare showing the old and the new title side by side at the same time, and "01-judul only" putting the old title back, with scene 1 loading again. At 375 px wide the two previews stack, the checkpoint above, each under its caption. `test/history.test.js` checks what is kept and left out, skipping a round with no change, restoring all or one file, the way back, pruning, the commands and the viewer's routes. Not tried: a project with large footage, a real phone, and two viewer pages restoring at once.
 
 ## Live updates
 
