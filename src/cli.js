@@ -3,6 +3,7 @@ import { basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { depthMaps } from './depth.js';
+import { matteClip } from './matte.js';
 import { doctor } from './doctor.js';
 import { describe, historyOn, listCheckpoints, restoreCheckpoint, saveCheckpoint, setHistoryOn } from './history.js';
 import { startEditor } from './editor.js';
@@ -40,6 +41,12 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
                                                      <name>.depth.png next to it, for depth_layers.py. The model
                                                      (Depth Anything V2 Small, about 70 MB) is downloaded on the first
                                                      run. --cpu runs it without the GPU
+  motlab matte  <clip> --click x,y [--click x,y] [--exclude x,y] [--box x1,y1,x2,y2] [--points name] [--not name]
+                [--at seconds] [--range from,to] [--name matte] [--cpu]
+                                                     which pixels are an object in every frame of a clip, from clicks on
+                                                     it at --at, as <clip>.<name>.matte.webm next to it and an entry in
+                                                     <clip>.track.json, for drawing animation behind it. The model
+                                                     (SAM 2.1 tiny, about 80 MB) is downloaded on the first run
   motlab help                                        this list (also motlab --help or -h)
   motlab version                                     the installed version (also motlab --version or -v)
   motlab doctor                                      check Node, Chrome, ffmpeg, the skill's Python packages and earshot
@@ -103,7 +110,7 @@ export async function main(argv) {
     fps: { type: 'string' }, scale: { type: 'string' }, audio: { type: 'string' }, encoder: { type: 'string' }, codec: { type: 'string' },
     workers: { type: 'string' }, bitrate: { type: 'string' }, qp: { type: 'string' }, mux: { type: 'string' }, root: { type: 'string' }, chrome: { type: 'string' },
     only: { type: 'string' }, domain: { type: 'string' }, parallel: { type: 'string' }, note: { type: 'string' }, scene: { type: 'string' }, done: { type: 'boolean' },
-    format: { type: 'string' }, file: { type: 'string' }, reprobe: { type: 'boolean' }, cpu: { type: 'boolean' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
+    format: { type: 'string' }, file: { type: 'string' }, reprobe: { type: 'boolean' }, cpu: { type: 'boolean' }, at: { type: 'string' }, click: { type: 'string', multiple: true }, exclude: { type: 'string', multiple: true }, box: { type: 'string' }, points: { type: 'string' }, not: { type: 'string' }, name: { type: 'string' }, range: { type: 'string' }, 'dry-run': { type: 'boolean' }, yes: { type: 'boolean', short: 'y' }, foreground: { type: 'boolean' }, gpu: { type: 'boolean' }, help: { type: 'boolean', short: 'h' },
     version: { type: 'boolean', short: 'v' },
   } });
   const [mode, page, out, ...rest] = positionals;
@@ -157,13 +164,22 @@ export async function main(argv) {
     console.log(`Depth Anything V2 Small on ${r.device === 'webgpu' ? 'the GPU (WebGPU)' : 'the CPU'}, ${r.dtype}.`);
     return 0;
   }
+  if (mode === 'matte') {
+    if (!page) throw new Error('matte needs a video file');
+    const xy = (flag, s, n = 2) => { const v = String(s).split(',').map(Number); if (v.length !== n || v.some(x => !Number.isFinite(x))) throw new Error(`--${flag} takes ${n} numbers separated by commas, got "${s}"`); return v; };
+    const r = await matteClip(page, { at: num('at', v.at, { min: 0 }) ?? 0, clicks: (v.click || []).map(s => xy('click', s)), exclude: (v.exclude || []).map(s => xy('exclude', s)),
+      box: v.box && xy('box', v.box, 4), points: v.points, not: v.not, range: v.range && xy('range', v.range), name: v.name, chromePath: v.chrome, cpu: v.cpu, log: m => console.log(m) });
+    console.log(`${r.file}  ${r.frames} frames in ${r.seconds.toFixed(1)} s${r.weak ? `, ${r.weak} weak or empty` : ''}`);
+    console.log(`SAM 2.1 tiny on ${r.device === 'webgpu' ? 'the GPU (WebGPU)' : 'the CPU'}, ${r.dtype}. Its entry is in ${r.track}.`);
+    return 0;
+  }
   if (mode === 'render') {
     if (!page) throw new Error('render needs a project folder or project file');
     await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only), parallel: num('parallel', v.parallel, { min: 1, int: true }),
       qp: num('qp', v.qp, { min: 0, int: true }), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc', 'prores4444']) });
     return 0;
   }
-  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, working, history, stills, video, events, depth, doctor, setup, update, uninstall, help or version)`);
+  if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, working, history, stills, video, events, depth, matte, doctor, setup, update, uninstall, help or version)`);
   if (!page || !out) throw new Error(`${mode} needs a page and an output path`);
   const common = { page, root: v.root, chrome: v.chrome };
 

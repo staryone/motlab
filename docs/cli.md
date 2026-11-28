@@ -12,6 +12,7 @@ motlab stills <project> <outDir> <t1> <t2> ...    frames of the whole video at t
 motlab video  <page.html> <out.mp4> [options]     one page as an MP4
 motlab events <page.html> <out.json>              the page's EVENTS, for syncing sound
 motlab depth  <image> [<image> ...] [--cpu]       a depth map of each photo or frame, for parallax layers
+motlab matte  <clip> --click x,y [...]            which pixels are one object in every frame of a clip
 motlab help                                       this list and the engine folder (also motlab --help or -h)
 motlab version                                    the installed version, such as 0.4.0 (also motlab --version or -v)
 motlab doctor                                     check Node, Chrome, ffmpeg, the skill's Python packages and earshot
@@ -52,6 +53,22 @@ motlab depth photo.jpg --cpu
 The model is [Depth Anything V2 Small](https://huggingface.co/onnx-community/depth-anything-v2-small) (Apache 2.0), run by [transformers.js](https://github.com/huggingface/transformers.js) 4.3.2 in headless Chrome: through WebGPU on the GPU in half precision when Chrome has it, else on the CPU in 8-bit (`--cpu` asks for the CPU). It measures depth and makes no picture. The first run downloads transformers.js and the ONNX runtime from jsDelivr and the model from Hugging Face, about 70 MB (27 MB more for the CPU model), into a Chrome profile kept in the cache folder (`depth-chrome` in `MOTLAB_CACHE_DIR`); later runs need no network. The profile was 107 MB after the first run.
 
 On the test laptop (Windows, RTX 3060 Laptop) the first run took 16 s with the download, and a later one 2.4 s in all for an 800x800 photo, of which the map took 0.2 s. Several images in one command load the model once. On the CPU the same photo took 3.9 s. Not tried: macOS, Linux, and a machine whose Chrome has no WebGPU.
+
+## Mattes
+
+```bash
+motlab matte footage/room.mp4 --click 910,540 --click 960,470 --name chair
+motlab matte footage/street.mp4 --at 2.5 --click 640,400 --exclude 700,380 --range 2,8 --name person
+motlab matte footage/hand.mp4 --points nail --name finger
+```
+
+`matte` finds which pixels are one object in every frame of a clip, so a scene can draw animation behind it (`/__motlab/comp.js`; the skill's `references/on-footage.md` has the steps). Give where the object is at `--at` seconds into the clip (default 0), in the clip's pixels: `--click x,y` on it (as many as needed), `--exclude x,y` on things next to it that are not part of it, or `--box x1,y1,x2,y2` around it. `--points name` asks with a points track from `skills/motlab/scripts/track.py` in every frame instead, and `--not name` with one that is not the object. `--range from,to` does only that part of the clip, in seconds. `--name` (default `matte`) names the result, so a clip can have several.
+
+It writes `<clip>.<name>.matte.webm` next to the clip and adds an entry to `<clip>.track.json`, the file the tracks go in, with a score from 0 to 1 per frame (0 where the object was not found). The matte is SAM's own mask: 256 x 256 over the whole frame, a grey picture where 128 is the edge, encoded as lossless VP9. The page enlarges it and sets the edge's softness.
+
+The model is [SAM 2.1 tiny](https://huggingface.co/onnx-community/sam2.1-hiera-tiny-ONNX) (Apache 2.0), run by transformers.js in headless Chrome like `depth`, which has SAM 2 for single pictures only. So the object is carried from frame to frame as SAM-PT does it: each frame is asked with three points inside the last frame's mask and the box around it, or with the points track, and of SAM's three answers the one that overlaps the last frame's most is kept, so the object does not turn into its neighbour. A frame whose answer overlaps the last one by less than 0.3 keeps the last frame's matte with a score of 0. The first run downloads about 80 MB into the same Chrome profile as `depth`.
+
+On the test laptop: a chair in a 12 s, 1920 x 1080 clip with the camera moving (288 frames) in 90 s, 0.3 s a frame, every frame with a score of 0.92 or more; the lamp in front of it (a thin arc and a rod) in 88 s. A disc crossing a made 640 x 360 clip overlapped the true disc by 0.98 on average and 0.92 at least over 48 frames. Before keeping the mask that overlaps the last one, the chair turned into the wall after 40 frames. Not tried: people, hair, fast motion, the CPU, macOS and Linux.
 
 ## Options
 
