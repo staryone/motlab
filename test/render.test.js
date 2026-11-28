@@ -440,7 +440,9 @@ test('prores4444: preserves straight alpha with PCM audio, transparent transitio
   assert.equal(v.profile, '4444');
   assert.match(v.pix_fmt, /^yuva444p(10|12)le$/);
   assert.equal(v.frames, 15);
-  assert.deepEqual([v.color_range, v.color_space, v.color_transfer, v.color_primaries], ['tv', 'bt709', 'bt709', 'bt709']);
+  assert.deepEqual([v.color_space, v.color_transfer, v.color_primaries], ['bt709', 'bt709', 'bt709']);
+  // ffprobe on older ffmpeg (e.g. Ubuntu 8.0.1) may omit color_range for ProRes .mov; when present it must be tv
+  if (v.color_range) assert.equal(v.color_range, 'tv');
   const a = JSON.parse(spawnSync('ffprobe', ['-v', 'error', '-select_streams', 'a:0', '-show_entries', 'stream=codec_name,duration', '-of', 'json', mov], { encoding: 'utf8' }).stdout).streams[0];
   assert.equal(a.codec_name, 'pcm_s16le');
   assert.ok(Math.abs(Number(a.duration) - 0.5) < 0.05, `audio duration ${a.duration}`);

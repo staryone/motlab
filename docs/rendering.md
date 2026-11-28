@@ -198,7 +198,7 @@ What came out of it:
 
 `--codec prores4444` (or `"codec": "prores4444"` in `project.json`, which Export also uses) writes a QuickTime `.mov` with straight alpha (`prores_ks`, profile `4444`, `yuva444p10le`, 16-bit alpha) and 16-bit 48 kHz PCM audio instead of AAC, for transparent video to put over footage in an editor. Output paths must end in `.mov`.
 
-WebCodecs in Chrome does not support `alpha: 'keep'` on `VideoEncoder`, so the page reads straight RGBA bytes from each `VideoFrame` (`copyTo(..., { format: 'RGBA' })`) and streams them straight into `ffmpeg`'s stdin (no raw RGBA temp file is written to disk). Reading frames back from Chrome and encoding ProRes on the CPU is much slower than WebCodecs H.264/HEVC.
+WebCodecs in Chrome does not support `alpha: 'keep'` on `VideoEncoder`, so the page reads unpremultiplied RGBA bytes from the canvas via `getImageData` (with an offscreen 2D copy for WebGL canvases) and streams them straight into `ffmpeg`'s stdin (no raw RGBA temp file is written to disk). Reading frames back from Chrome and encoding ProRes on the CPU is much slower than WebCodecs H.264/HEVC.
 
 Measured on `example/` (3 scenes, 9.0 s, 270 frames, 4 audio files):
 
