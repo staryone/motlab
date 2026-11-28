@@ -47,9 +47,9 @@ When the page throws while loading, the error names the file, line and column, f
 |---|---|
 | `--fps` | Frames per second, default 24 (`render` takes it from `project.json`) |
 | `--scale` | Passed to the page as `?scale=`. 2 turns a 1920x1080 page into 4K. Default 2 for video and render, 1 for stills |
-| `--audio` | Audio file to mux in (AAC 320k), cut to the video length |
+| `--audio` | Audio file to mux in (AAC 320k, or 16-bit PCM for `prores4444`), cut to the video length |
 | `--encoder` | `auto`, `hw` or `sw`, see [encoder choice](rendering.md#encoder-choice) |
-| `--codec` | `auto`, `h264` or `hevc`. H.264 is kept unless HEVC is clearly faster |
+| `--codec` | `auto`, `h264`, `hevc` or `prores4444`. H.264 is kept unless HEVC is clearly faster; `prores4444` writes a `.mov` with alpha and PCM audio |
 | `--workers` | Split the frames over this many Chrome processes and join the parts with ffmpeg concat (default 1) |
 | `--qp` | Constant QP for encoders that support it (default 18 for H.264, 20 for HEVC; lower is better and larger) |
 | `--bitrate` | Use variable bitrate at this many Mbit/s instead of constant QP |

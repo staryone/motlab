@@ -220,5 +220,38 @@
     return size;
   }
 
-  window.__motlab = { info, gpu, encodeRange, probeEncoder, probeDone, still };
+  // Read straight (unpremultiplied) RGBA frames from the canvas and stream them to Node for ffmpeg ProRes 4444 (alpha).
+  // Uses getImageData instead of VideoFrame.copyTo because VideoFrame returns premultiplied alpha on software canvases
+  // (e.g. SwiftShader / CI runners), whereas CanvasRenderingContext2D.getImageData is always unpremultiplied.
+  async function captureRange(o) {
+    const cv = canvas(), frames = o.end - o.start, { width, height } = cv;
+    setStart(o.sceneStart || 0);
+    const over = await overlayLayer(o, cv);
+    let readCanvas = null, readCtx = null;
+    const readRgba = src => {
+      const c2d = src.getContext('2d');
+      if (c2d) return c2d.getImageData(0, 0, width, height).data;
+      if (!readCanvas) {
+        readCanvas = document.createElement('canvas'); readCanvas.width = width; readCanvas.height = height;
+        readCtx = readCanvas.getContext('2d', { willReadFrequently: true });
+      }
+      readCtx.clearRect(0, 0, width, height);
+      readCtx.drawImage(src, 0, 0, width, height);
+      return readCtx.getImageData(0, 0, width, height).data;
+    };
+    const t0 = performance.now(); let renderMs = 0, lastEmit = t0;
+    for (let i = 0; i < frames; i++) {
+      const r0 = performance.now();
+      await window.renderAt((o.start + i) / o.fps);
+      const src = over ? await over((o.start + i) / o.fps) : cv;
+      renderMs += performance.now() - r0;
+      await post(`${o.base}/append?id=${o.sink}`, readRgba(src));
+      const now = performance.now();
+      if (now - lastEmit > 250 || i === frames - 1) { lastEmit = now; emit('progress', { done: i + 1 }); }
+    }
+    if (readCanvas) readCanvas.width = readCanvas.height = 0;
+    return { frames, bytes: width * height * 4 * frames, ms: performance.now() - t0, renderMs, fullRange: false, startRead };
+  }
+
+  window.__motlab = { info, gpu, encodeRange, captureRange, probeEncoder, probeDone, still };
 })();

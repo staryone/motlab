@@ -599,6 +599,7 @@ const TEXT = {
   restored: [w => `Dipulihkan ke ${w}. Yang tadi tetap ada di Riwayat.`, w => `Restored to ${w}. What was there is still in History.`],
   restoredScene: [(n, w) => `Scene ${n} dipulihkan ke ${w}. Yang tadi tetap ada di Riwayat.`, (n, w) => `Scene ${n} restored to ${w}. What was there is still in History.`],
   restoredNothing: ['Sudah sama, tidak ada yang dipulihkan.', 'It is the same already, so nothing changed.'],
+  beatsError: [(f, e) => `${f} tidak bisa dibaca (${e}), jadi beat tidak tampil di timeline.`, (f, e) => `${f} could not be read (${e}), so the timeline shows no beats.`],
   zoomOut: ['Perkecil timeline', 'Zoom out the timeline'],
   zoomIn: ['Perbesar timeline', 'Zoom in the timeline'],
   hideTimeline: ['Sembunyikan timeline', 'Hide timeline'],
@@ -1017,6 +1018,20 @@ try {
   const frameIn = (s, time) => Math.max(0, Math.min(Math.floor((time - s.start) * fps + 1e-6), Math.round(s.dur * fps) - 1));   // same frame grid as the render
 
   const ac = new AudioContext();
+  // The music's beats.json from beats.py, when "beats" in the project file names it: beats and numbered bars on the
+  // timeline, read again when the agent changes it. Times are seconds of the video.
+  const BEATS = typeof project.beats === 'string' ? project.beats.replaceAll('\\', '/') : null, beatsUrl = BEATS && BEATS.split(/[\\/]/).map(encodeURIComponent).join('/');
+  let music = null;
+  const readBeats = async () => {
+    try {
+      const r = await fetch(beatsUrl, { cache: 'no-store' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const j = await r.json();
+      if (!Array.isArray(j.beats) || !Array.isArray(j.bars)) throw new Error('no "beats" and "bars" lists');
+      music = j;
+    } catch (e) { music = null; note(L('beatsError', BEATS, e.message)); }
+  };
+  if (BEATS) await readBeats();
   const tracks = await Promise.all(files.map(async a => {
     const path = a.file.split(/[\\/]/).map(encodeURIComponent).join('/');
     const buf = await ac.decodeAudioData(await (await fetch(path)).arrayBuffer()), data = buf.getChannelData(0);
@@ -1083,6 +1098,17 @@ try {
       const s = k * step, text = step < 1 ? fmt(s) : fmt(s).slice(0, 5);
       g.fillStyle = C.edge; g.fillRect(X(s), 8, 1, 10);
       g.fillStyle = C.muted; if (X(s) + 40 < w) g.fillText(text, X(s) + 6, 13);
+    }
+    if (music) {   // the music's beats as short ticks at the foot of the ruler, the first beat of each bar taller with its number
+      const bars = new Set(music.bars), barLen = music.bars.length > 1 ? music.bars[1] - music.bars[0] : Infinity;
+      g.font = `10px ${FONT}`;
+      for (const b of music.beats) {
+        if (b < from - 1 || b > to + 1) continue;
+        const x = Math.round(X(b)), bar = bars.has(b);
+        g.fillStyle = bar ? C.muted : C.edge; g.fillRect(x, bar ? 34 : 39, 1, bar ? 10 : 5);
+        if (bar && barLen * pps >= 40) g.fillText(music.bars.indexOf(b) + 1, x + 4, 39.5);
+      }
+      g.font = `11px ${FONT}`;
     }
 
     for (const [i, s] of scenes.entries()) {
@@ -1464,7 +1490,10 @@ try {
   const spot = time => {   // where a time is: its scene, the frame the preview shows there, and the transition it is in
     const s = sceneAt(time), pair = pairAt(time), lay = pair ? null : layerAt(s, frameIn(s, time));
     const over = placed.flatMap((o, i) => overlayAt(o, s.start + frameIn(s, time) / fps) ? [{ n: i + 1, layer: o.layer }] : []);   // n: its place in "overlays"
-    return { time: +time.toFixed(3), scene: s.file, sceneIndex: scenes.indexOf(s) + 1, sceneTime: +(time - s.start).toFixed(3), frame: frameIn(s, time), ...(over.length ? { overlays: over } : {}),
+    // the music's beat that has last landed (from 1), and its bar and place in the bar; bar 0 is the pickup before bar 1
+    const beat = music ? music.beats.findLastIndex(b => b <= time + 1e-6) + 1 : 0, meter = music?.meter || 4;
+    const inBar = beat && beat - music.downbeat, music1 = beat ? { beat, bar: inBar < 0 ? 0 : Math.floor(inBar / meter) + 1, inBar: ((inBar % meter) + meter) % meter + 1 } : null;
+    return { time: +time.toFixed(3), scene: s.file, sceneIndex: scenes.indexOf(s) + 1, sceneTime: +(time - s.start).toFixed(3), frame: frameIn(s, time), ...(over.length ? { overlays: over } : {}), ...(music1 ? { music: music1 } : {}),
       transition: pair ? { type: s.transition.type, from: scenes.indexOf(pair.from) + 1, frame: pair.k, frames: pair.n }
         : lay ? { layer: lay.tr.layer, from: lay.from, frame: lay.k, frames: lay.n } : null };
   };
@@ -2065,7 +2094,7 @@ try {
   // back the time. `motlab working` says which notes and scenes the agent is working on.
   let refreshing = null;
   const queued = new Set();
-  const pageUses = () => new Set(performance.getEntriesByType('resource').filter(e => e.initiatorType !== 'iframe').map(e => rel(e.name)).filter(f => f && f !== 'selection.json'));   // not the scene pages
+  const pageUses = () => new Set(performance.getEntriesByType('resource').filter(e => e.initiatorType !== 'iframe').map(e => rel(e.name)).filter(f => f && f !== 'selection.json' && f !== BEATS));   // not the scene pages; beats.json is read again below
   function askReload() {
     if (active || $('go').disabled || !$('exportMenu').hidden) { if (!reloadAsked) note(L('projectChangedLater')); reloadAsked = true; return; }
     reloadAsked = false; note(L('projectChanged')); flush().finally(() => location.reload());
@@ -2073,6 +2102,7 @@ try {
   $('export').onclose = () => { if (reloadAsked) askReload(); };
   function changed(files) {
     if (files.includes('selection.json')) reread();   // a note the agent marked done
+    if (BEATS && files.includes(BEATS)) readBeats().then(drawTimeline);   // the scenes that read it load again below
     const uses = pageUses();
     if (files.some(f => uses.has(f))) return askReload();
     live.forEach(usedBy);

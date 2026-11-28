@@ -82,11 +82,13 @@ export function projectPaths(target) {
 // "qp" and "codec" in project.json, so the viewer's Export uses them too, else the encoder's defaults.
 export async function renderProject({ dir, out, scale, only, parallel, qp, codec, log = console.log, signal }) {   // signal: an AbortSignal that stops the render
   const { root, file, name } = projectPaths(dir);
-  dir = root; out = resolve(out || join(dir, 'out', name + '.mp4'));
   const p = JSON.parse(readFileSync(file, 'utf8'));
   qp ??= p.qp; codec ??= p.codec;
   if (qp !== undefined && !(Number.isInteger(qp) && qp >= 0 && qp <= 51)) throw new Error(`qp must be a whole number from 0 to 51, not ${JSON.stringify(qp)}`);
-  if (codec !== undefined && !['auto', 'h264', 'hevc'].includes(codec)) throw new Error(`codec must be auto, h264 or hevc, not ${JSON.stringify(codec)}`);
+  if (codec !== undefined && !['auto', 'h264', 'hevc', 'prores4444'].includes(codec)) throw new Error(`codec must be auto, h264, hevc or prores4444, not ${JSON.stringify(codec)}`);
+  const partExt = codec === 'prores4444' ? 'mov' : 'mp4';
+  dir = root; out = resolve(out || join(dir, 'out', `${name}.${partExt}`));
+  if (codec === 'prores4444' && !out.toLowerCase().endsWith('.mov')) throw new Error(`--codec prores4444 writes a .mov file, not ${out}`);
   const tmp = mkdtempSync(join(tmpdir(), 'motlab-project-')), partial = out + '.part';
   // Share one static server and a small pool of headless Chrome processes across parts, opening a fresh tab per part
   // instead of cold-starting Chrome for every scene and transition. A Chrome that hits an error or abort is closed, not reused.
@@ -195,12 +197,12 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       if (!forced) {
         let m = null, why = '';
         try { m = JSON.parse(readFileSync(join(cacheRoot, k + '.json'), 'utf8')); } catch {}
-        if (m?.key === k && existsSync(join(cacheRoot, k + '.mp4'))) {
-          const v = await probeVideo(join(cacheRoot, k + '.mp4')).catch(() => null);
+        if (m?.key === k && existsSync(join(cacheRoot, `${k}.${partExt}`))) {
+          const v = await probeVideo(join(cacheRoot, `${k}.${partExt}`)).catch(() => null);
           if (v && v.frames === m.frames && Math.abs(v.duration - m.duration) <= 0.5 / p.fps && v.width === m.width && v.height === m.height
               && (!parts[0] || (m.hw === parts[0].hw && m.codec === parts[0].codec && m.fullRange === parts[0].fullRange)) && !(why = await fits(m))) {
             log(`${label} (cached)`);
-            return { out: join(cacheRoot, k + '.mp4'), width: m.width, height: m.height, duration: m.duration, frames: m.frames, pageFrames: m.pageFrames, fullRange: m.fullRange, codec: m.codec, hw: m.hw, startRead: m.startRead, sceneStart: m.sceneStart };
+            return { out: join(cacheRoot, `${k}.${partExt}`), width: m.width, height: m.height, duration: m.duration, frames: m.frames, pageFrames: m.pageFrames, fullRange: m.fullRange, codec: m.codec, hw: m.hw, startRead: m.startRead, sceneStart: m.sceneStart };
           }
         }
         suffix = why ? ` (${why}, so rendering it again)` : ' (no cached part, rendering it)';
@@ -227,7 +229,7 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
         const k = sceneKey(i), at = placed.length ? await startOf(i, signal) : 0;
         const { sig, ...over } = placed.length ? overlaysFor(at + transitionHead(into) / p.fps, at + (known[i] - transitionTail(next)) / p.fps, at) : {};
         const part = await getPart(k, !only || only.includes(i + 1), `\nScene ${i + 1}/${scenes.length}: ${scene.file}`, log, () => renderPart({ page: join(dir, scene.file), root: dir,
-          out: join(cacheRoot, k + '.mp4'), fps: p.fps, scale, qp, codec, log, progress, head: transitionHead(into), tail: transitionTail(next), ...same(), ...over,
+          out: join(cacheRoot, `${k}.${partExt}`), fps: p.fps, scale, qp, codec, log, progress, head: transitionHead(into), tail: transitionTail(next), ...same(), ...over,
           sceneStart: frames => { learn(i, frames); return startOf(i, signal); } }, signal), m => { learn(i, m.pageFrames); return stale(i, m, sig, signal); }, sig ? { overlays: sig } : {});
         // a stream copy join of parts with different sizes makes an MP4 that changes resolution partway through
         if (parts[0] && (part.width !== parts[0].width || part.height !== parts[0].height))
@@ -241,7 +243,7 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
       const at = placed.length ? await startOf(i, signal) + (from.pageFrames - transitionTail(next)) / p.fps : 0;
       const { sig, ...over } = placed.length ? overlaysFor(at, at + next.n / p.fps, at) : {};
       return getPart(tk, !only || only.includes(i + 1) || only.includes(i + 2), `\nTransition ${i + 1} to ${i + 2}: ${next.layer ? `layer ${next.layer}` : next.type}, ${next.n} frames`, log,
-        () => renderPart({ url: '__motlab/transition.html', query: String(query), root: dir, out: join(cacheRoot, tk + '.mp4'),
+        () => renderPart({ url: '__motlab/transition.html', query: String(query), root: dir, out: join(cacheRoot, `${tk}.${partExt}`),
           fps: p.fps, scale, qp, codec, log, progress, ...same(), ...over, sceneStart: () => startOf(i, signal) }, signal), m => stale(i, m, sig, signal), sig ? { overlays: sig } : {});
     };
     // Runs the parts that have no result yet, `width` at a time. When one fails the others are stopped, and the parts
@@ -308,8 +310,8 @@ export async function renderProject({ dir, out, scale, only, parallel, qp, codec
     // three versions of its part. A finished render clears out the ones it did not use.
     let pruned = 0;
     try {
-      const stale = [...new Set(readdirSync(cacheRoot).map(f => f.match(/^([0-9a-f]{64})\.(mp4|json)$/)?.[1]).filter(Boolean))].filter(k => !used.has(k));
-      for (const k of stale) { rmSync(join(cacheRoot, k + '.mp4'), { force: true }); rmSync(join(cacheRoot, k + '.json'), { force: true }); pruned++; }
+      const stale = [...new Set(readdirSync(cacheRoot).map(f => f.match(/^([0-9a-f]{64})\.(mp4|mov|json)$/)?.[1]).filter(Boolean))].filter(k => !used.has(k));
+      for (const k of stale) { rmSync(join(cacheRoot, k + '.mp4'), { force: true }); rmSync(join(cacheRoot, k + '.mov'), { force: true }); rmSync(join(cacheRoot, k + '.json'), { force: true }); pruned++; }
     } catch {}
     if (pruned) log(`(removed ${pruned} unused cached part${pruned === 1 ? '' : 's'})`);
     log(`\nSAVED ${out} (${scenes.length} scenes${parts.length > scenes.length ? `, ${parts.length - scenes.length} transitions` : ''}, ${duration.toFixed(3)} s${audio ? `, ${p.audio.length} audio files` : ''})`);

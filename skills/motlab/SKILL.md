@@ -212,7 +212,8 @@ promo/
   `{ type, from, frame, frames }` and the note is about the transition (`from` is the scene it comes from); `scene` is
   the one it leads into, and stills of either page alone will not show the mix: `motlab stills <video> <dir> <time>`
   does. Inside a layer over the cut it is `{ layer, from, frame, frames }`, and `scene` is the one on screen under
-  the layer. `overlays`, when there are any at that time, lists them as `{ n, layer }`: a note on a lower third or a
+  the layer. With `"beats"` in the project file, `music` is `{ beat, bar, inBar }` there: "on bar 5" means that bar.
+  `overlays`, when there are any at that time, lists them as `{ n, layer }`: a note on a lower third or a
   logo may be about the overlay, not the scene.
 - `range` is `{ start, end, scenes }` when the user marked a stretch of time on the timeline (the range button or `R`, Shift+drag, `X` for a scene, or `I` and
   `O`): video seconds on the frame grid and the scene numbers it covers. A note like "ini terlalu lambat" with a range
@@ -280,7 +281,7 @@ These are about direction: what each kind of video has to get across. Its look i
 - **Long videos.** A 10-minute test render at 4K took about 19 minutes on the test laptop and made a 3.2 GB file, and
   a real 2-minute video has been exported at 4K. Suggest a 1080p export first for a long video, and say how long 4K will take.
 
-Transparent (alpha) output is not available yet.
+- **Transparent video (alpha).** Set `"codec": "prores4444"` in `project.json` (or pass `--codec prores4444` to `motlab render` / `motlab video`) to render a ProRes 4444 `.mov` with alpha and 16-bit PCM audio, to put over footage in an editor. Leave the canvas background transparent (`clearRect` without an opaque fill). Reading RGBA frames back from Chrome is slower than WebCodecs H.264/HEVC, so mention that for long or 4K renders.
 
 ## Keep it above board
 

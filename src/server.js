@@ -63,7 +63,16 @@ export async function startServer({ root }) {
         const sink = sinks.get(u.searchParams.get('id'));
         if (req.method === 'POST' && sink && (route === 'write' || route === 'append')) {
           const body = await readBody(req);
-          if (route === 'write') await sink.fh.write(body, 0, body.length, Number(u.searchParams.get('pos')));
+          if (sink.stream) await (sink.tail = sink.tail.then(() => new Promise((ok, no) => {
+            if (sink.stream.destroyed) return no(new Error('pipe sink closed'));
+            if (sink.stream.write(body)) ok();
+            else {
+              const onDrain = () => { sink.stream.off('error', onErr); ok(); };
+              const onErr = e => { sink.stream.off('drain', onDrain); no(e); };
+              sink.stream.once('drain', onDrain).once('error', onErr);
+            }
+          })));
+          else if (route === 'write') await sink.fh.write(body, 0, body.length, Number(u.searchParams.get('pos')));
           else await (sink.tail = sink.tail.then(async () => { await sink.fh.write(body, 0, body.length, sink.size); sink.size += body.length; }));
           res.writeHead(204); return res.end();
         }
@@ -86,6 +95,12 @@ export async function startServer({ root }) {
       const id = String(++nextSink), sink = { fh: await open(path, 'w'), size: 0, tail: Promise.resolve() };
       sinks.set(id, sink);
       return { id, path, close: async () => { sinks.delete(id); await sink.tail.catch(() => {}); await sink.fh.close(); } };
+    },
+    // A pipe sink forwards appended chunks straight into a Node Writable (e.g. ffmpeg stdin for raw RGBA ProRes 4444).
+    createPipeSink(stream) {
+      const id = String(++nextSink), sink = { stream, tail: Promise.resolve() };
+      sinks.set(id, sink);
+      return { id, close: async () => { sinks.delete(id); await sink.tail.catch(() => {}); } };
     },
     close: () => new Promise(r => { server.closeAllConnections(); server.close(r); }),
   };

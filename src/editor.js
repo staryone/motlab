@@ -224,7 +224,8 @@ export function startEditor(target, port = 4173, { domain, password = process.en
         res.writeHead(200, { 'Content-Type': 'text/plain; charset=utf-8', 'Cache-Control': 'no-store' });
         const { project, scale, tag, parallel } = JSON.parse(body), file = join(root, version(project));
         const at = Number.isInteger(parallel) && parallel >= 1 && parallel <= 8 ? parallel : undefined;   // none: as many as defaultParallel picks
-        const rel = `out/${projectPaths(file).name}-${String(tag).replace(/\W/g, '')}.mp4`;   // out/example-tiktok-1080p.mp4
+        const ext = JSON.parse(readFileSync(file, 'utf8')).codec === 'prores4444' ? 'mov' : 'mp4';
+        const rel = `out/${projectPaths(file).name}-${String(tag).replace(/\W/g, '')}.${ext}`;   // out/example-tiktok-1080p.mp4 or .mov
         await renderProject({ dir: file, out: join(root, rel), scale: Number(scale) || 2, parallel: at, signal, log: line => { console.log(line); res.write(line + '\n'); } });
         res.end(`DONE ${rel} ${Math.round((Date.now() - started) / 1000)}\n`);
       } catch (e) {

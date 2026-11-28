@@ -4,12 +4,13 @@ What is not built, what has not been tested, and ideas that came up while using 
 
 ## Not built yet
 
-- Alpha output (ProRes 4444).
 - From the viewer on a VPS, sending a render to the personal laptop when it is on. The viewer itself runs on a domain behind a password now (`motlab start --domain`), and its Export renders on the server it runs on.
 - Less setup to open the viewer from a phone. Today it is a domain behind Caddy, or `tailscale serve` with `--domain` (docs/viewer.md). Two ideas: `motlab start --tailscale`, which would run `tailscale serve` and start the viewer on the tailnet name, where the password could be optional since only your own devices reach it; and `motlab start --tunnel` through Cloudflare Tunnel, either a free `trycloudflare.com` address for a quick review or a domain whose DNS is on Cloudflare, with no Caddy and no open ports. The free address does not carry server-sent events, so the page would have to ask for changes every few seconds instead; it also changes on every start, and Cloudflare offers it for testing only.
 - A dark sign-in page for a viewer on a domain (src/access.js). The viewer follows the system's dark mode now, but the sign-in page stays light.
 
 ## Not tested yet
+
+- Alpha output (`--codec prores4444`) imported into video editors (DaVinci Resolve, Premiere Pro, Final Cut Pro) and on macOS or Linux. It was tested with `test/render.test.js` (straight RGBA round-trip, PCM audio, parallel workers and `.mov` part cache) and timed at 1080p and 4K on Windows.
 
 - The benchmark against Remotion and HyperFrames on macOS and Linux, with their own downloaded browsers, and on scenes heavy on text, images or footage. It was one scene on Windows, at 1080p and 4K.
 - The skills from `npx skills add staryone/motlab -g` end to end: the CLI found both skills in the folder, but a real install followed by the user installing the engine from the skill's commands in a new agent session has not been run. motlab shows on skills.sh; whether it shows on skillleaderboard.com (from a daily GitHub search, which leaves out libraries that only come with a skill) is not known yet.
@@ -20,6 +21,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - Renders longer than 10 minutes, and a 10-minute render on a machine that is doing nothing else.
 - Overlays in a real video: one that loads its own fonts, heavier ones than a bar and two lower thirds, and captions drawn as one.
 - The project history with large footage (how big `.motlab/history/` grows), and the compare on a real phone.
+- Beats on the viewer's timeline with a long track zoomed out, where the ticks crowd.
 - `beats.py` on more music than one hip-hop track: tempo changes, swing, a long intro without drums, and whether its guess for the first beat of a bar holds by ear on more than one track. `SCENE_START` in the viewer with a real project timed to music.
 - The viewer's dark mode in full screen, and in Safari and Firefox. It was checked in the desktop app's browser on Windows, where full screen does not open.
 - A machine without a GPU beyond the tests. CI runs the end-to-end tests on Linux and Windows runners without a GPU, and the benchmark ran with Chrome drawing on SwiftShader on the test laptop (1080p and 4K, in `docs/rendering.md`). A real video has been rendered on such a machine now: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, in about 82 s (issue #8). No 3D (WebGL) scene has been rendered on one yet.

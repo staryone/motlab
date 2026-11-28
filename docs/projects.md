@@ -19,10 +19,11 @@ A project is a folder with scene pages, audio files and a `project.json`:
 - `start` is seconds from the start of the video, and `volume` is a multiplier (1 leaves it as is).
 - Scene pages learn where they start in the video from `window.SCENE_START` ([Where a scene starts](#where-a-scene-starts)).
 - `overlays` are drawn over the whole video from one time to another ([Overlays](#overlays)).
+- `beats` names the music's `beats.json` from the skill's `beats.py`. The viewer shows its beats and bars on the timeline and lets the user say where a bar starts ([Beats on the timeline](viewer.md#beats-on-the-timeline)).
 - A mono file plays at the same level on both channels, in the viewer and in the render.
 - An audio entry can also be a video file, whose sound is used. Any entry can take `from` (seconds into the file) and `duration` to use only part of it.
 - Audio that runs past the end of the video is cut.
-- `qp` and `codec` trade file size against quality, for `motlab render` and the viewer's Export alike: `"qp": 22` makes a file about 30% smaller than the default 18 at nearly the same quality, and `"codec": "hevc"` asks for HEVC. `--qp` and `--codec` on `motlab render` override them. The measurements are in [File size](rendering.md#file-size).
+- `qp` and `codec` set quality and format, for `motlab render` and the viewer's Export alike: `"qp": 22` makes a file about 30% smaller than the default 18 at nearly the same quality, `"codec": "hevc"` asks for HEVC, and `"codec": "prores4444"` writes a `.mov` with straight alpha (`prores_ks`, `yuva444p10le`) and 16-bit PCM audio. `--qp` and `--codec` on `motlab render` override them. The measurements are in [File size](rendering.md#file-size) and [Alpha output](rendering.md#alpha-output).
 
 Paths are relative to the folder that holds the project file. For audio names like `audio/voice #1.wav`, write the filename as it appears on disk, with the space and `#`. [`example/`](../example) is a sample with three scenes, music and three sound effects, all generated with ffmpeg (`sine` and `anoisesrc`).
 
