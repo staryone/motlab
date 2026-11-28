@@ -42,7 +42,7 @@ cam.apply(ctx, t, { scale: SCALE });   // then draw in the page's own units
 |---|---|
 | `keys: [[time, { x, y, zoom, turn }, easing], ...]` | `x`, `y` is the point of the page in the centre of the frame, `zoom` 2 shows half the width, and `turn` rolls the camera clockwise in degrees, so the picture turns the other way. A key leaves out what does not change. The easing is a name from `motion.js` or a function (default `inOutCubic`). Two keys at the same time cut the camera |
 | `fly: true` in a key | the move into that key is a long jump: the camera pulls out while it travels and pushes in at the end, so the way between two far places stays readable. A number instead of `true` says how far it pulls out (1.41 by default, 2 further) |
-| `follow: [{ from, to, target, blend, lag }]` | between `from` and `to` the camera looks at a moving thing instead of its keys: `target` is a function of `t` that returns the thing's `[x, y]`, from the same code that draws it. It eases in and out over `blend` seconds (0.3); `lag` looks at where the thing was on average over that many seconds, like an operator who reacts a little late. Zoom and turn still come from the keys |
+| `follow: [{ from, to, target, blend, lag }]` | between `from` and `to` the camera looks at a moving thing instead of its keys: `target` is a function of `t` that returns the thing's `[x, y]`, from the same code that draws it. It eases in and out over `blend` seconds (0.3); `lag` looks at where the thing was on average over that many seconds (weighted towards the middle, so the camera eases into a move), like an operator who reacts a little late. Zoom and turn still come from the keys |
 | `shake: [{ from, to, amount, turn, speed, seed, decay }]` | `amount` is the largest offset in page units and `turn` the largest roll in degrees; `speed` is wobbles a second, 12 to 20 for a hit and 1 to 3 for a hand-held camera. With a `to` it dies away by then, like a hit, and `decay: false` holds it instead. Without `from` and `to` it runs through the whole scene |
 | `cam.apply(ctx, t, { scale, depth })` | sets the canvas transform; draw everything after it in page units |
 | `cam.at(t)`, `cam.matrix(t, depth)`, `cam.point(t, x, y, depth)` | where the camera looks; its 2D matrix (as in `setTransform`, or a WebGL page's 3x3); where a point of the page lands in the frame, to draw a label at its own size beside something the camera zooms in on |
@@ -102,6 +102,42 @@ layers. Check stills at both ends of the move.
 `motlab depth` runs Depth Anything V2 Small, a model that measures depth and makes no picture. The first run downloads
 about 70 MB; later runs work offline. On the test laptop it took 0.2 to 0.4 s a photo on the GPU, and 3.9 s for an
 800x800 photo with `--cpu`.
+
+## sprite.js: sprite sheets and sprite stacks
+
+Frame-by-frame sprites and pixel art, and sprite stacks: an object drawn as horizontal slices one above another, so a
+flat picture reads as solid when it turns. Use them when the references call for that look.
+
+```js
+const { loadSprite, loadStack } = await import('/__motlab/sprite.js');
+const hero = await loadSprite('../assets/hero.json');                         // Aseprite's sprite sheet JSON
+const coin = await loadSprite('../assets/coin.png', { frames: 8, fps: 12 });   // equal frames in a row
+hero.draw(ctx, t, 960, 900, { tag: 'run', scale: 6 });                         // its feet at 960, 900
+const car = await loadStack('../assets/kits/toys/stacks/car/car.stack.json', { shade: 0.3 });
+car.draw(ctx, 960, 600, { angle: 40 * t, scale: 8 });
+```
+
+| Part | What it does |
+|---|---|
+| `loadSprite('x.json')` | an Aseprite export (File > Export Sprite Sheet with JSON data, hash or array): each frame's own duration, trimmed frames in their place, and the tags with their direction (`forward`, `reverse`, `pingpong`, `pingpong_reverse`) and repeat, played as Aseprite plays them |
+| `loadSprite('x.png', { frames, cols, width, height, fps })` | equal frames in a row, or in a grid with `cols` frames a row |
+| `sprite.draw(ctx, t, x, y, { tag, frame, scale, anchor, flip, alpha })` | the frame at `t`, its `anchor` (`[0.5, 1]`, the middle of its feet) at x, y; `scale` is page units a sprite pixel. `sprite.frameAt(t, tag)` gives the frame's number, to time a sound to a footstep |
+| `loadStack('x.stack.json' or 'x.png', { slices, vertical, topFirst, shade })` | a stack from the motlab-assets skill's `slices.py`, or an image of equal slices (bottom first in a row, unless `vertical` or `topFirst` says otherwise). `shade` darkens the lower slices so the height reads |
+| `stack.draw(ctx, x, y, { angle, scale, spacing, squash, turn })` | the stack with the middle of its bottom slice at x, y, turned by `angle` (degrees, clockwise seen from above); `scale` is page units a voxel, `spacing` the step between slices (1), and a `squash` below 1 looks more from the side |
+
+- Pixel art stays sharp: nothing is smoothed. The viewer exports a 1920 x 1080 page at 2/3 (720p), 1, 4/3 (1440p)
+  and 2 (4K), so a sprite pixel of 3, 6, 9 or 12 page units at whole-pixel positions stays even in all four: 6 units
+  is 4, 6, 8 and 12 device pixels. Other sizes, and a camera zoom between whole steps, come out uneven somewhere.
+- A stack goes under the camera like anything else (`cam.apply`) and zooms with it. With a camera that rolls, pass
+  `turn: cam.at(t).turn`, so the slices still step straight up the screen. Draw sprites that should stay upright after
+  `ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0)`.
+- Draw several stacks from the back of the screen to the front (the smallest screen y first; `cam.point` gives it
+  under a camera), so the nearer one covers the further.
+- A stack suits a view from above or at an angle; from the side its slices show as lines. Each slice is drawn as often
+  as its step covers device pixels, so no gap opens between slices at 4K.
+- Objects for stacks come from the motlab-assets skill (`slices.py`): carved from pixel-art views, from distance
+  functions, or voxelized from a 3D model in Blender. A MagicaVoxel slice export loads as an image with `slices`;
+  check a still for which end is the bottom.
 
 ## Transitions between scenes
 

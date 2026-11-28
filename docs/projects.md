@@ -53,10 +53,11 @@ The renderer and the viewer serve a few files for scene pages at fixed paths, so
 | `/__motlab/footage.js` | decodes video files inside the page ([Footage](#footage)) |
 | `/__motlab/cuts.js` | plays a cut list over one recording ([Cut lists](#cut-lists)) |
 | `/__motlab/motion.js` | easings, CSS `cubic-bezier`, exact springs, keyframes, stagger and motion blur, all pure functions of time |
+| `/__motlab/sprite.js` | sprite sheets and Aseprite exports played from `t`, and sprite stacks: an object as slices drawn one above another and turned, so it reads as solid |
 | `/__motlab/camera.js` | a 2D camera from keys (where it looks, zoom, roll), long jumps between far places, following a moving thing, shake from seeded noise, and parallax for layers at different depths |
 | `/__motlab/transitions.js` | the scene transitions, also usable inside a page to mix two canvases |
 
-The skill's `references/motion-and-libraries.md` lists what is in `motion.js` and `camera.js` and how GSAP, Anime.js, Lottie and Theatre.js are driven from `renderAt`.
+The skill's `references/motion-and-libraries.md` lists what is in `motion.js`, `camera.js` and `sprite.js` and how GSAP, Anime.js, Lottie and Theatre.js are driven from `renderAt`.
 
 Opened by hand, a template plays on a loop. Inside the viewer (an iframe) or with `?t=`, it draws only when `renderAt` is called. A scene of your own that loops with `requestAnimationFrame` should do the same: in the viewer, a three.js scene that kept its loop running drew 900 frames in 3 seconds while nothing played, against none with the check.
 

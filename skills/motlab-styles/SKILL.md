@@ -32,6 +32,7 @@ where the references and the brief leave something open. The user's references a
 | Style | For | Files |
 |---|---|---|
 | Ad morph | Short product, app and brand ads (8 to 20 s) where every shot grows into the next, with no cuts | `styles/ad-morph.md`, `templates/ad-morph-2d.html` |
+| Pixel art | Videos drawn as pixel art: a 320 x 180 grid scaled up whole, hue-shifted ramps, light added on top, poses on 12 steps a second, objects that turn as sprite stacks | `styles/pixel-art.md`, `templates/pixel-art-2d.html` |
 | Kinetic reel | 9:16 vertical explainers, Reels, Shorts and talking-head edits (12 to 45 s) with safe-zone framing, 2.5D stat cards and highlighted captions | `styles/kinetic-reel.md`, `templates/kinetic-reel-2d.html` |
 
 ## A style from a reference video
