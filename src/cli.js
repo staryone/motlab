@@ -44,10 +44,10 @@ const USAGE = `motlab: render a canvas page (canvas #c, renderAt(t), TOTAL, read
 
   --fps       frames per second (default 24)
   --scale     passed to the page as ?scale=; 2 turns a 1920x1080 page into 4K (default 2 for video, 1 for stills)
-  --audio     audio file to mux in (AAC 320k); the result is cut to the video length
+  --audio     audio file to mux in (AAC 320k, or 16-bit PCM for prores4444); cut to the video length
   --encoder   auto = fastest encoder with constant quality in the saved probe for this machine and size,
               hw = fastest hardware encoder, sw = software (fastest at 1080p, but its quality has a ceiling)
-  --codec     auto | h264 | hevc (default auto; H.264 is kept unless HEVC is clearly faster)
+  --codec     auto | h264 | hevc | prores4444 (default auto; prores4444 writes a .mov with alpha and PCM audio)
   --workers   split the frames over N Chrome processes and join the parts with ffmpeg concat (default 1)
   --qp        constant QP for encoders that support it (default 18 for H.264, 20 for HEVC; lower = better, larger)
   --bitrate   use variable bitrate at this many Mbit/s instead of constant QP
@@ -112,7 +112,7 @@ export async function main(argv) {
   if (mode === 'render') {
     if (!page) throw new Error('render needs a project folder or project file');
     await renderProject({ dir: page, out, scale: num('scale', v.scale, { min: 0.01 }), only: only(v.only), parallel: num('parallel', v.parallel, { min: 1, int: true }),
-      qp: num('qp', v.qp, { min: 0, int: true }), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc']) });
+      qp: num('qp', v.qp, { min: 0, int: true }), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc', 'prores4444']) });
     return 0;
   }
   if (!['stills', 'video', 'events'].includes(mode)) throw new Error(`unknown mode "${mode}" (render, start, edit, stop, restart, working, stills, video, events, doctor, setup, update, uninstall, help or version)`);
@@ -134,6 +134,6 @@ export async function main(argv) {
   const bitrate = num('bitrate', v.bitrate, { min: 0.1 });
   await renderVideo({ ...common, out, audio: v.audio, fps: num('fps', v.fps, { min: 1 }), scale: num('scale', v.scale, { min: 0.01 }),
     workers: num('workers', v.workers, { min: 1, int: true }), bitrate: bitrate && bitrate * 1e6, qp: num('qp', v.qp, { min: 0, int: true }), reprobe: v.reprobe,
-    encoder: oneOf('encoder', v.encoder, ['auto', 'hw', 'sw']), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc']), mux: oneOf('mux', v.mux, ['auto', 'mediabunny', 'raw']) });
+    encoder: oneOf('encoder', v.encoder, ['auto', 'hw', 'sw']), codec: oneOf('codec', v.codec, ['auto', 'h264', 'hevc', 'prores4444']), mux: oneOf('mux', v.mux, ['auto', 'mediabunny', 'raw']) });
   return 0;
 }

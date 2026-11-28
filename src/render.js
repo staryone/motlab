@@ -9,7 +9,7 @@ import { setTimeout as sleep } from 'node:timers/promises';
 import { attachPage, findChrome, launchChrome } from './chrome.js';
 import { frameCount, splitFrames } from './codecs.js';
 import { hasMediabunny } from './doctor.js';
-import { finalize, probeVideo } from './ffmpeg.js';
+import { finalize, probeVideo, spawnProres } from './ffmpeg.js';
 import { label, rate, selectEncoder } from './probe.js';
 import { startServer } from './server.js';
 
@@ -87,6 +87,7 @@ async function readInfo(page, log) {
 export async function renderVideo(o) {
   const log = o.log || console.log, fps = o.fps ?? 24, scale = o.scale ?? 2, workers = Math.max(1, o.workers ?? 1), started = Date.now();
   const { root, url } = locate(o), out = resolve(o.out), part = out + '.part';   // written here first, renamed when complete
+  if (o.codec === 'prores4444' && !out.toLowerCase().endsWith('.mov')) throw new Error(`--codec prores4444 writes a .mov file, not ${out}`);
   const ownServer = !o.server, server = o.server || await startServer({ root }), tmp = mkdtempSync(join(tmpdir(), 'motlab-render-'));
   let pages = [];
   // o.signal (an AbortSignal) stops the render: closing Chrome (or its tab) rejects whatever the render is waiting on.
@@ -96,9 +97,9 @@ export async function renderVideo(o) {
     const browser = workers === 1 ? o.browser : undefined;
     pages = await openPages(workers, { server, chromePath: browser ? undefined : findChrome(o.chrome), browser, url, scale, query: o.query, signal: o.signal });
     o.signal?.throwIfAborted();
-    const info = await readInfo(pages[0], log), { width, height } = info;
+    const info = await readInfo(pages[0], log), { width, height } = info, prores = o.codec === 'prores4444';
     if (!(info.total > 0)) throw new Error('window.TOTAL must be a positive number of seconds');
-    if (width % 2 || height % 2) throw new Error(`canvas is ${width}x${height}; H.264 and HEVC need even dimensions`);
+    if (!prores && (width % 2 || height % 2)) throw new Error(`canvas is ${width}x${height}; H.264 and HEVC need even dimensions`);
     // head and tail leave out frames at the start and the end, which a scene transition draws instead.
     const pageFrames = frameCount(info.total, fps), head = o.head || 0, tail = o.tail || 0, frames = pageFrames - head - tail;
     if (frames < 1) throw new Error(`the page has ${pageFrames} frames, too few for transitions of ${head} and ${tail} frames at its start and end`);
@@ -109,9 +110,11 @@ export async function renderVideo(o) {
     const sceneStart = typeof o.sceneStart === 'function' ? await o.sceneStart(pageFrames) : o.sceneStart || 0;
     o.signal?.throwIfAborted();
 
-    const enc = await selectEncoder({ pages, machine: { chrome: pages[0].chrome.version, gpu: info.gpu.renderer }, width, height, fps,
-      mode: o.encoder || 'auto', codec: o.codec || 'auto', bitrate: o.bitrate, qp: o.qp, reprobe: o.reprobe, log });
-    log(`Encoder: ${label(enc)}, ${rate(enc)}, ${enc.codecString} (${enc.source})`);
+    const enc = prores
+      ? { codec: 'prores4444', hw: false, source: 'ffmpeg' }
+      : await selectEncoder({ pages, machine: { chrome: pages[0].chrome.version, gpu: info.gpu.renderer }, width, height, fps,
+        mode: o.encoder || 'auto', codec: o.codec || 'auto', bitrate: o.bitrate, qp: o.qp, reprobe: o.reprobe, log });
+    log(prores ? 'Encoder: ProRes 4444, yuva444p10le + alpha (ffmpeg prores_ks)' : `Encoder: ${label(enc)}, ${rate(enc)}, ${enc.codecString} (${enc.source})`);
 
     const done = ranges.map(() => 0); let lastLine = 0;
     pages.forEach((p, i) => p.onEmit(m => {
@@ -120,49 +123,73 @@ export async function renderVideo(o) {
       if (o.progress !== false && process.stdout.isTTY && Date.now() - lastLine > 200) { lastLine = Date.now(); process.stdout.write(`\r${done.reduce((a, b) => a + b, 0)}/${frames} frames`); }
     }));
 
-    const ext = enc.codec === 'hevc' ? 'h265' : 'h264';
-    // Each worker writes its own part into the temp folder: an MP4 muxed in the page by Mediabunny, or a raw Annex B
-    // stream. ffmpeg then stream-copies the parts into the final file, which is where the colour tags are written
-    // into the bitstream, parallel parts are joined and audio is added.
-    const attempt = async mux => {
-      const jobs = [];
-      for (let i = 0; i < ranges.length; i++) jobs.push(await server.createSink(join(tmp, `${mux}-${i}.${mux === 'raw' ? ext : 'mp4'}`)));
+    mkdirSync(dirname(out), { recursive: true });
+    let res;
+    if (prores) {
+      // Straight RGBA frames are read from the canvas and piped directly into ffmpeg prores_ks (no raw RGBA temp file).
+      const procs = ranges.map((_, i) => spawnProres({ width, height, fps, out: join(tmp, `prores-${i}.mov`), signal: o.signal }));
+      const sinks = procs.map(p => server.createPipeSink(p.stdin));
       const t0 = Date.now(); let stats;
       try {
-        stats = await Promise.all(ranges.map((r, i) => pages[i].evaluate(`window.__motlab.encodeRange(${JSON.stringify({
-          ...r, sceneStart, overlays: o.overlays, videoAt: o.videoAt ?? sceneStart, scale, fps, codec: enc.codec, codecString: enc.codecString, hw: enc.hw, rc: enc.rc, qp: enc.qp, bitrate: enc.bitrate, mux, base: server.base, sink: jobs[i].id,
-          keyInterval: Math.max(1, Math.round(fps * 2)) })})`)));
-      } catch (e) { o.signal?.throwIfAborted(); throw e; } finally { await Promise.all(jobs.map(j => j.close())); }
-      const encodeMs = Date.now() - t0;
-      let inputs = jobs.map(j => j.path);
-      if (mux === 'raw' && inputs.length > 1) {   // Annex B streams join by plain concatenation
-        const all = join(tmp, `all.${ext}`), w = createWriteStream(all);
-        for (const p of inputs) await pipeline(createReadStream(p), w, { end: false });
-        await new Promise(r => w.end(r)); inputs = [all];
+        stats = await Promise.all(ranges.map((r, i) => pages[i].evaluate(`window.__motlab.captureRange(${JSON.stringify({
+          ...r, sceneStart, overlays: o.overlays, videoAt: o.videoAt ?? sceneStart, scale, fps, base: server.base, sink: sinks[i].id })})`)));
+        await Promise.all(sinks.map(s => s.close()));
+        await Promise.all(procs.map(p => p.finish()));
+      } catch (e) {
+        await Promise.all(sinks.map(s => s.close()));
+        await Promise.all(procs.map(p => p.abort()));
+        o.signal?.throwIfAborted(); throw e;
       }
-      const fullRange = stats[0].fullRange;
-      if (stats.some(s => s.fullRange !== fullRange)) throw new Error('the workers encoded different colour ranges');
-      await finalize({ inputs, raw: mux === 'raw', codec: enc.codec, fps, audio: o.audio && resolve(o.audio), out: part, duration: frames / fps, tmp, signal: o.signal, fullRange });
-      return { mux, encodeMs, stats, fullRange };
-    };
+      const encodeMs = Date.now() - t0;
+      await finalize({ inputs: procs.map(p => p.path), codec: 'prores4444', fps, audio: o.audio && resolve(o.audio), out: part, duration: frames / fps, tmp, signal: o.signal, fullRange: false });
+      res = { mux: 'prores', encodeMs, stats, fullRange: false };
+    } else {
+      const ext = enc.codec === 'hevc' ? 'h265' : 'h264';
+      // Each worker writes its own part into the temp folder: an MP4 muxed in the page by Mediabunny, or a raw Annex B
+      // stream. ffmpeg then stream-copies the parts into the final file, which is where the colour tags are written
+      // into the bitstream, parallel parts are joined and audio is added.
+      const attempt = async mux => {
+        const jobs = [];
+        for (let i = 0; i < ranges.length; i++) jobs.push(await server.createSink(join(tmp, `${mux}-${i}.${mux === 'raw' ? ext : 'mp4'}`)));
+        const t0 = Date.now(); let stats;
+        try {
+          stats = await Promise.all(ranges.map((r, i) => pages[i].evaluate(`window.__motlab.encodeRange(${JSON.stringify({
+            ...r, sceneStart, overlays: o.overlays, videoAt: o.videoAt ?? sceneStart, scale, fps, codec: enc.codec, codecString: enc.codecString, hw: enc.hw, rc: enc.rc, qp: enc.qp, bitrate: enc.bitrate, mux, base: server.base, sink: jobs[i].id,
+            keyInterval: Math.max(1, Math.round(fps * 2)) })})`)));
+        } catch (e) { o.signal?.throwIfAborted(); throw e; } finally { await Promise.all(jobs.map(j => j.close())); }
+        const encodeMs = Date.now() - t0;
+        let inputs = jobs.map(j => j.path);
+        if (mux === 'raw' && inputs.length > 1) {   // Annex B streams join by plain concatenation
+          const all = join(tmp, `all.${ext}`), w = createWriteStream(all);
+          for (const p of inputs) await pipeline(createReadStream(p), w, { end: false });
+          await new Promise(r => w.end(r)); inputs = [all];
+        }
+        const fullRange = stats[0].fullRange;
+        if (stats.some(s => s.fullRange !== fullRange)) throw new Error('the workers encoded different colour ranges');
+        await finalize({ inputs, raw: mux === 'raw', codec: enc.codec, fps, audio: o.audio && resolve(o.audio), out: part, duration: frames / fps, tmp, signal: o.signal, fullRange });
+        return { mux, encodeMs, stats, fullRange };
+      };
 
-    mkdirSync(dirname(out), { recursive: true });
-    let res; const want = o.mux || 'auto';
-    try { res = await attempt(want === 'raw' ? 'raw' : 'mediabunny'); }
-    catch (e) {
-      if (want !== 'auto' || o.signal?.aborted) throw e;
-      // Without the npm package the page only says it "failed to fetch" mediabunny.mjs, so the cause is named here.
-      const why = hasMediabunny() ? e.message.split('\n')[0] : `mediabunny is not installed: run npm ci in ${fileURLToPath(new URL('..', import.meta.url))}`;
-      log(`\nMediabunny path failed (${why}). Retrying with raw bitstream and ffmpeg.`);
-      res = await attempt('raw');
+      const want = o.mux || 'auto';
+      try { res = await attempt(want === 'raw' ? 'raw' : 'mediabunny'); }
+      catch (e) {
+        if (want !== 'auto' || o.signal?.aborted) throw e;
+        // Without the npm package the page only says it "failed to fetch" mediabunny.mjs, so the cause is named here.
+        const why = hasMediabunny() ? e.message.split('\n')[0] : `mediabunny is not installed: run npm ci in ${fileURLToPath(new URL('..', import.meta.url))}`;
+        log(`\nMediabunny path failed (${why}). Retrying with raw bitstream and ffmpeg.`);
+        res = await attempt('raw');
+      }
     }
     if (o.progress !== false && process.stdout.isTTY) process.stdout.write('\r');
     rmSync(out, { force: true }); renameSync(part, out);
 
     const v = await probeVideo(out), wantDur = frames / fps;
-    const muxLabel = `${res.mux === 'raw' ? 'raw bitstream' : 'Mediabunny in the page'}, then ffmpeg -c copy${ranges.length > 1 ? ` (concat of ${ranges.length} parts)` : ''}${o.audio ? ' with audio' : ''}`;
-    const summary = { out, frames: v.frames, expectedFrames: frames, pageFrames, sceneStart, startRead: res.stats.some(s => s.startRead), duration: v.duration, width, height, fps, gpu: info.gpu.renderer, encoder: label(enc), codec: enc.codec, hw: enc.hw,
-      rate: rate(enc), mux: muxLabel, fullRange: res.fullRange, workers: ranges.length, encodeSeconds: res.encodeMs / 1000, totalSeconds: (Date.now() - started) / 1000, size: v.size,
+    const muxLabel = prores
+      ? `RGBA pipe to ffmpeg prores_ks${ranges.length > 1 ? ` (concat of ${ranges.length} parts)` : ''}${o.audio ? ' with PCM audio' : ''}`
+      : `${res.mux === 'raw' ? 'raw bitstream' : 'Mediabunny in the page'}, then ffmpeg -c copy${ranges.length > 1 ? ` (concat of ${ranges.length} parts)` : ''}${o.audio ? ' with audio' : ''}`;
+    const summary = { out, frames: v.frames, expectedFrames: frames, pageFrames, sceneStart, startRead: res.stats.some(s => s.startRead), duration: v.duration, width, height, fps, gpu: info.gpu.renderer,
+      encoder: prores ? 'ProRes 4444' : label(enc), codec: enc.codec, hw: enc.hw,
+      rate: prores ? 'yuva444p10le' : rate(enc), mux: muxLabel, fullRange: res.fullRange, workers: ranges.length, encodeSeconds: res.encodeMs / 1000, totalSeconds: (Date.now() - started) / 1000, size: v.size,
       color: { range: v.color_range, space: v.color_space, transfer: v.color_transfer, primaries: v.color_primaries } };
     log(`Mux: ${muxLabel}`);
     log(`Colour tags: ${v.color_space || 'none'} / ${v.color_range || 'none'} (primaries ${v.color_primaries || 'none'}, transfer ${v.color_transfer || 'none'})`);
