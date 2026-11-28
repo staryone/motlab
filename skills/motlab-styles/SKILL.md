@@ -27,6 +27,7 @@ anything itself; the motlab skill does all of that.
 | Style | For | Files |
 |---|---|---|
 | Ad morph | Short product, app and brand ads (8 to 20 s) where every shot grows into the next, with no cuts | `styles/ad-morph.md`, `templates/ad-morph-2d.html` |
+| Kinetic reel | 9:16 vertical explainers, Reels, Shorts and talking-head edits (12 to 45 s) with safe-zone framing, 2.5D stat cards and highlighted captions | `styles/kinetic-reel.md`, `templates/kinetic-reel-2d.html` |
 
 ## A style from a reference video
 
