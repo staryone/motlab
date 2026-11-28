@@ -69,7 +69,7 @@ export async function loadTrack(path) {
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
   const d = await r.json(), times = d.times;
   const frame = t => { let lo = 0, hi = times.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (times[m] <= t + 1e-6) lo = m; else hi = m - 1; } return lo; };
-  const KEY = { plane: 'corners', points: 'points', camera: 'matrix' };
+  const KEY = { plane: 'corners', points: 'points', camera: 'matrix', camera3d: 'matrix' };
   function raw(name, t) {
     const tr = d.tracks[name];
     if (!tr) throw new Error(`${path} has no track "${name}" (it has ${Object.keys(d.tracks).join(', ')})`);
@@ -126,6 +126,18 @@ export async function loadTrack(path) {
         confidence: t => tr.confidence[frame(t) - tr.first] ?? 0,
         close: () => clip.close(),
       };
+    },
+    // puts a 3D camera from skills/motlab/scripts/blender/solve.py on a three.js camera at time t: where it is, where it
+    // looks, and its field of view, so a three.js scene drawn with it sits in the shot. Give the three.js canvas the
+    // clip's shape, and lay it where the clip is (fit).
+    setCamera(name, t, camera) {
+      const { tr, v } = raw(name, t);
+      if (tr.kind !== 'camera3d') throw new Error(`${path}: "${name}" is a ${tr.kind} track, not a 3D camera from solve.py`);
+      camera.matrix.fromArray(v);
+      camera.matrix.decompose(camera.position, camera.quaternion, camera.scale);
+      camera.fov = tr.fov; camera.aspect = d.width / d.height;
+      camera.updateProjectionMatrix(); camera.updateMatrixWorld(true);
+      return camera;
     },
     // position, scale and turn of a points track (one or two points) or a plane, against its first frame: for a
     // Canvas 2D page (ctx.translate, rotate, scale). x, y is the first point (a plane's middle), in page units with fit.

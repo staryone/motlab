@@ -19,6 +19,8 @@ All in `scripts/blender/`, plain Python files to copy next to the project's asse
 - `mesh_from_sdf.py` runs in plain Python (numpy and scipy): describe a shape as a distance function and get a smooth
   quad mesh as `.npz`, which `kit.load_npz()` reads.
 - `example_scene.py`: a complete small scene that uses all three.
+- `solve.py` runs inside Blender too, on a real clip: its tracker and camera solver, for a three.js scene laid over
+  the footage (`on-footage.md`, A 3D camera).
 
 Run the example once before building anything, so you know the machine works:
 

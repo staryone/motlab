@@ -63,3 +63,24 @@ test('a track gives the frame shown at a time, holds lost frames and the ends, a
   assert.throws(() => t.plane('nope', 0), /has no track "nope" \(it has card, pair\)/);
   await assert.rejects(loadTrack('missing.json'), /missing\.json: 404/);
 });
+
+test('setCamera puts a solved 3D camera on a three.js-like camera', async () => {
+  const m = [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0, 2, 3, 4, 1];   // column by column: moved to 2, 3, 4
+  const file = { width: 1920, height: 1080, fps: 24, times: [0, 1 / 24], tracks: {
+    cam: { kind: 'camera3d', first: 0, matrix: [m, null], confidence: [1, 0], fov: 40, focal: 28, sensor: 36, error: 0.3, points: [[0, 0, 0]] },
+    flat: { kind: 'plane', first: 0, corners: [[0, 0, 1, 0, 1, 1, 0, 1]], confidence: [1] } } };
+  globalThis.document = { baseURI: 'http://x/a.html' };
+  globalThis.fetch = async () => ({ ok: true, json: async () => file });
+  const t = await loadTrack('c.track.json');
+  const got = {};
+  const camera = {   // the parts of a THREE.PerspectiveCamera setCamera uses
+    position: {}, quaternion: {}, scale: {},
+    matrix: { fromArray: a => { got.matrix = a; }, decompose: (p, q, s) => { got.decomposed = [p, q, s].every(Boolean); } },
+    updateProjectionMatrix: () => { got.projection = true; }, updateMatrixWorld: () => { got.world = true; },
+  };
+  t.setCamera('cam', 1 / 24, camera);   // frame 1 was not solved: frame 0's camera holds
+  assert.deepEqual(got, { matrix: m, decomposed: true, projection: true, world: true });
+  assert.equal(camera.fov, 40);
+  assert.ok(Math.abs(camera.aspect - 16 / 9) < 1e-9);
+  assert.throws(() => t.setCamera('flat', 0, camera), /"flat" is a plane track, not a 3D camera/);
+});

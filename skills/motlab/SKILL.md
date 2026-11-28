@@ -354,7 +354,8 @@ and how to install it before you start.
   matched to footage) and
   `/__motlab/cuts.js` (a cut list over one recording, by section, with captions from a transcript).
 - `track.py`: follows points, a flat surface or the whole frame through a clip into `<clip>.track.json`, with
-  `--sheet` to look at the result (`references/on-footage.md`).
+  `--sheet` to look at the result (`references/on-footage.md`). `blender/solve.py` solves a moving camera in 3D for
+  three.js over footage.
 - `cut_pauses.py`: cuts the pauses out of a talking-head recording into `cuts.json`, with `--audio-out` writes the
   voice with the same cuts, and with `--sections` splits the take into one scene per section.
   The take ends at the shorter audio/video duration (container duration if unavailable), ignoring subtitle and data tracks.
