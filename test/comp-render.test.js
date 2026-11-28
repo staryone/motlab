@@ -50,3 +50,44 @@ test('footage is pushed by a warp and a layer lands on its corners', async () =>
   assert.ok(near(meanRgb(pushed, '30:20:50:45'), [0, 255, 0]), `the layer: ${meanRgb(pushed, '30:20:50:45')}`);
   assert.ok(near(meanRgb(pushed, '10:10:40:150'), [255, 0, 0]), `below the layer, the footage: ${meanRgb(pushed, '10:10:40:150')}`);
 });
+
+test('a layer goes behind a matte or only onto the key colour, and a patch takes pixels from beside', async () => {
+  // the matte: white (the object) on the left half, black on the right, 64 x 36, as motlab matte writes it
+  const m = spawnSync('ffmpeg', ['-v', 'error', '-f', 'lavfi', '-i', 'color=c=white:s=32x36:r=30:d=1', '-f', 'lavfi', '-i', 'color=c=black:s=32x36:r=30:d=1',
+    '-filter_complex', 'hstack,format=gray', '-c:v', 'libvpx-vp9', '-lossless', '1', '-pix_fmt', 'yuv444p', '-y', join(dir, 'halves.m.matte.webm')]);
+  assert.equal(m.status, 0, String(m.stderr));
+  writeFileSync(join(dir, 'halves.track.json'), JSON.stringify({ width: 320, height: 180, fps: 30, times: Array.from({ length: 30 }, (_, i) => i / 30),
+    tracks: { m: { kind: 'matte', first: 0, file: 'halves.m.matte.webm', size: [64, 36], rate: 30, confidence: Array(30).fill(1) } } }));
+  writeFileSync(join(dir, 'held.html'), `<!doctype html><canvas id="c" width="320" height="180"></canvas><script type="module">
+    const ctx = document.getElementById('c').getContext('2d');
+    window.TOTAL = 1;
+    let clip, comp, track, matte;
+    const fill = c => { const k = Object.assign(document.createElement('canvas'), { width: 16, height: 16 }); k.getContext('2d').fillStyle = c; k.getContext('2d').fillRect(0, 0, 16, 16); return k; };
+    const green = fill('#00ff00'), white = fill('#ffffff'), all = [[0, 0], [320, 0], [320, 180], [0, 180]];
+    window.ready = (async () => {
+      const { openFootage } = await import('/__motlab/footage.js');
+      const { compositor, loadTrack } = await import('/__motlab/comp.js');
+      clip = await openFootage('halves.mp4');
+      track = await loadTrack('halves.track.json'); matte = await track.matte('m');
+      comp = compositor({ width: 320, height: 180 });
+      return true;
+    })();
+    window.renderAt = async t => {
+      await window.ready;
+      comp.footage(await clip.frame(t));
+      if (t < 0.5) {
+        // green behind the object on the left; a patch of the right half's blue over the top left corner
+        comp.layer(green, { at: all, behind: await matte.frame(t) });
+        comp.patch({ at: [[10, 10], [60, 10], [60, 60], [10, 60]], offset: [200, 0], feather: 1 });
+      } else comp.layer(white, { at: all, keyed: { color: '#0000ff', despill: 0 } });   // white only where the footage is blue
+      ctx.drawImage(comp.canvas, 0, 0);
+    };
+  </script>`);
+  const [held, keyed] = await renderStills({ page: join(dir, 'held.html'), outDir: join(dir, 'held'), times: [0.25, 0.75], log: () => {} });
+  const near = (got, want) => got.every((v, i) => Math.abs(v - want[i]) <= 24);
+  assert.ok(near(meanRgb(held, '40:40:80:100'), [255, 0, 0]), `behind the matte the footage stays: ${meanRgb(held, '40:40:80:100')}`);
+  assert.ok(near(meanRgb(held, '40:40:230:100'), [0, 255, 0]), `beside it the layer: ${meanRgb(held, '40:40:230:100')}`);
+  assert.ok(near(meanRgb(held, '30:30:20:20'), [0, 0, 255]), `the patch is blue from the right: ${meanRgb(held, '30:30:20:20')}`);
+  assert.ok(near(meanRgb(keyed, '40:40:40:100'), [255, 0, 0]) && near(meanRgb(keyed, '40:40:230:100'), [255, 255, 255]),
+    `keyed: ${meanRgb(keyed, '40:40:40:100')} and ${meanRgb(keyed, '40:40:230:100')}`);
+});

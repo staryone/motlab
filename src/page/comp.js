@@ -1,6 +1,7 @@
-// Animation that touches real footage, for scene pages: tracks made by skills/motlab/scripts/track.py, and a WebGL
-// compositor that draws the footage with warps (ripple, shockwave, bulge, swirl, push, crack) and lays canvases on it
-// at tracked places, matched to the shot (levels, tint, grain, motion blur, light wrap, a contact shadow).
+// Animation that touches real footage, for scene pages: tracks made by skills/motlab/scripts/track.py and mattes made
+// by motlab matte, and a WebGL compositor that draws the footage with warps (ripple, shockwave, bulge, swirl, push,
+// crack), lays canvases on it at tracked places, matched to the shot (levels, tint, grain, motion blur, light wrap, a
+// contact shadow), behind or inside a real object or only on a green screen, and patches real objects away.
 // Served at /__motlab/comp.js by the renderer and the viewer.
 //
 //   const { loadTrack, compositor, quad } = await import('/__motlab/comp.js');
@@ -64,7 +65,7 @@ export function grow(q, d) {
 // nearest frame that was not, and outside the tracked part the nearest end. fit = [x, y, w, h], where the clip is
 // drawn on the page, turns clip pixels into page units.
 export async function loadTrack(path) {
-  const r = await fetch(new URL(path, document.baseURI));
+  const url = new URL(path, document.baseURI), r = await fetch(url);
   if (!r.ok) throw new Error(`${path}: ${r.status}`);
   const d = await r.json(), times = d.times;
   const frame = t => { let lo = 0, hi = times.length - 1; while (lo < hi) { const m = (lo + hi + 1) >> 1; if (times[m] <= t + 1e-6) lo = m; else hi = m - 1; } return lo; };
@@ -107,6 +108,25 @@ export async function loadTrack(path) {
     // points given in the track's first frame (clip pixels), where the track has carried them by time t: a label
     // beside a tracked screen, a mark on a wall that the camera track moves
     carry: (name, t, pts, fit) => { const H = moved(name, t); return pts.map(p => toPage(fit, applyH(H, p))); },
+    // the homography from page positions at time t to where the same points are at time t2, following the track: for
+    // a patch that takes pixels from another frame (comp.patch's map)
+    map(name, t, t2, fit) {
+      const F = fit ? [fit[2] / d.width, 0, fit[0], 0, fit[3] / d.height, fit[1], 0, 0, 1] : ident();
+      return mul(F, mul(moved(name, t2), mul(inv(moved(name, t)), inv(F))));
+    },
+    // a matte made by motlab matte: frame(t) gives its picture at time t in the clip, for comp.layer's behind and
+    // inside and comp.patch's matte. Opens a decoder of its own; call it once, in window.ready.
+    async matte(name) {
+      const tr = d.tracks[name];
+      if (tr?.kind !== 'matte') throw new Error(`${path} has no matte "${name}": make it with motlab matte <clip> --name ${name}`);
+      const { openFootage } = await import('./footage.js');
+      const clip = await openFootage(new URL(tr.file, url).href), n = tr.confidence.length;
+      return {
+        frame: t => clip.frame((Math.min(Math.max(frame(t) - tr.first, 0), n - 1) + 0.5) / tr.rate),
+        confidence: t => tr.confidence[frame(t) - tr.first] ?? 0,
+        close: () => clip.close(),
+      };
+    },
     // position, scale and turn of a points track (one or two points) or a plane, against its first frame: for a
     // Canvas 2D page (ctx.translate, rotate, scale). x, y is the first point (a plane's middle), in page units with fit.
     pose(name, t, fit) {
@@ -208,10 +228,28 @@ void main() {
   o = c;
 }`;
 
-const LAYER = COMMON + `
+// a matte from motlab matte over the clip's frame: 128 is the edge, 16 a unit of SAM's logit
+const MATTE = `
+uniform sampler2D uMatte; uniform float uMatteSoft, uMatteGrow; uniform vec4 uFootRect;
+float matteAt(vec2 p) {
+  vec2 uv = (p - uFootRect.xy) / uFootRect.zw;
+  if (any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 0.0;
+  float logit = (texture(uMatte, uv).r * 255.0 - 128.0) / 16.0;
+  return smoothstep(-uMatteSoft, uMatteSoft, logit + uMatteGrow);
+}`;
+
+const LAYER = COMMON + MATTE + `
 uniform sampler2D uTex, uFoot; uniform mat3 uInv0, uInv1; uniform int uSamples, uMode;
 uniform float uOpacity, uLevels, uTintAmt, uGrain, uGrainPx, uSeed, uWrap, uWrapLod, uFootLod, uShadowLod;
-uniform vec3 uBlack, uWhite, uTint; uniform vec4 uFootRect;
+uniform vec3 uBlack, uWhite, uTint;
+uniform int uMatteMode, uKeyed, uSpill; uniform vec3 uKey; uniform float uKeyTol, uKeySoft, uDespill;
+uniform int uMarks; uniform mat3 uMark[4];
+vec2 chroma(vec3 c) { return vec2(-0.1687 * c.r - 0.3313 * c.g + 0.5 * c.b, 0.5 * c.r - 0.4187 * c.g - 0.0813 * c.b); }
+vec3 despill(vec3 c) {            // the key's colour taken off what spills onto the things in front of it
+  if (uSpill == 1) c.g -= max(0.0, c.g - max(c.r, c.b)) * uDespill;
+  if (uSpill == 2) c.b -= max(0.0, c.b - max(c.r, c.g)) * uDespill;
+  return c;
+}
 vec2 uvAt(mat3 m, vec2 p) { vec3 h = m * vec3(p, 1.0); return h.xy / h.z; }
 bool inside(vec2 uv) { return all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0))); }
 float cover(vec2 uv) {            // how much of this pixel the layer covers at its edges
@@ -220,10 +258,23 @@ float cover(vec2 uv) {            // how much of this pixel the layer covers at 
 }
 void main() {
   vec2 p = pagePos();
+  float hold = 1.0;                // behind a real object (1), inside it (2), or only on the key colour
+  if (uMatteMode == 1) hold = 1.0 - matteAt(p);
+  if (uMatteMode == 2) hold = matteAt(p);
+  vec3 under = texture(uFoot, (p - uFootRect.xy) / uFootRect.zw).rgb;
+  if (uKeyed == 1) {
+    float key = 1.0 - smoothstep(uKeyTol, uKeyTol + uKeySoft, distance(chroma(under), chroma(uKey)));
+    for (int i = 0; i < 4; i++) {   // tracking marks count as screen
+      if (i >= uMarks) break;
+      vec3 h = uMark[i] * vec3(p, 1.0); vec2 uv = h.xy / h.z;
+      if (h.z > 0.0 && all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0)))) key = 1.0;
+    }
+    hold *= key;
+  }
   if (uMode == 1) {             // contact shadow: the layer's alpha, blurred, as black
     vec2 uv = uvAt(uInv0, p);
     float a = inside(uv) ? textureLod(uTex, uv, uShadowLod).a : 0.0;
-    o = vec4(0.0, 0.0, 0.0, a * uOpacity); return;
+    o = vec4(0.0, 0.0, 0.0, a * uOpacity * hold); return;
   }
   vec4 c = vec4(0.0);
   for (int k = 0; k < 32; k++) {   // motion blur: the layer where it was across the shutter
@@ -234,8 +285,9 @@ void main() {
     if (h.z > 0.0) c += texture(uTex, clamp(uv, 0.0, 1.0)) * cover(uv);
   }
   c /= float(uSamples);
-  if (c.a < 1e-4) discard;
-  vec3 rgb = c.rgb / c.a;
+  bool cleans = uKeyed == 1 && uDespill > 0.0;
+  if (c.a < 1e-4 && !cleans) discard;
+  vec3 rgb = c.a > 0.0 ? c.rgb / c.a : vec3(0.0);
   rgb = mix(rgb, uBlack + rgb * (uWhite - uBlack), uLevels);
   rgb = mix(rgb, rgb * uTint, uTintAmt);
   if (uWrap > 0.0) {             // light wrap: the footage's light over the layer's edges
@@ -249,7 +301,32 @@ void main() {
     float n = (hash(cell + uSeed) + hash(cell + uSeed + 71.3) + hash(cell + uSeed + 143.9) - 1.5) * 2.0;
     rgb += n * uGrain;
   }
-  o = vec4(clamp(rgb, 0.0, 1.0) * c.a, c.a) * uOpacity;
+  float a = c.a * uOpacity * hold;
+  if (cleans) {                    // inside the screen: the layer over the footage cleaned of the key's spill, opaque
+    float q = cover(uvAt(uInv0, p));
+    o = vec4((clamp(rgb, 0.0, 1.0) * a + despill(under) * (1.0 - a)) * q, q);
+    return;
+  }
+  o = vec4(clamp(rgb, 0.0, 1.0) * a, a);
+}`;
+
+// Pixels from beside (offset) or from another frame (source, through map), over a quad with a soft edge or over a
+// matte: covering a real object.
+const PATCH = COMMON + MATTE + `
+uniform sampler2D uFoot, uSrc; uniform int uFrom, uCover; uniform mat3 uMap, uInv; uniform vec2 uOffset, uQuadSize; uniform float uFeather;
+void main() {
+  vec2 p = pagePos();
+  float cov;
+  if (uCover == 1) cov = matteAt(p);
+  else {
+    vec3 h = uInv * vec3(p, 1.0); vec2 uv = h.xy / h.z, e = min(uv, 1.0 - uv) * uQuadSize;
+    cov = h.z > 0.0 && all(greaterThanEqual(uv, vec2(0.0))) && all(lessThanEqual(uv, vec2(1.0))) ? smoothstep(0.0, 1.0, min(e.x, e.y) / max(uFeather, 1e-3)) : 0.0;
+  }
+  if (cov <= 0.0) discard;
+  vec4 c;
+  if (uFrom == 1) { vec3 h = uMap * vec3(p, 1.0); c = texture(uSrc, (h.xy / h.z - uFootRect.xy) / uFootRect.zw); }
+  else c = texture(uFoot, (p + uOffset - uFootRect.xy) / uFootRect.zw);
+  o = vec4(c.rgb, 1.0) * cov;
 }`;
 
 // The footage's light: its darkest and brightest colours (2nd and 98th percentile of brightness), its mean colour,
@@ -283,7 +360,7 @@ function measure(src, sw, sh, noise, [rx, ry, rw, rh] = [0, 0, sw, sh]) {
 // A WebGL2 canvas of the page's size that draws footage and layers in the order they are given, every frame:
 // footage() first, then layer() for each canvas laid on it, then copy comp.canvas onto the page's canvas.
 export function compositor({ width, height, scale = 1 }) {
-  let cv, gl, prog, texFoot, pool, used, foot, light;
+  let cv, gl, prog, texFoot, texMatte, texSrc, pool, used, foot, light;
   function init() {
     cv = document.createElement('canvas'); cv.width = Math.round(width * scale); cv.height = Math.round(height * scale);
     gl = cv.getContext('webgl2', { premultipliedAlpha: true, preserveDrawingBuffer: true, antialias: false });
@@ -300,12 +377,12 @@ export function compositor({ width, height, scale = 1 }) {
       const loc = new Map(), u = n => loc.has(n) ? loc.get(n) : (loc.set(n, gl.getUniformLocation(p, n)), loc.get(n));
       return { p, u };
     };
-    prog = { foot: build(FOOTAGE), layer: build(LAYER) };
+    prog = { foot: build(FOOTAGE), layer: build(LAYER), patch: build(PATCH) };
     gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
     gl.enableVertexAttribArray(0); gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-    texFoot = texture(); pool = []; used = 0;
+    texFoot = texture(); texMatte = texture(); texSrc = texture(); pool = []; used = 0;
   }
   function texture() {
     const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t);
@@ -331,6 +408,15 @@ export function compositor({ width, height, scale = 1 }) {
     f.draw(c.getContext('2d'), 0, 0, w, h);
     return { src: c, w, h };
   }
+  // a matte: a frame of track.matte(), or { frame, soft, grow } (soft: the edge's width in SAM's logits, 1.5 by
+  // default; grow: a positive number takes in more around the object)
+  function matte(P, m) {
+    const frame = m.frame || m;
+    upload(texMatte, source(frame).src);
+    gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, texMatte); gl.uniform1i(P.u('uMatte'), 2);
+    gl.uniform1f(P.u('uMatteSoft'), m.soft ?? 1.5); gl.uniform1f(P.u('uMatteGrow'), m.grow ?? 0);
+  }
+  const rgb = c => typeof c === 'string' ? [1, 3, 5].map(i => parseInt(c.slice(i, i + 2), 16) / 255) : c.map(v => v > 1 ? v / 255 : v);
   init();
   let seed = 0;
   return {
@@ -364,11 +450,16 @@ export function compositor({ width, height, scale = 1 }) {
     // match: { levels, tint, grain, wrap } from 0 to 1 (grain 'auto' takes the footage's measured noise, which
     // footage() measures with noise: true). shadow: { opacity, blur } draws the layer's shape as a soft dark shadow
     // instead of the layer. blend: 'normal' or 'add'.
-    layer(img, { at, from, to, samples = from && to ? 8 : 1, opacity = 1, match = {}, shadow, blend = 'normal' } = {}) {
+    // behind / inside: a matte (a frame of track.matte(), or { frame, soft, grow }): the layer is hidden where the
+    // real object is, or shown only there. keyed: { color, tolerance, soft, despill, marks }: the layer shows only
+    // where the footage is near color (a green or blue screen), so fingers in front stay in front, and the key's spill
+    // on them is taken off (despill 0 to 1). marks: up to 4 sets of four corners where the layer shows whatever the
+    // colour, over the tracking marks on a screen.
+    layer(img, { at, from, to, samples = from && to ? 8 : 1, opacity = 1, match = {}, shadow, blend = 'normal', behind, inside, keyed } = {}) {
       if (!foot) throw new Error('comp.js: call footage() first in each frame');
       if (!at) throw new Error('comp.js: layer() needs at: four corners');
       const t = pool[used] ||= texture(); used++;
-      upload(t, img);
+      upload(t, source(img).src);   // a canvas, an image, or a frame of footage (the real object drawn again on top)
       const P = prog.layer; common(P);
       gl.enable(gl.BLEND);
       if (blend === 'add') gl.blendFunc(gl.ONE, gl.ONE); else gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -379,7 +470,7 @@ export function compositor({ width, height, scale = 1 }) {
       gl.uniform1i(P.u('uSamples'), Math.max(1, Math.min(32, samples)));
       gl.uniform1i(P.u('uMode'), shadow ? 1 : 0);
       gl.uniform1f(P.u('uOpacity'), shadow ? (shadow.opacity ?? 0.5) * opacity : opacity);
-      const iw = img.width, side = Math.hypot(at[1][0] - at[0][0], at[1][1] - at[0][1]) * scale;   // layer pixels per device pixel
+      const iw = img.width ?? img.displayWidth, side = Math.hypot(at[1][0] - at[0][0], at[1][1] - at[0][1]) * scale;   // layer pixels per device pixel
       const lod = px => Math.max(0, Math.log2(Math.max(1e-3, px * scale * iw / Math.max(side, 1))));
       gl.uniform1f(P.u('uShadowLod'), lod(shadow?.blur ?? 6));
       const tint = light.mean, l = 0.2126 * tint[0] + 0.7152 * tint[1] + 0.0722 * tint[2] || 1;
@@ -390,6 +481,49 @@ export function compositor({ width, height, scale = 1 }) {
       const wrapPx = match.wrapSize ?? 12;   // page units
       gl.uniform1f(P.u('uWrap'), match.wrap || 0); gl.uniform1f(P.u('uWrapLod'), lod(wrapPx));
       gl.uniform1f(P.u('uFootLod'), Math.max(0, Math.log2(wrapPx * foot.w / foot.fit[2]))); gl.uniform4f(P.u('uFootRect'), ...foot.fit);
+      if (behind && inside) throw new Error('comp.js: a layer is behind a matte or inside one, not both');
+      gl.uniform1i(P.u('uMatteMode'), behind ? 1 : inside ? 2 : 0);
+      if (behind || inside) matte(P, behind || inside);
+      gl.uniform1i(P.u('uKeyed'), keyed ? 1 : 0);
+      if (keyed) {
+        const k = rgb(keyed.color ?? '#00ff00');
+        gl.uniform3fv(P.u('uKey'), k); gl.uniform1f(P.u('uKeyTol'), keyed.tolerance ?? 0.12); gl.uniform1f(P.u('uKeySoft'), keyed.soft ?? 0.08);
+        gl.uniform1f(P.u('uDespill'), keyed.despill ?? 1); gl.uniform1i(P.u('uSpill'), k[1] > k[0] && k[1] > k[2] ? 1 : k[2] > k[0] && k[2] > k[1] ? 2 : 0);
+        const marks = keyed.marks || [];
+        if (marks.length > 4) throw new Error('comp.js: keyed takes at most 4 marks');
+        gl.uniform1i(P.u('uMarks'), marks.length);
+        if (marks.length) gl.uniformMatrix3fv(P.u('uMark'), false, marks.flatMap(m3));
+      }
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      gl.activeTexture(gl.TEXTURE0);
+    },
+    // Covers part of the frame with pixels from beside it (offset: [dx, dy] page units) or from another frame (source:
+    // a frame, map: page positions now to page positions in it, from track.map). Where: at (four corners, with a
+    // soft edge feather page units wide) or matte (a frame of track.matte(), or { frame, soft, grow }; grow it so
+    // the object's edge goes too). Call it after footage() and before the layers that go over it.
+    patch({ at, matte: m, offset = [0, 0], source: src, map, feather = 12 } = {}) {
+      if (!foot) throw new Error('comp.js: call footage() first in each frame');
+      if (!at === !m) throw new Error('comp.js: patch() takes at (four corners) or matte');
+      const P = prog.patch; common(P);
+      gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, texFoot); gl.uniform1i(P.u('uFoot'), 0);
+      gl.uniform4f(P.u('uFootRect'), ...foot.fit);
+      gl.uniform1i(P.u('uFrom'), src ? 1 : 0);
+      if (src) {
+        upload(texSrc, source(src).src);
+        gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, texSrc); gl.uniform1i(P.u('uSrc'), 1);
+        const H = map || ident();
+        gl.uniformMatrix3fv(P.u('uMap'), false, [H[0], H[3], H[6], H[1], H[4], H[7], H[2], H[5], H[8]]);
+      }
+      gl.uniform2f(P.u('uOffset'), ...offset);
+      gl.uniform1i(P.u('uCover'), m ? 1 : 0);
+      if (m) matte(P, m);
+      else {
+        const H = inv(squareTo(at));
+        gl.uniformMatrix3fv(P.u('uInv'), false, [H[0], H[3], H[6], H[1], H[4], H[7], H[2], H[5], H[8]]);
+        gl.uniform2f(P.u('uQuadSize'), Math.hypot(at[1][0] - at[0][0], at[1][1] - at[0][1]), Math.hypot(at[3][0] - at[0][0], at[3][1] - at[0][1]));
+        gl.uniform1f(P.u('uFeather'), feather);
+      }
       gl.drawArrays(gl.TRIANGLES, 0, 3);
       gl.activeTexture(gl.TEXTURE0);
     },

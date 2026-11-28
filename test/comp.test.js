@@ -55,6 +55,7 @@ test('a track gives the frame shown at a time, holds lost frames and the ends, a
   assert.equal(t.confidence('card', 0.3), 0);
   // a point beside the plane in its first frame moves with it
   assert.ok(close(t.carry('card', 0.4, [[150, 25]])[0], [180, 25]));
+  assert.ok(close(apply(t.map('card', 0.1, 0.4), [10, 0]), [40, 0]), 'map: a point at frame 1 is 30 further at frame 4');
   const p = t.pose('pair', 0.1);
   assert.ok(close([p.x, p.y, p.scale, p.angle], [5, 5, 1, Math.PI / 2]), JSON.stringify(p));
   const s = t.shutter(x => t.plane('card', x), 0.4);   // frame 3 was lost, so the frame before is frame 2's

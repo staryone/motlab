@@ -36,5 +36,5 @@ These are downloaded when you install or run motlab, under their own licences, a
 
 - [Mediabunny](https://github.com/Vanilagy/mediabunny) (MPL-2.0), installed by `npm ci`. It writes MP4 files and decodes footage inside scene pages.
 - The libraries that scene pages load from jsDelivr at a pinned version, when a scene uses them: three.js (MIT), p5.js (LGPL-2.1), GSAP (its own no-charge licence from Webflow), Anime.js (MIT), lottie-web (MIT), dotLottie (MIT) and Theatre.js core (Apache-2.0).
-- What `motlab depth` downloads on its first run and keeps in its Chrome profile: transformers.js 4.3.2 (Apache-2.0) and onnxruntime-web (MIT) from jsDelivr, and the Depth Anything V2 Small model (Apache-2.0) from Hugging Face.
+- What `motlab depth` and `motlab matte` download on their first run and keep in their Chrome profile: transformers.js 4.3.2 (Apache-2.0) and onnxruntime-web (MIT) from jsDelivr, and from Hugging Face the Depth Anything V2 Small model (Apache-2.0) and the SAM 2.1 tiny model (Apache-2.0, `onnx-community/sam2.1-hiera-tiny-ONNX`, from Meta's `facebook/sam2.1-hiera-tiny`).
 - Remotion, HyperFrames and GSAP in `bench/`, installed only when you run the benchmark. See [bench/README.md](bench/README.md).

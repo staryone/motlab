@@ -343,6 +343,8 @@ and how to install it before you start.
 - `contact_sheet.py`: puts the stills from `motlab stills` on one sheet, labelled with their times.
 - `key.py` removes a flat background, `split.py` cuts a cut-out into layers, `grid.py` overlays pixel coordinates.
   `motlab depth <photo>` makes a depth map and `depth_layers.py` cuts the photo into layers along it, for parallax.
+  `motlab matte <clip> --click x,y` finds an object in every frame of a clip, for animation behind it
+  (`references/on-footage.md`).
 - `gl3d.js` places 2D-canvas panels in 3D; `puppet.js` bends a cut-out with pins.
 - `get_font.py`: searches the Google Fonts catalog and downloads a family into the project. `templates/font-specimen.html`
   shows the downloaded fonts side by side for `motlab stills`.

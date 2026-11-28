@@ -1,20 +1,22 @@
-# Animation on real footage: tracks, warps and matching
+# Animation on real footage: tracks, mattes, warps and matching
 
 For animation that has to sit in a real shot: an app on a phone someone holds, a poster on a wall the camera moves
-past, a label that stays on a table, a hit that cracks the picture, a drop that ripples a puddle. Each of these is
-put together from the same few parts instead of being built as one effect:
+past, a sign that rises from behind a chair, a hit that cracks the picture, a drop that ripples a puddle. Each of
+these is put together from the same few parts instead of being built as one effect:
 
 - a track says where something is in every frame of the clip (`scripts/track.py`, made once)
+- a matte says which pixels are one object in every frame (`motlab matte`, made once)
 - the compositor in `/__motlab/comp.js` draws the footage, bends it with warps, and lays canvases on it at
-  tracked places, matched to the shot
+  tracked places, matched to the shot, behind or inside real objects, and patches real objects away
 
-Models that make pictures or video stay out. The clip is the user's own, or one they have the rights to.
+Models that make pictures or video stay out; `motlab matte` runs SAM 2.1, which only finds an object's pixels. The
+clip is the user's own, or one they have the rights to.
 
 ## Which parts an interaction needs
 
 | The shot | Track | On the page |
 |---|---|---|
-| An app on a phone held in a hand | `--plane` on the screen's corners, `--grow 0.15` when the screen is plain | `layer()` at `grow(plane, 3)` so it reaches under the bezel; `match` levels, grain, a little wrap; `shutter()` for motion blur |
+| An app on a phone held in a hand | `--plane` on the screen's corners, `--grow 0.15` when the screen is plain | `layer()` at `grow(plane, 3)` so it reaches under the bezel; `match` levels, grain, a little wrap; `shutter()` for motion blur. On a green screen, `keyed` so fingers stay in front, with `marks` over its tracking marks |
 | A poster, sign or screen on a wall | `--plane` on a patch of the wall around it | `carry()` the poster's corners from the first frame; a `shadow` layer a few pixels below; `match` levels and tint 0.5 or more |
 | A label that stays on a far or flat background while the camera moves | `--camera` | `carry('camera', ...)` its corners from the first frame |
 | Text or a mark that follows a thing | `--points` on a sharp detail of it (two for its turn and size) | `pose()` on a Canvas 2D page, or `quad()` around the point on a layer |
@@ -22,10 +24,11 @@ Models that make pictures or video stay out. The clip is the user's own, or one 
 | A drop or a stone in water | `--camera` if the shot moves | `ripple` warps, one per drop |
 | A lens or a magnifier | the thing under it | `bulge` |
 | A twist into the next shot | none | `swirl`, its angle eased up to the cut |
+| Something comes out from behind a real object, or a person walks in front of the poster | `--plane` or `--camera` for where the animation sits; `motlab matte` on the object or person | the layer with `behind: matte`; a thin thing in front of it (a rod, a cable) drawn back on top as a layer of the footage itself with `inside: its matte` |
+| A glow or a colour change on a real object | `motlab matte` on it | a layer `inside` its matte, `blend: 'add'` for light |
+| A real object is gone (a logo, a mark, a thing on the table) | `--plane` on the surface under it | `patch()` at its carried corners, with pixels from beside it (`offset`) or, when the camera moves past it, from another frame (`source` and `track.map`) |
 
-Not built yet: a matte (fingers that cross the phone's screen, a person walking in front of the poster), drawing
-an animated object behind a real one, covering a real object, and a 3D camera for three.js from Blender's solver.
-Until they are, keep the action where nothing passes in front of the surface, or cut before it does.
+Not built yet: a 3D camera for three.js scenes from Blender's solver.
 
 ## 1. Find the positions
 
@@ -77,6 +80,29 @@ On a made clip with known motion (a card turning, growing and tilting, 960 x 540
 region; each frame is warped by the predicted homography into a keyframe and matched there, so the error does not
 add up from frame to frame; the homography is fitted with RANSAC.
 
+## 2b. Matte an object
+
+```bash
+motlab matte footage/room.mp4 --click 910,540 --click 960,470 --name chair
+motlab matte footage/street.mp4 --at 2.5 --click 640,400 --exclude 700,380 --range 2,8 --name person
+```
+
+- Click on the object at `--at`, on two or three of its parts for something that is not one colour; `--exclude`
+  on what is next to it and must stay out. `--box x1,y1,x2,y2` around it works too. `--name` lets one clip have
+  several mattes (`chair`, `lamp`).
+- It writes `<clip>.<name>.matte.webm` and an entry in `<clip>.track.json`, with a score per frame. The command
+  prints how many frames were weak or empty; check them.
+- About 0.3 s a frame on the test laptop's GPU: 288 frames of 1080p in 90 s. The first run downloads the model
+  (about 80 MB).
+- Look at it before building on it: draw the matte over a few frames as a tinted layer (`inside`, a red canvas,
+  opacity 0.5) and render stills.
+- The object is carried from frame to frame by the last frame's mask. If it turns into something else (it slid
+  onto the wall behind), give it a points track: `track.py --points nail=...` on sharp details of the object, then
+  `motlab matte <clip> --points nail`, which asks with those points in every frame.
+- A matte is 256 pixels across the frame, about 7.5 pixels at 1080p. Edges are soft and thin things are rough: a
+  lamp's 3-pixel rod in the test left a gap of about 10 pixels around it in a sign behind it. Keep animation from
+  crossing close behind thin things, or let the sign pass while the rod is drawn back on top.
+
 ## 3. Draw it
 
 ```js
@@ -113,6 +139,8 @@ The track (`loadTrack`), with `t` the time in the clip:
 | `track.pose(name, t, fit)` | `{ x, y, scale, angle }` against the first frame, for `ctx.translate`, `rotate`, `scale` on a Canvas 2D page |
 | `track.shutter(fn, t, open)` | `{ from, to }` corners for motion blur, from the frames before and after; `fn(time)` gives corners. `open` 0.5 is a 180 degree shutter |
 | `track.confidence(name, t)`, `track.frame(t)` | the confidence at that frame (0 where lost), and the frame's number |
+| `await track.matte(name)` | a matte from `motlab matte`, in `window.ready`: `await m.frame(t)` is its picture at time `t` in the clip |
+| `track.map(name, t, t2, fit)` | page positions at `t` to where the same points are at `t2`, for a patch from another frame |
 
 The compositor, called in this order every frame:
 
@@ -120,7 +148,20 @@ The compositor, called in this order every frame:
 |---|---|
 | `comp.footage(frame, { fit, warps, noise, region, frame })` | draws the clip and measures its light. `region` is the part whose light the layers match (leave out a green screen or a bright sky); `noise: true` measures its grain; `frame: track.frame(ct)` changes the grain with the footage's |
 | `comp.layer(canvas, { at, from, to, samples, opacity, match, shadow, blend })` | lays a canvas on four corners, in perspective. `from` and `to` blur it along its move. `shadow: { opacity, blur }` draws its shape as a soft dark shadow instead (lay it first, a few pixels down on the same surface). `blend: 'add'` for light |
+| `comp.patch({ at, matte, offset, source, map, feather })` | covers part of the frame (four corners with a soft edge `feather` page units wide, or a matte; grow the matte so the object's edge goes too) with pixels from `offset` page units beside it, or from `source`, another frame (`await clip2.frame(t2)` from a second `openFootage` of the clip) through `map`. Call it before the layers that go over it |
 | `comp.canvas` | the result, to copy onto `#c` |
+
+A layer also takes:
+
+- `behind: matte` hides it where the real object is; `inside: matte` shows it only there. A matte is a frame from
+  `m.frame(t)`, or `{ frame, soft, grow }`: `soft` is the edge's width (1.5 by default), and `grow` takes in more
+  around the object (2 or 3 closes the gaps where a thin thing crossed it).
+- `keyed: { color, tolerance, soft, despill, marks }` shows it only where the footage is near `color`: a green or
+  blue screen. Fingers in front stay in front, and `despill` (1 by default) takes the screen's colour off their
+  edges. `marks` is up to four sets of corners where it shows whatever the colour, over a screen's tracking marks
+  (carried with the screen's plane). Pick `color` from a frame (the screen's green was `#65dc08` in the test).
+- The layer can be a frame of footage instead of a canvas. Laid on the whole page `inside` an object's matte, it
+  draws that real object back on top of the animation.
 
 `match`, each from 0 to 1:
 
@@ -160,4 +201,7 @@ tracked spot (`carry`) so it does not slide when the camera moves.
 - A layer that looks pasted on usually lacks grain, has blacks deeper than the footage's, or is sharper than the
   footage while it moves. Raise `levels`, use `grain: 'auto'`, and give it `shutter()` blur.
 - The footage drawn by `comp.js` matches `f.draw` within 1 of 255 per channel, so a scene can switch between them.
+- Measured on the test laptop: a sign rising from behind a matted chair, the lamp in front of it drawn back on top,
+  a book patched off the table (5 s), and an app scrolling under a finger on a green-screen phone (3 s), rendered
+  at 1080p at 30 and 39 fps.
 - `comp.js` needs WebGL2. On a machine without a GPU, Chrome draws it with SwiftShader, which is slower.

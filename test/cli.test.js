@@ -38,6 +38,14 @@ test('motlab depth checks its images before it starts Chrome', () => {
   assert.match(text.stderr + text.stdout, /README\.md: a depth map needs a JPEG, PNG, WebP, AVIF or BMP image/);
 });
 
+test('motlab matte checks its clip and clicks before it starts Chrome', () => {
+  assert.match(run('matte').stderr, /matte needs a video file/);
+  assert.match(run('matte', 'README.md', '--click', '10').stderr, /--click takes 2 numbers separated by commas, got "10"/);
+  assert.match(run('matte', 'README.md').stderr, /matte needs --click, --box or --points: where the object is/);
+  assert.match(run('matte', 'nothing.mp4', '--click', '1,2').stderr, /nothing\.mp4 not found/);
+  assert.match(run('matte', 'README.md', '--click', '1,2', '--name', 'a b').stderr, /--name "a b": letters, numbers, - and _ only/);
+});
+
 test('motlab working checks its note and scene numbers before it looks for a viewer', () => {
   const r = run('working', 'example', '--note', '3,x');
   assert.equal(r.status, 1);
