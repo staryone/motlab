@@ -59,8 +59,9 @@ audio track. Pull a contact sheet to see what is in it: `ffmpeg -i demo.mp4 -vf 
   soft dark band behind for contrast.
 - **Picture in picture, split screens, device frames.** Draw the frame into a clipped rounded rectangle, a phone body or
   a laptop shape.
-- **Animation over footage.** Draw canvas or 3D elements on top of the frame. When footage has to meet an animation,
-  see `into-footage.md`.
+- **Animation over footage.** Draw canvas or 3D elements on top of the frame. When the animation has to stick to
+  something in the shot (a screen, a wall, a moving thing) or bend the picture, see `on-footage.md`; when footage has
+  to meet an animation at its end, `into-footage.md`.
 
 ## Talking heads: cut the pauses
 

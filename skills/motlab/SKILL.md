@@ -264,7 +264,7 @@ Frame `f` is rendered at `t = f / fps`. The same page runs in the viewer, so wha
 | UI in 3D space | Apps and software: real screenshots as panels with a camera and depth of field | `templates/template-3d.html`, `scripts/gl3d.js`, `references/engine-3d.md` |
 | three.js | Real 3D objects that turn: a product, character or logo from a GLB or glTF file, or built from shapes | `templates/template-three.html`, `references/engine-3d.md` |
 | p5.js | Generative graphics: noise fields, particles, patterns, data drawn as shapes | `templates/template-p5.html`, `references/engine-p5.md` |
-| Footage | Screen recordings, camera clips, tutorials, reels made from real video | `references/footage.md`; jump cuts in a talking head: `scripts/cut_pauses.py` and `/__motlab/cuts.js` |
+| Footage | Screen recordings, camera clips, tutorials, reels made from real video | `references/footage.md`; jump cuts in a talking head: `scripts/cut_pauses.py` and `/__motlab/cuts.js`; animation stuck to the footage or bending it: `references/on-footage.md` |
 | Blender | Photoreal products or a filmed studio look. Slower, and Blender must be installed | `scripts/blender/`, `references/blender.md` |
 
 Mix them freely: footage with 2D captions, a 3D UI shot that ends on a recording, a Blender product over a canvas end card.
@@ -320,6 +320,7 @@ Before the video is shared, settle these with the user:
 | cutting out, splitting or puppeting flat illustrations | `references/engine-2d-puppet.md` |
 | choosing, downloading and loading fonts | `references/fonts.md` |
 | rendering a product in Blender, shaded or in the flat look | `references/blender.md` |
+| animation that sticks to footage (a phone's screen, a wall, a table), follows a thing in it, or bends it (a crack, a ripple, a shockwave) | `references/on-footage.md` |
 | ending an animation on real footage | `references/into-footage.md` |
 | sound effects, a voiceover or music | `references/sound-and-music.md` |
 | easing, springs, motion blur, a camera, shake, parallax, sprites and sprite stacks, transitions between scenes, GSAP, Anime.js, Lottie or Theatre.js | `references/motion-and-libraries.md` |
@@ -347,8 +348,11 @@ and how to install it before you start.
   shows the downloaded fonts side by side for `motlab stills`.
 - In every scene page: `/__motlab/motion.js` (easings, `cubicBezier`, `spring`, `tween`, `stagger`, `motionBlur`),
   `/__motlab/camera.js` (a camera from keys, shake, parallax), `/__motlab/sprite.js` (sprite sheets, Aseprite
-  exports, sprite stacks), `/__motlab/footage.js` (video files) and
+  exports, sprite stacks), `/__motlab/footage.js` (video files), `/__motlab/comp.js` (tracks, warps and layers
+  matched to footage) and
   `/__motlab/cuts.js` (a cut list over one recording, by section, with captions from a transcript).
+- `track.py`: follows points, a flat surface or the whole frame through a clip into `<clip>.track.json`, with
+  `--sheet` to look at the result (`references/on-footage.md`).
 - `cut_pauses.py`: cuts the pauses out of a talking-head recording into `cuts.json`, with `--audio-out` writes the
   voice with the same cuts, and with `--sections` splits the take into one scene per section.
   The take ends at the shorter audio/video duration (container duration if unavailable), ignoring subtitle and data tracks.
