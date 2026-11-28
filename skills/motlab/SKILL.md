@@ -258,7 +258,7 @@ Frame `f` is rendered at `t = f / fps`. The same page runs in the viewer, so wha
 | UI in 3D space | Apps and software: real screenshots as panels with a camera and depth of field | `templates/template-3d.html`, `scripts/gl3d.js`, `references/engine-3d.md` |
 | three.js | Real 3D objects that turn: a product, character or logo from a GLB or glTF file, or built from shapes | `templates/template-three.html`, `references/engine-3d.md` |
 | p5.js | Generative graphics: noise fields, particles, patterns, data drawn as shapes | `templates/template-p5.html`, `references/engine-p5.md` |
-| Footage | Screen recordings, camera clips, tutorials, reels made from real video | `references/footage.md`; jump cuts in a talking head: `scripts/cut_pauses.py` and `/__motlab/cuts.js`; B-roll: `scripts/get_broll.py` |
+| Footage | Screen recordings, camera clips, tutorials, reels made from real video | `references/footage.md`; jump cuts in a talking head: `scripts/cut_pauses.py` and `/__motlab/cuts.js` |
 | Blender | Photoreal products or a filmed studio look. Slower, and Blender must be installed | `scripts/blender/`, `references/blender.md` |
 
 Mix them freely: footage with 2D captions, a 3D UI shot that ends on a recording, a Blender product over a canvas end card.
@@ -340,7 +340,6 @@ and how to install it before you start.
 - `cut_pauses.py`: cuts the pauses out of a talking-head recording into `cuts.json`, with `--audio-out` writes the
   voice with the same cuts, and with `--sections` splits the take into one scene per section.
   The take ends at the shorter audio/video duration (container duration if unavailable), ignoring subtitle and data tracks.
-  `get_broll.py`: finds stock video for B-roll on Pexels with the user's API key and downloads it with a `CREDITS.md`.
 - `mix.py`: puts library sounds on the page's events at a level set by their role, lowers them under a voiceover,
   reports how close each landed and which moments to listen to, and with `--beats` puts them on bars of the music.
   `beats.py`: the tempo, beats, bars and biggest rise of a music track, in video time. `synth_sfx.py`: builds a free sound kit. `get_sfx.py`: finds openly licensed sounds on

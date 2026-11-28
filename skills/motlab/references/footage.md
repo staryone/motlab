@@ -122,35 +122,26 @@ const lines = edit.captions(await (await fetch('../transcript.json')).json(), { 
 ## B-roll over a talking head
 
 B-roll is a short clip over the speaker while the voice goes on. It shows what they are talking about and hides a jump
-cut. Pick the moments from the transcript and write them down before getting any clip:
+cut. Pick the moments from the transcript and write them down before asking for any clip:
 
 | Word (seconds of the recording) | Length | What it shows | Clip | Move |
 |---|---|---|---|---|
-| 14.2, "the whole city" | 2.6 s | a city street at night from above | Pexels 857195, from 1.0 s | slow push |
+| 14.2, "the whole city" | 2.6 s | a city street at night from above | `footage/broll/city-night.mp4`, from 1.0 s | slow push |
 
 - A good moment is something concrete in the words (a place, an object, an action, a number made visible), or a long
   stretch of one framing. Start on the word and stay 2 to 4 s. Keep the face on screen for the hook, the key lines and
   the call to action. One clip every 8 to 15 s is plenty for a talking head.
-- Show the list to the user before getting anything. The clips are the user's own when they have them. Otherwise
-  search Pexels with the user's API key in `PEXELS_API_KEY` (free at https://www.pexels.com/api/ with their own
-  account: ask them for it, never make one):
-
-```bash
-python3 scripts/get_broll.py search "city street at night aerial" --orientation landscape --min 4 --n 10
-python3 scripts/get_broll.py get 857195 --out footage/broll
-```
-
-  `get` saves the MP4 at 1080 on its short side (`--height`) and adds a line to `footage/broll/CREDITS.md`. Look at a
-  clip before using it, with a contact sheet as above.
-- Pexels clips need no credit. People in them may not be shown in a bad light or seem to endorse the product, and the
-  licence says nothing about model releases, so in an ad prefer clips without recognisable faces and tell the user
-  when a clip has them.
+- Show the list to the user with what each clip should show, and ask them to put the clips in `footage/broll/`:
+  their own footage, or clips they downloaded themselves from a stock site whose licence allows this use. motlab does
+  not fetch clips. Look at each one before using it, with a contact sheet as above, and pick its in-point.
+- With a stock clip in an ad, check its licence for people: a recognisable face may not be allowed to seem to endorse
+  the product. Prefer clips without one, and tell the user when a clip has one.
 - Draw the clips in the talking-head scene, over the cut list. `edit.toOut()` places each on its word, so it moves with
   the cuts:
 
 ```js
 const { camera } = await import('/__motlab/camera.js');
-const BROLL = [{ at: 14.2, len: 2.6, file: '../footage/broll/city-street-at-night-857195.mp4', from: 1.0, zoom: [1, 1.08] }];
+const BROLL = [{ at: 14.2, len: 2.6, file: '../footage/broll/city-night.mp4', from: 1.0, zoom: [1, 1.08] }];
 const shots = await Promise.all(BROLL.map(async b => {   // inside window.ready
   const clip = await openFootage(b.file), start = edit.toOut(b.at);
   return { ...b, clip, start, cam: camera({ width: W, height: H, keys: [[start, { zoom: b.zoom[0] }], [start + b.len, { zoom: b.zoom[1] }, 'linear']] }) };

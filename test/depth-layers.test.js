@@ -8,8 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const scripts = fileURLToPath(new URL('../skills/motlab/scripts/', import.meta.url));
 const python = process.platform === 'win32' ? 'python' : 'python3';
-// Imports get_broll from the scripts folder, so Python is told not to leave a __pycache__ there.
-const py = (code, ...args) => spawnSync(python, ['-c', code, ...args], { encoding: 'utf8', cwd: scripts, env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+const py = (code, ...args) => spawnSync(python, ['-c', code, ...args], { encoding: 'utf8' });
 const dir = mkdtempSync(join(tmpdir(), 'motlab-depth-'));
 after(() => rmSync(dir, { recursive: true, force: true }));
 
@@ -47,19 +46,4 @@ print('ok')`, dir);
   assert.match(bad.stderr, /--layers is 2 to 8/);
   const none = spawnSync(python, [join(scripts, 'depth_layers.py'), join(dir, 'nothing.jpg')], { encoding: 'utf8' });
   assert.match(none.stderr, /nothing\.depth\.png not found: make it with {2}motlab depth/);
-});
-
-test('get_broll.py picks the smallest MP4 at the asked size, names it from its page, and needs a key', () => {
-  const r = py(`
-import get_broll as g
-files = [{'file_type': 'video/mp4', 'width': 3840, 'height': 2160, 'link': '4k'}, {'file_type': 'video/mp4', 'width': 1920, 'height': 1080, 'link': 'hd'},
-         {'file_type': 'video/mp4', 'width': 1280, 'height': 720, 'link': '720'}, {'file_type': 'video/mp4', 'width': None, 'height': None, 'link': 'hls'}]
-v = {'url': 'https://www.pexels.com/video/aerial-view-of-a-city-857195/', 'video_files': files}
-tall = {'url': 'https://www.pexels.com/video/a-woman-dancing-4057322/', 'video_files': [{'file_type': 'video/mp4', 'width': 1080, 'height': 1920, 'link': 'tall'}]}
-print(g.name_of(v), g.pick_file(v, 1080)['link'], g.pick_file(v, 720)['link'], g.pick_file(v, 4320)['link'], g.pick_file(tall, 1080)['link'], g.pick_file({}, 1080), g.name_of({}))`);
-  assert.equal(r.status, 0, r.stderr);
-  assert.equal(r.stdout.trim(), 'aerial-view-of-a-city hd 720 4k tall None video');
-  const nokey = spawnSync(python, [join(scripts, 'get_broll.py'), 'search', 'city'], { encoding: 'utf8', env: { ...process.env, PEXELS_API_KEY: '' } });
-  assert.equal(nokey.status, 1);
-  assert.match(nokey.stderr, /Set PEXELS_API_KEY to a Pexels API key first/);
 });
