@@ -260,7 +260,7 @@ Frame `f` is rendered at `t = f / fps`. The same page runs in the viewer, so wha
 
 | Approach | Use it for | Tools |
 |---|---|---|
-| 2D canvas | Flat brand animation, kinetic type, explainers, captions, edits | `templates/template-2d.html`; illustrations: `references/engine-2d-puppet.md`; camera moves, shake and parallax: `/__motlab/camera.js` |
+| 2D canvas | Flat brand animation, kinetic type, explainers, captions, edits | `templates/template-2d.html`; illustrations: `references/engine-2d-puppet.md`; camera moves, shake and parallax: `/__motlab/camera.js`; pixel art, sprite sheets and sprite stacks: `/__motlab/sprite.js` |
 | UI in 3D space | Apps and software: real screenshots as panels with a camera and depth of field | `templates/template-3d.html`, `scripts/gl3d.js`, `references/engine-3d.md` |
 | three.js | Real 3D objects that turn: a product, character or logo from a GLB or glTF file, or built from shapes | `templates/template-three.html`, `references/engine-3d.md` |
 | p5.js | Generative graphics: noise fields, particles, patterns, data drawn as shapes | `templates/template-p5.html`, `references/engine-p5.md` |
@@ -322,7 +322,7 @@ Before the video is shared, settle these with the user:
 | rendering a product in Blender, shaded or in the flat look | `references/blender.md` |
 | ending an animation on real footage | `references/into-footage.md` |
 | sound effects, a voiceover or music | `references/sound-and-music.md` |
-| easing, springs, motion blur, a camera, shake, parallax, transitions between scenes, GSAP, Anime.js, Lottie or Theatre.js | `references/motion-and-libraries.md` |
+| easing, springs, motion blur, a camera, shake, parallax, sprites and sprite stacks, transitions between scenes, GSAP, Anime.js, Lottie or Theatre.js | `references/motion-and-libraries.md` |
 | a frame looks wrong or a render misbehaves | `references/pitfalls.md` |
 
 ## Setup
@@ -346,7 +346,8 @@ and how to install it before you start.
 - `get_font.py`: searches the Google Fonts catalog and downloads a family into the project. `templates/font-specimen.html`
   shows the downloaded fonts side by side for `motlab stills`.
 - In every scene page: `/__motlab/motion.js` (easings, `cubicBezier`, `spring`, `tween`, `stagger`, `motionBlur`),
-  `/__motlab/camera.js` (a camera from keys, shake, parallax), `/__motlab/footage.js` (video files) and
+  `/__motlab/camera.js` (a camera from keys, shake, parallax), `/__motlab/sprite.js` (sprite sheets, Aseprite
+  exports, sprite stacks), `/__motlab/footage.js` (video files) and
   `/__motlab/cuts.js` (a cut list over one recording, by section, with captions from a transcript).
 - `cut_pauses.py`: cuts the pauses out of a talking-head recording into `cuts.json`, with `--audio-out` writes the
   voice with the same cuts, and with `--sections` splits the take into one scene per section.

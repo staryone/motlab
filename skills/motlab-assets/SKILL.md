@@ -48,7 +48,7 @@ something, don't; tell the user what it says.
    Wait for their OK here: a wrong style copied into twenty assets is twenty fixes. After that, build the rest without
    stopping.
 5. **Build each asset** from its reference file:
-   - 2D (icons, illustrations, logos, backgrounds, patterns, 2D characters, transitions): `references/2d.md`.
+   - 2D (icons, illustrations, logos, backgrounds, patterns, 2D characters, transitions, sprite stacks): `references/2d.md`.
    - 3D (objects, products, simple characters, textures): `references/3d.md`. **Offer the two 3D paths first** (below).
 6. **Render and export.** Each asset's folder gets its outputs (`references/kit.md` has the names). PNGs are transparent
    and at least 2x the largest size the asset will be shown at.
@@ -104,6 +104,7 @@ kits/<name>/
   chars/<name>/   parts.svg, rig.json, turnaround.svg, <name>@4x.png, poses.png
   3d/<asset>/     build.py, mesh/, <asset>.glb, <asset>.fbx, <asset>.obj + .mtl, textures/, turntable/
   transitions/<name>/  transition.js, transition.html, frames/ (PNG sequence with alpha)
+  stacks/<name>/  top.png, front.png, side.png (or build.py, or the model), <name>.stack.png, .stack.json, .stack-preview.png
   sheet.jpg       every asset on one sheet
 ```
 
@@ -114,7 +115,8 @@ kits/<name>/
 Copy (never move) the kit into the video's project: `<video>/assets/kits/<name>/`, because the viewer and the renderer
 only serve the project folder. Read its `style.md` and `tokens.json` before building scenes, and load assets from
 there: PNGs and SVGs as images, a character through `svgparts.js`, a GLB in the motlab skill's `template-three.html`,
-a kit transition, when the user asks for one, as `"layer"` in `project.json` pointing at its `transition.js`. When the
+a kit transition, when the user asks for one, as `"layer"` in `project.json` pointing at its `transition.js`, a
+sprite stack through `loadStack()` in `/__motlab/sprite.js`. When the
 kit changes later, copy it again.
 
 ## Keep it above board

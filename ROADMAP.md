@@ -25,6 +25,8 @@ What is not built, what has not been tested, and ideas that came up while using 
 - `camera.js` in a real video, and a three.js or gl3d page using its `shake`.
 - `motlab depth` on macOS and Linux, and on a machine whose Chrome has no WebGPU, where it should fall back to the CPU. `depth_layers.py` on more than one street photo and on frames of footage.
 - B-roll drawn over a real talking-head take.
+- `sprite.js` with a file exported by Aseprite itself (the tests use JSON written to the format in Aseprite's exporter source) and with a MagicaVoxel slice export, and in a real video.
+- `slices.py` on pixel-art views drawn for a real object, and `glb` on models with vertex colours, several textures or faces pointing inwards, and on macOS and Linux.
 - `beats.py` on more music than one hip-hop track: tempo changes, swing, a long intro without drums, and whether its guess for the first beat of a bar holds by ear on more than one track. `SCENE_START` in the viewer with a real project timed to music.
 - The viewer's dark mode in full screen, and in Safari and Firefox. It was checked in the desktop app's browser on Windows, where full screen does not open.
 - A machine without a GPU beyond the tests. CI runs the end-to-end tests on Linux and Windows runners without a GPU, and the benchmark ran with Chrome drawing on SwiftShader on the test laptop (1080p and 4K, in `docs/rendering.md`). A real video has been rendered on such a machine now: a 42 s, 1080x1920 project on Ubuntu 24.04 with no GPU, in about 82 s (issue #8). No 3D (WebGL) scene has been rendered on one yet.

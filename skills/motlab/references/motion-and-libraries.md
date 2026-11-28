@@ -103,6 +103,42 @@ layers. Check stills at both ends of the move.
 about 70 MB; later runs work offline. On the test laptop it took 0.2 to 0.4 s a photo on the GPU, and 3.9 s for an
 800x800 photo with `--cpu`.
 
+## sprite.js: sprite sheets and sprite stacks
+
+Frame-by-frame sprites and pixel art, and sprite stacks: an object drawn as horizontal slices one above another, so a
+flat picture reads as solid when it turns. Use them when the references call for that look.
+
+```js
+const { loadSprite, loadStack } = await import('/__motlab/sprite.js');
+const hero = await loadSprite('../assets/hero.json');                         // Aseprite's sprite sheet JSON
+const coin = await loadSprite('../assets/coin.png', { frames: 8, fps: 12 });   // equal frames in a row
+hero.draw(ctx, t, 960, 900, { tag: 'run', scale: 6 });                         // its feet at 960, 900
+const car = await loadStack('../assets/kits/toys/stacks/car/car.stack.json', { shade: 0.3 });
+car.draw(ctx, 960, 600, { angle: 40 * t, scale: 8 });
+```
+
+| Part | What it does |
+|---|---|
+| `loadSprite('x.json')` | an Aseprite export (File > Export Sprite Sheet with JSON data, hash or array): each frame's own duration, trimmed frames in their place, and the tags with their direction (`forward`, `reverse`, `pingpong`, `pingpong_reverse`) and repeat, played as Aseprite plays them |
+| `loadSprite('x.png', { frames, cols, width, height, fps })` | equal frames in a row, or in a grid with `cols` frames a row |
+| `sprite.draw(ctx, t, x, y, { tag, frame, scale, anchor, flip, alpha })` | the frame at `t`, its `anchor` (`[0.5, 1]`, the middle of its feet) at x, y; `scale` is page units a sprite pixel. `sprite.frameAt(t, tag)` gives the frame's number, to time a sound to a footstep |
+| `loadStack('x.stack.json' or 'x.png', { slices, vertical, topFirst, shade })` | a stack from the motlab-assets skill's `slices.py`, or an image of equal slices (bottom first in a row, unless `vertical` or `topFirst` says otherwise). `shade` darkens the lower slices so the height reads |
+| `stack.draw(ctx, x, y, { angle, scale, spacing, squash, turn })` | the stack with the middle of its bottom slice at x, y, turned by `angle` (degrees, clockwise seen from above); `scale` is page units a voxel, `spacing` the step between slices (1), and a `squash` below 1 looks more from the side |
+
+- Pixel art stays sharp: nothing is smoothed. Use a whole-number `scale` and whole-number positions so every sprite
+  pixel is the same size. The viewer's 1080p and 4K exports keep the pixels even; 1440p and 720p draw a 1080p page at
+  4/3 and 2/3, where they come out uneven.
+- A stack goes under the camera like anything else (`cam.apply`) and zooms with it. With a camera that rolls, pass
+  `turn: cam.at(t).turn`, so the slices still step straight up the screen. Draw sprites that should stay upright after
+  `ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0)`.
+- Draw several stacks from the back of the screen to the front (the smallest screen y first; `cam.point` gives it
+  under a camera), so the nearer one covers the further.
+- A stack suits a view from above or at an angle; from the side its slices show as lines. Each slice is drawn as often
+  as its step covers device pixels, so no gap opens between slices at 4K.
+- Objects for stacks come from the motlab-assets skill (`slices.py`): carved from pixel-art views, from distance
+  functions, or voxelized from a 3D model in Blender. A MagicaVoxel slice export loads as an image with `slices`;
+  check a still for which end is the bottom.
+
 ## Transitions between scenes
 
 Set in `project.json` on the scene a transition leads into. The viewer and the render draw it with the same shader:
