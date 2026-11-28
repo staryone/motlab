@@ -91,7 +91,10 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 - Something the camera follows goes on a small layer of its own, put at its exact place (`x - camX + BW / 2`).
   Drawn into the world layer, it rounds apart from the camera and jumps a pixel back and forth: the followed car did
   that 5 times in the same test, and on its own layer it moved in steps of 2 to 4 screen pixels. Things in front of
-  it (a lamp post it passes) go on a world layer put after it.
+  it (a lamp post it passes) go on a world layer put after it. Its own light (headlights, a glow) goes on a light
+  layer put at the same place: on the world's light layer it steps against the gliding thing and seems to shake.
+  Around the car's headlight the change from frame to frame, against the car, fell from 5.2 to 2.3 when it moved
+  onto the car's own light layer.
 - Put a limit of the world (its left edge) into the camera's `follow` target, not after it, so the lag eases the
   moment the camera starts to move.
 - Set `"fps": 60` in `project.json` when the camera moves or something crosses the frame fast. The viewer plays at the
@@ -140,6 +143,7 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 | edges that crawl | whole-pixel positions; the camera rounded to the grid |
 | the scroll ticks or judders | a smooth camera: layers drawn with its whole part, put on screen with its fraction |
 | a followed object jumps a pixel back and forth | give it a layer of its own at its exact place |
+| a moving thing seems to shake though its steps are even | its lights are on the world's grid: give them a light layer that rides with it |
 | smooth in the viewer, choppy in the export | 60 fps in `project.json` |
 | a fast thing strobes, even at 60 fps | under about 2 art pixels a frame, or a smear of dithered afterimages behind it |
 | uneven pixels in an export | a buffer of the page / 6, scaled whole; nothing drawn at page resolution |
