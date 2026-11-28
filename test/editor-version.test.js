@@ -7,7 +7,9 @@ import { join } from 'node:path';
 import { test } from 'node:test';
 import { attachPage, findChrome, launchChrome } from '../src/chrome.js';
 
-test('the viewer loads an existing version with an apostrophe in its filename', { timeout: 30000 }, async () => {
+// The time limit covers starting Chrome and the viewer and loading the page. On CI's Windows runner the whole test took
+// 9 to 22 s on ten runs on 2026-11-27 and passed 30 s twice, with no change to what it checks, so it has room to 90 s.
+test('the viewer loads an existing version with an apostrophe in its filename', { timeout: 90000 }, async () => {
   const dir = mkdtempSync(join(tmpdir(), 'motlab-editor-')), name = 'demo &amp; team', root = join(dir, name);
   const file = "project-client's.json";
   let child, chrome;
