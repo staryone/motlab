@@ -82,7 +82,9 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 - `camera.js` keys in art pixels. A slow pan of 4 to 12 pixels a second reads as calm.
 - The camera is smooth, not stepped. Each layer that moves with it is drawn with the camera's whole part
   (`Math.floor`) and put on screen with the fraction, in device pixels (the template's `put(layer, -frac, 0)`). A
-  parallax layer uses its own camera (`camX * 0.5`) and fraction. Rounding the camera to whole art pixels instead
+  parallax layer uses its own camera (`camX * 0.5`) and fraction, and so does anything in the sky that moves at all:
+  a moon drawn on whole pixels at an eighth of the camera's speed sat still for 2 to 6 frames and then jumped 6
+  screen pixels; on a layer of its own placed by its fraction it moved 1 to 3 a frame. Rounding the camera to whole art pixels instead
   makes every move tick: at 30 frames a second a pan of 3.6 pixels a frame goes 3, 4, 3, 4, 2, 4, and a slow one
   stands still for frames and then jumps 6 screen pixels. In the 7.5 s street test, a stepped camera moved the world
   18, 24, 18, 24, 12 screen pixels in turn; placed by its fraction, 20, 22, 20, 20, 18, slowing evenly.

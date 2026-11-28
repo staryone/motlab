@@ -22,7 +22,8 @@
 // follow keeps a moving thing in frame: [{ from, to, target: t => [x, y], blend, lag }]. target gives the thing's place
 // in page units at t, from the same code that draws it. Between from and to the camera looks at it instead of at its
 // keys, easing over blend seconds at each end (0.3 by default); zoom and turn still come from the keys. lag (seconds)
-// looks at where it was on average over that time, like an operator who reacts a little late.
+// looks at where it was on average over that time, like an operator who reacts a little late: 24 samples weighted
+// towards the middle of it (a Hann window), so the camera eases into a move instead of speeding up in steps.
 //
 // depth is a layer's parallax: 1 moves with the camera, 0 stays put (a sky), 0.5 moves half as far and zooms by the
 // square root, 1.5 moves more (a foreground). Turn and shake are the same for every layer, as when a camera turns.
@@ -30,6 +31,8 @@
 import { ease as EASE, lerp } from './motion.js';
 
 const RAD = Math.PI / 180;
+// The weights of a follow's lag: a Hann window over 24 samples, summing to 1.
+const LAG = (() => { const w = Array.from({ length: 24 }, (_, j) => Math.sin(Math.PI * (j + 0.5) / 24) ** 2), s = w.reduce((a, b) => a + b); return w.map(v => v / s); })();
 const rot = (a, x, y) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
 
 // Smooth noise of x, about -1 to 1, the same for the same x and seed in every render: gradient noise in one dimension
@@ -122,8 +125,9 @@ export function camera({ width = 1920, height = 1080, keys = [[0, {}]], shake: s
       if (t <= f.from || t >= f.to) continue;
       const e = f.blend > 0 ? Math.min(1, (t - f.from) / f.blend, (f.to - t) / f.blend) : 1, w = e * e * (3 - 2 * e);
       let tx = 0, ty = 0;
-      const n = f.lag > 0 ? 8 : 1;
-      for (let j = 0; j < n; j++) { const [x, y] = f.target(t - (f.lag * j) / Math.max(1, n - 1)); tx += x / n; ty += y / n; }
+      if (f.lag > 0) {
+        for (let j = 0; j < LAG.length; j++) { const [x, y] = f.target(t - f.lag * (j + 0.5) / LAG.length); tx += x * LAG[j]; ty += y * LAG[j]; }
+      } else [tx, ty] = f.target(t);
       v = { ...v, x: lerp(v.x, tx, w), y: lerp(v.y, ty, w) };
     }
     return v;

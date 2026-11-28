@@ -114,6 +114,11 @@ test('follow looks at a moving thing between its times, easing in and out, and l
   near(cam.at(2).zoom, Math.exp(Math.log(1.5) + (Math.log(2) - Math.log(1.5)) / 2), 1e-9);   // zoom still from the keys
   const late = camera({ width: W, height: H, follow: { target: ball, lag: 0.5 } });
   near(late.at(2).x, ball(1.75)[0], 1e-9);   // a straight move, so the average is where it was lag / 2 ago
+  // a target that starts to move all at once: the lag eases the camera into it, with no step in its speed
+  const go = camera({ width: W, height: H, follow: { target: t => [Math.max(0, t - 1) * 600, 0], lag: 0.4 } });
+  const speed = Array.from({ length: 60 }, (_, i) => go.at(0.9 + (i + 1) / 60).x - go.at(0.9 + i / 60).x);
+  const jumps = speed.slice(1).map((v, i) => Math.abs(v - speed[i]));
+  assert.ok(Math.max(...jumps) < 0.9, `the speed changed by ${Math.max(...jumps).toFixed(2)} px between two frames`);
 });
 
 test('camera() refuses keys it cannot follow', () => {
