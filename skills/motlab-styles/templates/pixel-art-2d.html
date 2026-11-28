@@ -7,15 +7,19 @@
   canvas { display: block; width: min(100vw, 100vh * 16 / 9); aspect-ratio: 16 / 9; image-rendering: pixelated; }
 </style></head><body><canvas id="c"></canvas>
 <script type="module">
-// The Pixel art style (styles/pixel-art.md): everything is drawn into a buffer of the page / 6 and scaled up whole,
-// so every export keeps square pixels. A light buffer is added on top. Replace draw(); keep the helpers.
+// The Pixel art style (styles/pixel-art.md): everything is drawn into layers of the page / 6 in art pixels and scaled
+// up whole, so every export keeps square pixels. Layers that move with the camera are drawn with the camera's whole
+// part and placed on screen with its fraction, so a pan is smooth. Light is added on top. Replace draw(); keep the
+// helpers.
 // Page contract: renderAt(t), TOTAL, ready, EVENTS, ?t=, ?scale=.
 const W = 1920, H = 1080, PIX = 6, BW = W / PIX, BH = H / PIX;   // 320 x 180 art pixels
 const params = new URLSearchParams(location.search), SCALE = parseFloat(params.get('scale') || '1');
 const cv = document.querySelector('#c'), ctx = cv.getContext('2d');
 cv.width = Math.round(W * SCALE); cv.height = Math.round(H * SCALE);
-const layer = () => Object.assign(document.createElement('canvas'), { width: BW, height: BH });
-const buf = layer(), lit = layer(), g = buf.getContext('2d', { willReadFrequently: true }), l = lit.getContext('2d');
+const layer = (w = BW, h = BH) => Object.assign(document.createElement('canvas'), { width: w, height: h }).getContext('2d', { willReadFrequently: true });
+// sky and top stay on screen; world and its light move with the camera (2 pixels wider, for the fraction)
+const L = { sky: layer(), world: layer(BW + 2), top: layer() }, LIT = { world: layer(BW + 2), screen: layer() };
+let g = L.sky, l = LIT.screen;   // the layers the helpers below draw on
 
 // Every time in the scene comes from here.
 const B = { hop: 1.0, land: 1.45, title: 1.8, END: 5 };
@@ -71,9 +75,10 @@ function glow(x, y, r, colour, k) {
 // colour met is looked up once.
 const PAL_RGB = PALETTE.map(c => { g.fillStyle = c; g.fillRect(0, 0, 1, 1); return [...g.getImageData(0, 0, 1, 1).data.slice(0, 3)]; });
 const nearest = new Map();
-function lock() {
-  const img = g.getImageData(0, 0, BW, BH), d = img.data;
+function lock(c) {   // a layer; see-through pixels stay see-through
+  const img = c.getImageData(0, 0, c.canvas.width, c.canvas.height), d = img.data;
   for (let i = 0; i < d.length; i += 4) {
+    if (d[i + 3] < 128) { d[i + 3] = 0; continue; }
     const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
     let best = nearest.get(key);
     if (best === undefined) {
@@ -86,12 +91,16 @@ function lock() {
     }
     [d[i], d[i + 1], d[i + 2]] = PAL_RGB[best]; d[i + 3] = 255;
   }
-  g.putImageData(img, 0, 0);
+  c.putImageData(img, 0, 0);
 }
-
-// A camera that follows something that moves: snap it to that thing's pixel. Rounding the camera and the thing apart
-// makes the thing jump a pixel back and forth on screen. camX = snapTo(cam.at(t).x, thingX).
-const snapTo = (camX, x) => Math.round(x) - Math.round(x - camX);
+// Puts an art-pixel layer on the canvas at x, y art pixels, rounded to device pixels, scaled up whole.
+function put(c, x, y, mode = 'source-over') {
+  const unit = PIX * SCALE;
+  ctx.globalCompositeOperation = mode;
+  ctx.drawImage(c.canvas, Math.round(x * unit), Math.round(y * unit), c.canvas.width * unit, c.canvas.height * unit);
+}
+// Something the camera follows goes on a small layer of its own, put at its exact place (x - camX + BW / 2), so it
+// glides with the camera. In one layer with the world, it would jump a pixel back and forth against the camera.
 
 // ---- timing ----
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
@@ -105,25 +114,26 @@ const BLOB = { a: ['..ggg..', '.gGGGg.', 'gGWGWGg', 'gGGGGGg', '.ggggg.'], b: ['
 const BLOB_PAL = { g: SLIME[2], G: SLIME[4], W: '#ffffff' };
 
 function draw(t) {
-  // the camera, in art pixels and rounded: a slow pan of 6 pixels a second
-  const v = cam.at(t), ox = Math.round(BW / 2 - v.x), oy = Math.round(BH / 2 - v.y);
-  g.setTransform(1, 0, 0, 1, 0, 0); l.setTransform(1, 0, 0, 1, 0, 0);
-  g.fillStyle = INK; g.fillRect(0, 0, BW, BH); l.clearRect(0, 0, BW, BH);   // every frame from nothing
-  // sky: ramp steps in bands, each band's edge dithered into the next
+  // the camera: a slow pan of 6 art pixels a second. Its whole part draws the world; render() places it by the fraction.
+  const camX = cam.at(t).x, ox = BW / 2 - Math.floor(camX);
+  for (const c of [...Object.values(L), ...Object.values(LIT)]) { c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, c.canvas.width, c.canvas.height); }
+  // sky, on screen: ramp steps in bands, each band's edge dithered into the next; stars on 8 steps a second
+  g = L.sky; l = LIT.screen;
+  g.fillStyle = INK; g.fillRect(0, 0, BW, BH);
   const band = 28;   // five bands down to the ground at 140
   for (let i = 0; i < 5; i++) { g.fillStyle = SKY[i]; g.fillRect(0, i * band, BW, band); }
   for (let i = 1; i < 5; i++) dither(0, i * band - 4, BW, 4, SKY[i], 0.5);
-  // stars twinkle on 8 steps a second
   for (let i = 0; i < 40; i++) {
     const x = Math.floor(hash(i) * BW), y = Math.floor(hash(i + 50) * 80), on = hash(i * 7 + Math.floor(step(t, 8) * 8)) > 0.25;
     if (on) { g.fillStyle = i % 5 ? SKY[5] : MOON[4]; g.fillRect(x, y, 1, 1); }
   }
-  g.setTransform(1, 0, 0, 1, ox, oy); l.setTransform(1, 0, 0, 1, ox, oy);
-  // the moon, lit by the light buffer rather than painted white
+  // the moon, far away so it stays put, lit by the light layer rather than painted white
   g.fillStyle = MOON[2]; g.beginPath(); g.arc(250, 38, 10, 0, Math.PI * 2); g.fill();
   g.fillStyle = MOON[3]; g.beginPath(); g.arc(247, 35, 7, 0, Math.PI * 2); g.fill();
   glow(250, 38, 40, MOON[1], 0.25);
-  // ground
+  // the world, on whole pixels around the camera's whole part
+  g = L.world; l = LIT.world;
+  g.setTransform(1, 0, 0, 1, ox, 0); l.setTransform(1, 0, 0, 1, ox, 0);
   g.fillStyle = GRASS[1]; g.fillRect(-40, 140, BW + 80, 40); g.fillStyle = GRASS[2]; g.fillRect(-40, 140, BW + 80, 2);
   for (let x = -40; x < BW + 40; x += 7) { g.fillStyle = GRASS[3]; g.fillRect(x + (x % 3), 139, 1, 1); }
   // a sprite stack turning: one voxel to one art pixel
@@ -138,18 +148,20 @@ function draw(t) {
     const k = prog(t, B.land, B.land + 0.6), dx = (i - 2.5) * (4 + 14 * outQuart(k));
     dither(Math.round(x + dx), 138 - Math.round(3 * k * (i % 2)), 2, 2, GRASS[4], 1 - k);
   }
-  // title: a pixel font at its own size, hard-edged, a one-pixel ink shadow
-  g.setTransform(1, 0, 0, 1, 0, 0);   // on screen, not in the world
+  // title, on screen: a pixel font at its own size, hard-edged, a one-pixel ink shadow
+  g = L.top;
   const a = prog(t, B.title, B.title + 0.3);
   if (a > 0) text('REPLACE THIS SCENE', 160, 70 + Math.round(6 * (1 - outQuart(a))), MOON[4], { size: 8, align: 'center' });
+  return camX;
 }
 
 function render(t) {
-  draw(t);
-  lock();
+  const camX = draw(t), frac = camX - Math.floor(camX);
+  for (const c of Object.values(L)) lock(c);
   ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
-  ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(buf, 0, 0, cv.width, cv.height);
-  ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(lit, 0, 0, cv.width, cv.height);
+  put(L.sky, 0, 0); put(L.world, -frac, 0);
+  put(LIT.world, -frac, 0, 'lighter'); put(LIT.screen, 0, 0, 'lighter');
+  put(L.top, 0, 0);
   ctx.globalCompositeOperation = 'source-over';
 }
 

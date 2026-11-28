@@ -5,8 +5,9 @@ soft light added on top, poses that hold on steps, and objects that turn as spri
 for pixel art, or names this style. The user's references come first: where they show their own palette, pixel size
 or motion, follow them and keep the rest of this.
 
-`templates/pixel-art-2d.html` is a working starting point: a 320 x 180 pixel buffer scaled up whole, colour ramps built
-by hue shifting, ordered dithering, a light buffer, hard-edged pixel text, a stepped camera, and a sprite stack turning.
+`templates/pixel-art-2d.html` is a working starting point: layers of 320 x 180 art pixels scaled up whole, colour
+ramps built by hue shifting, ordered dithering, a light layer, hard-edged pixel text, a smooth camera, and a sprite
+stack turning.
 Copy it into `<video>/scenes/` and replace its `draw()`.
 
 ## Where the numbers come from
@@ -21,12 +22,13 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 
 ## Canvas and the pixel grid
 
-- Draw everything into a buffer of the page divided by 6: `320 x 180` for 16:9, `180 x 320` for 9:16, `180 x 180` for
-  1:1. One buffer pixel is one art pixel. Scale the buffer to the canvas with smoothing off; every export then keeps
+- Draw everything into layers of the page divided by 6: `320 x 180` for 16:9, `180 x 320` for 9:16, `180 x 180` for
+  1:1. One layer pixel is one art pixel. Scale the layers to the canvas with smoothing off; every export then keeps
   square, even pixels.
 - Never draw at the page's own resolution on top (a smooth line, anti-aliased text, a blurred shadow): mixed pixel
   sizes are the first thing that looks wrong. Everything, captions included, goes through the buffer.
-- Whole pixels: round positions to the buffer grid before drawing. Sub-pixel motion makes edges crawl.
+- Inside a layer, whole pixels: round positions before drawing, or edges crawl. A whole layer may sit at a fraction of
+  an art pixel on screen (the camera, below); its pixels stay square.
 
 ## Palette and colour
 
@@ -38,7 +40,7 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 - Saturated colour sits in the middle steps and in shadow; the brightest steps go pale, and pure white is kept for the
   hottest core or the one glint.
 - The darkest colour is a near-black tinted to the palette (the template's `INK`), never `#000`.
-- `lock()` in the template snaps the whole buffer to the palette at the end of a frame, so a tint, a fade or a stack's
+- `lock()` in the template snaps each layer to the palette at the end of a frame, so a tint, a fade or a stack's
   shading cannot bring in colours from outside it.
 
 ## Light
@@ -77,13 +79,19 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 
 ## Camera
 
-- The camera moves in whole buffer pixels (`camera.js` keys in buffer units, rounded before drawing). Pans and follows
-  work well; a slow pan of 4 to 12 pixels a second reads as calm.
-- A camera that follows something that moves is snapped to that thing's pixel, not rounded on its own:
-  `camX = Math.round(x) - Math.round(x - cam.at(t).x)` (the template's `snapTo`). Rounded apart, the two cross half
-  a pixel at different frames and the thing jumps a pixel back and forth on screen: in a 7.5 s test with a car
-  followed with a lag, 5 times, each 6 screen pixels at 1080p. Snapped, it moved one way only, on screen and against
-  the road.
+- `camera.js` keys in art pixels. A slow pan of 4 to 12 pixels a second reads as calm.
+- The camera is smooth, not stepped. Each layer that moves with it is drawn with the camera's whole part
+  (`Math.floor`) and put on screen with the fraction, in device pixels (the template's `put(layer, -frac, 0)`). A
+  parallax layer uses its own camera (`camX * 0.5`) and fraction. Rounding the camera to whole art pixels instead
+  makes every move tick: at 30 frames a second a pan of 3.6 pixels a frame goes 3, 4, 3, 4, 2, 4, and a slow one
+  stands still for frames and then jumps 6 screen pixels. In the 7.5 s street test, a stepped camera moved the world
+  18, 24, 18, 24, 12 screen pixels in turn; placed by its fraction, 20, 22, 20, 20, 18, slowing evenly.
+- Something the camera follows goes on a small layer of its own, put at its exact place (`x - camX + BW / 2`).
+  Drawn into the world layer, it rounds apart from the camera and jumps a pixel back and forth: the followed car did
+  that 5 times in the same test, and on its own layer it moved in steps of 2 to 4 screen pixels. Things in front of
+  it (a lamp post it passes) go on a world layer put after it.
+- Put a limit of the world (its left edge) into the camera's `follow` target, not after it, so the lag eases the
+  moment the camera starts to move.
 - Zoom only in whole steps (1x, 2x), with a cut or a hard switch between them. A smooth zoom smears the grid.
 - A roll is drawn inside the buffer, so the pixels stay chunky; keep stacks upright with `turn`. Use it rarely.
 - Parallax layers each move in whole pixels; far layers move less.
@@ -119,7 +127,8 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 | floaty, no punch | fast in, slow out, a white hero frame, a freeze on contact, a shorter total |
 | stiff | vary size, speed and delay of every particle; secondary motion |
 | edges that crawl | whole-pixel positions; the camera rounded to the grid |
-| a followed object jumps a pixel back and forth | snap the camera to its pixel (`snapTo`), don't round the two apart |
+| the scroll ticks or judders | a smooth camera: layers drawn with its whole part, put on screen with its fraction |
+| a followed object jumps a pixel back and forth | give it a layer of its own at its exact place |
 | uneven pixels in an export | a buffer of the page / 6, scaled whole; nothing drawn at page resolution |
 
 ## Checklist before opening the viewer
@@ -130,5 +139,6 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 - [ ] Light comes from one side, and the light buffer stays under 0.5 except on cores
 - [ ] No speckle inside shapes; the buffer reads at 1x
 - [ ] Poses hold on 12 a second; positions are whole pixels; the camera does not zoom smoothly
-- [ ] A camera that follows something is snapped to its pixel; step through the follow frame by frame
+- [ ] Moving layers are put on screen with the camera's fraction; what it follows has a layer of its own; step
+  through a move frame by frame in the viewer
 - [ ] Transitions are cuts or drawn in the buffer
