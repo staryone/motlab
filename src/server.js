@@ -32,8 +32,9 @@ export const pageLib = pathname => PAGE_LIBS[pathname]?.();
 // Sends a file, honouring a single Range request so footage can be read in pieces and MP4s can be seeked.
 // pipeline, not pipe: the browser aborts many range requests while it seeks, and pipe would leave the file open.
 const stream = (res, path, range) => pipeline(createReadStream(path, range), res, () => {});
-export function sendFile(req, res, path) {
-  const size = statSync(path).size, type = TYPES[extname(String(path)).toLowerCase()] || 'application/octet-stream';
+// name: the file name its type is taken from, when the file on disk has another (a checkpoint's stored copy).
+export function sendFile(req, res, path, name = path) {
+  const size = statSync(path).size, type = TYPES[extname(String(name)).toLowerCase()] || 'application/octet-stream';
   const m = /^bytes=(\d*)-(\d*)$/.exec(req.headers.range || '');
   const head = { 'Content-Type': type, 'Cache-Control': 'no-store', 'Accept-Ranges': 'bytes' };
   if (m && (m[1] || m[2])) {

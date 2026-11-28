@@ -36,6 +36,7 @@
     "!example/out/",
     "!example/selection.json",
     "!example/selection/",
+    "!example/.motlab/",
     "docs/",
     "install.js",
     "CHANGELOG.md",

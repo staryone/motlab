@@ -251,6 +251,30 @@
   #verGo:active:not(:disabled) { background: var(--text-press); }
   .menu h3 { font-size: 12px; font-weight: 500; color: var(--muted); padding: 6px 10px; }
   #exportMenu { width: 256px; }
+  header .wrap.end { display: flex; align-items: center; gap: 4px; }
+  #histMenu { width: 320px; max-width: calc(100vw - 24px); }
+  #histOn { font-weight: 500; }
+  #histOn .sw { position: relative; flex: none; width: 30px; height: 18px; border-radius: 9px; background: var(--edge); transition: background-color var(--fast) var(--ease); }
+  #histOn .sw::after { content: ''; position: absolute; top: 2px; left: 2px; width: 14px; height: 14px; border-radius: 50%; background: var(--bg); box-shadow: 0 1px 2px rgba(0,0,0,.25); transition: transform var(--fast) var(--ease); }
+  #histOn[aria-checked="true"] .sw { background: var(--text); }
+  #histOn[aria-checked="true"] .sw::after { transform: translateX(12px); }
+  #histList { max-height: min(55vh, 420px); overflow-y: auto; }
+  #histList .opt.two { min-height: 40px; }
+  #stage.cmp { grid-template: auto minmax(0, 1fr) / minmax(0, 1fr) minmax(0, 1fr); gap: 8px 12px; padding-top: 14px; }
+  #stage.cmp #view { grid-area: 2 / 2; align-self: start; }   /* each picture right under its caption */
+  #cmp { grid-area: 2 / 1; width: 100%; height: 100%; border: 0; background: transparent; }   /* the checkpoint's page fits its frame in itself */
+  .cmpHead { display: flex; align-items: center; gap: 6px; min-width: 0; height: 28px; font-size: 13px; align-self: end; }
+  .cmpHead b { font-weight: 500; color: var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .cmpHead button { flex: none; height: 28px; padding: 0 10px; border-radius: 8px; font-size: 12px; font-weight: 500; background: var(--bg); color: var(--text); box-shadow: 0 0 0 1px var(--edge); white-space: nowrap; }
+  .cmpHead button:hover { background: var(--hover); }
+  #cmpOld { grid-area: 1 / 1; } #cmpNow { grid-area: 1 / 2; justify-content: space-between; }
+  #cmpSame { font-size: 12px; white-space: nowrap; }
+  @media (max-width: 719px) { #stage.cmp { grid-template: auto minmax(0, 1fr) auto minmax(0, 1fr) / minmax(0, 1fr); gap: 6px; padding-top: 6px; } #cmpOld { grid-area: 1 / 1; } #cmp { grid-area: 2 / 1; } #cmpNow { grid-area: 3 / 1; } #stage.cmp #view { grid-area: 4 / 1; } }
+  body.embed { display: block; background: transparent; }
+  body.embed header, body.embed aside, body.embed #tabs, body.embed #scrim, body.embed #dock, body.embed #pillFull, body.embed #notices { display: none !important; }
+  body.embed main, body.embed #canvas { height: 100vh; background: transparent; overflow: hidden; }
+  body.embed #stage { padding: 0; }
+  body.embed #view { position: fixed; top: 0; left: 0; right: 0; margin: 0 auto; width: auto; height: auto; max-width: calc(100vw - 4px); max-height: calc(100vh - 4px); pointer-events: none; }   /* the frame style, inside the compare's half */
   /* how many scenes render at once: a segmented control, Auto then 1 to 4, on the hover grey with the picked one a white
      key; the line under it says what the pick does, in red with the alert icon above the suggested number */
   .seg { display: grid; grid-template-columns: 1.7fr repeat(4, 1fr); gap: 2px; margin: 0 4px; padding: 2px; border-radius: 9px; background: var(--hover); }
@@ -405,7 +429,14 @@
       </div></div>
     <span class="sep" aria-hidden="true">/</span><span id="crumb"></span>
   </div>
-  <div class="wrap">
+  <div class="wrap end">
+      <button class="icon" id="hist" data-i="history" data-label="history" aria-expanded="false" aria-controls="histMenu"></button>
+      <div class="menu r" id="histMenu" hidden>
+        <button class="opt" id="histOn" role="switch" aria-checked="true"><span data-t="historyAuto"></span><span class="sw" aria-hidden="true"></span></button>
+        <div class="div"></div>
+        <p class="foot" id="histFoot"></p>
+        <div id="histList"><p class="foot" data-t="loading"></p></div>
+      </div>
       <button class="btn" id="export" data-i="export" aria-expanded="false" aria-controls="exportMenu"><span id="exportLabel">Export</span></button>
       <div class="menu r" id="exportMenu" hidden>
         <h3 data-t="resolution"></h3>
@@ -438,7 +469,9 @@
   <div id="canvas">
     <div class="pill" id="pillFull"><button class="sq" id="theme" data-label="themeDark"></button><button class="sq" id="full" data-i="full" data-label="full" data-key="F"></button></div>
     <div id="notices"><div class="toast" id="note" role="status" hidden></div></div><div class="sr" id="workSr" role="status"></div>
-    <div id="stage"><span id="msg" data-t="loadingProject"></span><canvas id="view" hidden></canvas><div id="marks"></div>
+    <div id="stage"><span id="msg" data-t="loadingProject"></span><div class="cmpHead" id="cmpOld" hidden><b id="cmpWhen"></b><span id="cmpSame" class="muted" data-t="sameAsNow" hidden></span><button id="cmpAll" data-t="restoreAll"></button><button id="cmpScene" hidden></button></div>
+      <div class="cmpHead" id="cmpNow" hidden><b data-t="now"></b><button id="cmpOff" data-t="closeCompare"></button></div>
+      <iframe id="cmp" hidden tabindex="-1"></iframe><canvas id="view" hidden></canvas><div id="marks"></div>
       <div class="pop" id="pop" role="dialog" aria-labelledby="popWhere" hidden>
         <div class="head"><span class="tag" id="popN"></span><span id="popWhere" class="num"></span><span class="end"><span id="popState" hidden></span><button class="icon" id="popUndo" data-i="undo2" data-label="undoStroke" data-key="Ctrl+Z" hidden></button></span></div>
         <textarea id="popText" rows="2" data-t="placeholder=noteHint aria-label=note"></textarea>
@@ -488,7 +521,8 @@
   <span class="k"><kbd>Ctrl</kbd> + scroll</span><span class="dim">zoom</span>
 </div></template>
 <script type="module">
-const { file: PROJECT, title: VERSION_LABEL, slug: SLUG } = {{pageData}};
+const { file: PROJECT, title: VERSION_LABEL, slug: SLUG, at: AT } = {{pageData}};   // AT: a checkpoint shown bare, for the compare
+if (AT) document.body.classList.add('embed');
 const $ = id => document.getElementById(id);
 // ---- UI text, in Indonesian and English. The language is the one picked in the project menu, else the browser's:
 // Indonesian when one of its languages is, English otherwise. Picking one reloads the page, so text is set once.
@@ -548,6 +582,23 @@ const TEXT = {
   pause: ['Jeda', 'Pause'],
   space: ['Spasi', 'Space'],
   markRange: ['Tandai rentang', 'Mark a range'],
+  history: ['Riwayat', 'History'],
+  historyHint: ['Pilih satu untuk dilihat di samping yang sekarang.', 'Pick one to see it next to how it is now.'],
+  historyAuto: ['Riwayat otomatis', 'Automatic history'],
+  noCheckpoints: ['Belum ada. Riwayat terisi sendiri setiap agent bekerja.', 'Nothing yet. It fills in by itself each time the agent works.'],
+  historyOff: ['Mati. Tidak ada yang disimpan sampai dinyalakan lagi.', 'Off. Nothing new is kept until it is on again.'],
+  historyFailed: ['Riwayat tidak bisa dibaca.', 'The history could not be read.'],
+  whyBefore: [n => n ? `Sebelum agent mengerjakan catatan ${n}` : 'Sebelum agent bekerja', n => n ? `Before the agent worked on notes ${n}` : 'Before the agent worked'],
+  whyAfter: [n => n ? `Sesudah agent mengerjakan catatan ${n}` : 'Sesudah agent bekerja', n => n ? `After the agent worked on notes ${n}` : 'After the agent worked'],
+  whyRestore: ['Sebelum dipulihkan', 'Before a restore'],
+  now: ['Sekarang', 'Now'],
+  sameAsNow: ['Sama dengan sekarang', 'Same as now'],
+  restoreAll: ['Pulihkan semua', 'Restore all'],
+  restoreScene: [n => `Pulihkan scene ${n} saja`, n => `Restore scene ${n} only`],
+  closeCompare: ['Tutup', 'Close'],
+  restored: [w => `Dipulihkan ke ${w}. Yang tadi tetap ada di Riwayat.`, w => `Restored to ${w}. What was there is still in History.`],
+  restoredScene: [(n, w) => `Scene ${n} dipulihkan ke ${w}. Yang tadi tetap ada di Riwayat.`, (n, w) => `Scene ${n} restored to ${w}. What was there is still in History.`],
+  restoredNothing: ['Sudah sama, tidak ada yang dipulihkan.', 'It is the same already, so nothing changed.'],
   beatsError: [(f, e) => `${f} tidak bisa dibaca (${e}), jadi beat tidak tampil di timeline.`, (f, e) => `${f} could not be read (${e}), so the timeline shows no beats.`],
   zoomOut: ['Perkecil timeline', 'Zoom out the timeline'],
   zoomIn: ['Perbesar timeline', 'Zoom in the timeline'],
@@ -647,6 +698,7 @@ const svg = (d, fill) => `<svg aria-hidden="true" width="16" height="16" viewBox
 const ICON = {
   panel: svg('<rect x="2" y="3" width="12" height="10" rx="2"/><path d="M6.5 3v10"/>'),
   export: svg('<path d="M8 2.5v7.5m0 0L5 7m3 3 3-3M3 11v1a1.5 1.5 0 0 0 1.5 1.5h7A1.5 1.5 0 0 0 13 12v-1"/>'),
+  history: svg('<path d="M2.5 8a5.5 5.5 0 1 0 1.6-3.9L2.5 5.6"/><path d="M2.5 2.5v3.1h3.1"/><path d="M8 5v3l2.2 1.3"/>'),   // the history icon from Lucide
   full: svg('<path d="M9.5 2.5h4v4M6.5 13.5h-4v-4M13.5 2.5 9.5 6.5M2.5 13.5l4-4"/>'),
   unfull: svg('<path d="M9.5 2.5v4h4M6.5 13.5v-4h-4M13.5 2.5l-4 4M2.5 13.5l4-4"/>'),   // the same arrows, pointing in
   prev: svg('<path d="M4 3.5v9"/><path d="M12 4v8L6.5 8z" fill="currentColor"/>'),
@@ -746,7 +798,7 @@ const note = text => {   // on a phone the message is a bar at the bottom of the
   };
 
 // ---- menus, the side panel and full screen work before the project has loaded
-const menus = [[$('export'), $('exportMenu')], [$('proj'), $('projMenu')], [$('ver'), $('verMenu')]];
+const menus = [[$('export'), $('exportMenu')], [$('hist'), $('histMenu')], [$('proj'), $('projMenu')], [$('ver'), $('verMenu')]];
 const setMenu = (btn, menu, open) => { const was = !menu.hidden; menu.hidden = !open; btn.classList.toggle('open', open); btn.setAttribute('aria-expanded', open); if (open) btn.onopen?.(); else if (was) btn.onclose?.(); };
 for (const [btn, menu] of menus) btn.onclick = () => setMenu(btn, menu, menu.hidden);
 // The project menu lists the motlab projects the server finds, read again each time it opens, so a new one shows up.
@@ -997,6 +1049,7 @@ try {
   let tool = 'mark', ink = null, redo = [], strokeText = '', work = null, reloadAsked = false;   // M or P, a stroke being drawn, strokes taken back, the note text at the last stroke, the agent's work, a reload that waits
   const openNotes = () => notes.filter(m => !m.done || m === active);   // what the preview and the timeline show: done notes only while open
   const images = new Map();   // note number -> PNG data URL, sent with the next save
+  let cmpId = null, cmp = null;   // the checkpoint being compared, its id and its entry (history, below)
   let t = 0, sel = null, range = null, looping = false, playing = false, t0 = 0, ac0 = 0, sources = [], busy = false, pps = 1, zoom = 1, cur = null, luma = null;
 
   // ---- side panel; every row is a button so Tab, Enter and Space reach it
@@ -1269,6 +1322,7 @@ try {
   new ResizeObserver(paint).observe(view);
   onTheme = drawTimeline;   // CSS follows the theme on its own, the canvases are drawn again
   async function show() {
+    cmpPost(); cmpScene();   // the checkpoint being compared follows, and its scene button with it
     marks(); $('now').textContent = fmt(t);
     const s = sceneAt(t);
     if (s !== shown) { if (shown) shown.warm = null; shown = s; $('crumb').textContent = $('fsScene').textContent = name(s.file); }   // played, it needs warming again
@@ -1944,8 +1998,83 @@ try {
     setMenu($('export'), $('exportMenu'), true);
   };
 
+  // ---- history (src/history.js): the checkpoints of this version, newest first, kept by themselves (a switch turns
+  // that off), and a compare: the checkpoint's own preview at the left of this one, following its time, from which this
+  // version or the scene on screen is restored. A restore changes the files, so the page and scenes load again.
+  let checkpoints = [];
+  const stamp = iso => new Date(iso).toLocaleString(LANG === 'id' ? 'id-ID' : 'en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).replace(/,/g, '');
+  const whyText = c => {
+    const w = c.why || {}, notes = w.notes?.length ? w.notes.join(', ') : '';
+    return w.kind === 'restore' ? L('whyRestore') : L(w.kind === 'after' ? 'whyAfter' : 'whyBefore', notes);
+  };
+  function historyRow(c) {   // what it was and when; a click puts it next to how it is now
+    const b = document.createElement('button'); b.className = 'opt two'; b.type = 'button';
+    b.innerHTML = '<span class="nm"></span><span class="dim num"></span>';
+    b.firstChild.textContent = whyText(c); b.lastChild.textContent = stamp(c.time);
+    b.onclick = () => compareWith(c);
+    return b;
+  }
+  // The checkpoints that have this version; the switch is for the whole folder, as the checkpoints are.
+  const showOn = on => { $('histOn').setAttribute('aria-checked', on); $('histFoot').textContent = L(!on ? 'historyOff' : checkpoints.length ? 'historyHint' : 'noCheckpoints'); };
+  async function listHistory() {
+    $('histFoot').textContent = '';
+    try {
+      const r = await (await fetch(`history?v=${encodeURIComponent(PROJECT)}`, { cache: 'no-store' })).json();
+      checkpoints = r.checkpoints;
+      $('histList').replaceChildren(...checkpoints.map(historyRow));
+      showOn(r.on);
+    } catch { $('histList').innerHTML = `<p class="foot">${L('historyFailed')}</p>`; }
+  }
+  $('hist').onopen = listHistory;
+  $('histOn').onclick = async () => {
+    const r = await fetch('history/on', { method: 'POST', body: JSON.stringify({ on: $('histOn').getAttribute('aria-checked') !== 'true' }) });
+    if (r.ok) showOn((await r.json()).on);
+  };
+  // Restore: the whole project, or the scene page on screen. The server keeps how it was first, so it stays in History.
+  async function restore(c, s) {
+    const file = s && s.file.replaceAll('\\', '/');
+    const r = await fetch('history/restore', { method: 'POST', body: JSON.stringify({ id: c.id, project: PROJECT, file }) });
+    if (!r.ok) return note(await r.text());
+    const { changed } = await r.json();
+    closeCompare();
+    note(!changed.length ? L('restoredNothing') : s ? L('restoredScene', scenes.indexOf(s) + 1, stamp(c.time)) : L('restored', stamp(c.time)));
+  }
+  function compareWith(c) {
+    setMenu($('hist'), $('histMenu'), false);
+    cmp = c; cmpId = c.id;
+    const f = $('cmp');
+    f.onload = cmpPost; f.src = `@${encodeURIComponent(c.id)}/?v=${encodeURIComponent(PROJECT)}`; f.hidden = false;
+    $('cmpWhen').textContent = stamp(c.time);
+    $('cmpSame').hidden = c.differs.length > 0; $('cmpAll').hidden = !c.differs.length;
+    $('stage').classList.add('cmp'); $('cmpOld').hidden = $('cmpNow').hidden = false;
+    cmpScene();
+  }
+  function cmpScene() {   // "Restore scene N only" for the scene on screen, when it differs from the checkpoint
+    if (!cmp) return;
+    const s = sceneAt(t), differs = cmp.differs.includes(s.file.replaceAll('\\', '/'));
+    $('cmpScene').hidden = !differs || cmp.differs.length < 2;   // when it is the only change, Restore all is the same
+    $('cmpScene').textContent = L('restoreScene', scenes.indexOf(s) + 1);
+  }
+  function closeCompare() {
+    cmp = null; cmpId = null; $('cmp').hidden = true; $('cmp').src = 'about:blank';
+    $('stage').classList.remove('cmp'); $('cmpOld').hidden = $('cmpNow').hidden = true;
+  }
+  $('cmpOff').onclick = closeCompare;
+  $('cmpAll').onclick = () => cmp && restore(cmp);
+  $('cmpScene').onclick = () => cmp && restore(cmp, sceneAt(t));
+  addEventListener('keydown', e => { if (e.key === 'Escape' && cmp && !active && !e.defaultPrevented) closeCompare(); });
+  function cmpPost() { if (cmpId) $('cmp').contentWindow?.postMessage({ cmpT: t }, location.origin); }
+  // The checkpoint's bare page draws whatever time the page that opened it sends, and asks for it once it has loaded.
+  if (AT) {
+    addEventListener('message', e => {
+      if (e.origin !== location.origin || typeof e.data?.cmpT !== 'number') return;
+      t = Math.max(0, Math.min(total - 1e-6, e.data.cmpT)); show();
+    });
+    parent.postMessage({ cmpReady: true }, location.origin);
+  } else addEventListener('message', e => { if (e.origin === location.origin && e.data?.cmpReady) cmpPost(); });
+
   // ---- first paint: the last saved selection if there is one
-  sel = await fetch('selection.json').then(r => r.ok ? r.json() : null).catch(() => null);
+  sel = AT ? null : await fetch('selection.json').then(r => r.ok ? r.json() : null).catch(() => null);
   const saved = Array.isArray(sel?.marks) ? sel.marks : [];   // notes of every version in this folder
   others = saved.filter(m => m.project !== PROJECT);
   notes = saved.filter(m => m.project === PROJECT).map(({ project, ...m }) => ({ note: '', ...m }));
@@ -2022,7 +2151,7 @@ try {
     if ($('workSr').textContent !== text) $('workSr').textContent = text;
     listNotes(); drawTimeline(); paint();
   }
-  const events = new EventSource('__events');
+  const events = AT ? new EventTarget() : new EventSource('__events');   // a checkpoint does not change
   events.addEventListener('change', e => changed(JSON.parse(e.data).files));
   events.addEventListener('work', e => {   // work on no scene of this version shows as a message, as there is nothing to veil
     work = JSON.parse(e.data); stateUI();
