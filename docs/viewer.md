@@ -69,6 +69,12 @@ A project with overlays has a thin row for each under the scenes, from where it 
 
 Over the preview the cursor is a +. It is dark over light parts of the frame and white over dark ones.
 
+## Beats on the timeline
+
+With `"beats": "audio/beats.json"` in the project file (the motlab skill's `beats.py` writes that file), the foot of the ruler has a short tick on every beat of the music and a taller one on the first beat of each bar, with the bar's number when there is room. The page reads the file again when the agent changes it, for example after the user said by ear that bar 1 starts a beat later. The viewer only shows the beats; moving bar 1 is the agent's (`beats.py --downbeat`).
+
+Checked in the desktop app's browser (Windows) on a 32 s track at 103.8 BPM: the ticks and bar numbers, and the bars moving on the timeline and in the scenes that read the file when it was written again with another bar 1. Not checked: a long track zoomed out.
+
 ## selection.json
 
 Every click on a scene, an audio clip or a point on the timeline is saved to `selection.json` in the project folder, so you can tell an agent "this one" in chat. The range and every note are saved with it:
@@ -108,6 +114,7 @@ Every click on a scene, an audio clip or a point on the timeline is saved to `se
 | `frame` | the frame of that scene the preview shows; `frame / fps` is its time on the render's frame grid |
 | `transition` | inside a transition: `{ type, from, frame, frames }`, the scene number it comes from and its frame `frame` of `frames`; else `null`. `scene` is then the scene it leads into. Inside a layer over a cut it is `{ layer, from, frame, frames }`, and `scene` is the one under the layer |
 | `audio` | `{ file, start, index }` when the click was on an audio clip, else `null` |
+| `music` | with `"beats"` in the project file: `{ beat, bar, inBar }`, the beat that has last landed (from 1), its bar (0 before bar 1) and its place in the bar |
 | `overlays` | the [overlays](projects.md#overlays) showing there, as `{ n, layer }` with `n` their place in `overlays` from 1; left out when none |
 | `range` | `{ start, end, scenes }` when a range is marked, else `null`: seconds from the start of the video, on the frame grid, and the scene numbers it covers |
 | `marks` | the notes, see below |
