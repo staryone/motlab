@@ -88,9 +88,39 @@ test('speed is 0 for a still camera and the pan speed for a steady pan', () => {
   near(pan.speed(1, 0.5), 250, 1e-3);
 });
 
+test('fly: a long jump pulls out on the way and lands exactly on its key', () => {
+  const cam = camera({ width: W, height: H, keys: [[0, { x: 960, y: 540, zoom: 1.5 }], [2, { x: 960 + 3 * W, y: 900, zoom: 2, turn: 10, fly: true }, 'linear']] });
+  assert.deepEqual(cam.at(0), { x: 960, y: 540, zoom: 1.5, turn: 0 });
+  const end = cam.at(2);
+  near(end.x, 960 + 3 * W, 1e-6); near(end.y, 900, 1e-6); near(end.zoom, 2, 1e-9); near(end.turn, 10, 1e-9);
+  const mid = cam.at(1);
+  assert.ok(mid.zoom < 0.5, `it pulls out to see the way: zoom ${mid.zoom} halfway`);
+  let last = -Infinity;
+  for (let t = 0; t <= 2; t += 0.05) { const x = cam.at(t).x; assert.ok(x >= last - 1e-9, 'it travels one way'); last = x; }
+  const further = camera({ width: W, height: H, keys: [[0, { zoom: 1.5 }], [2, { x: 960 + 3 * W, zoom: 2, fly: 2 }, 'linear']] });
+  assert.ok(further.at(1).zoom < mid.zoom, 'a larger fly pulls out further');
+  const still = camera({ width: W, height: H, keys: [[0, { zoom: 1 }], [1, { zoom: 4, fly: true }, 'linear']] });
+  near(still.at(0.5).zoom, 2, 1e-9);   // no travel: the zoom alone, in log space
+});
+
+test('follow looks at a moving thing between its times, easing in and out, and lag trails it', () => {
+  const ball = t => [200 + 400 * t, 300 + 50 * t];
+  const cam = camera({ width: W, height: H, keys: [[0, { x: 960, y: 540, zoom: 1.5 }], [4, { zoom: 2 }, 'linear']],
+    follow: [{ from: 1, to: 3, target: ball, blend: 0.4 }] });
+  near(cam.at(0.9).x, 960, 1e-9);
+  near(cam.at(3.1).y, 540, 1e-9);
+  for (const t of [1.5, 2, 2.5]) { const v = cam.at(t); near(v.x, ball(t)[0], 1e-9); near(v.y, ball(t)[1], 1e-9); }
+  near(cam.at(1.2).x, (960 + ball(1.2)[0]) / 2, 1e-9);   // halfway through the blend, halfway there
+  near(cam.at(2).zoom, Math.exp(Math.log(1.5) + (Math.log(2) - Math.log(1.5)) / 2), 1e-9);   // zoom still from the keys
+  const late = camera({ width: W, height: H, follow: { target: ball, lag: 0.5 } });
+  near(late.at(2).x, ball(1.75)[0], 1e-9);   // a straight move, so the average is where it was lag / 2 ago
+});
+
 test('camera() refuses keys it cannot follow', () => {
   assert.throws(() => camera({ keys: [] }), /keys must be a list/);
   assert.throws(() => camera({ keys: [[0, {}], [1, {}, 'wobbly']] }), /key 2 has an unknown easing "wobbly"/);
   assert.throws(() => camera({ keys: [[1, {}], [0.5, {}]] }), /key 2 must have a time at or after/);
   assert.throws(() => camera({ keys: [[0, { zoom: 0 }]] }), /key 1 needs a zoom above 0/);
+  assert.throws(() => camera({ keys: [[0, {}], [1, { x: 5000, fly: 'far' }]] }), /key 2 has fly far; it is true or a number above 0/);
+  assert.throws(() => camera({ follow: [{ from: 1 }] }), /follow 1 needs target, a function of t/);
 });

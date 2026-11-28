@@ -25,8 +25,10 @@ A spring for an element that pops in after a beat: `const s = spring({ stiffness
 
 ## camera.js: a camera, shake and parallax
 
-A camera over a 2D canvas page: keys for where it looks, how far it zooms and how it rolls, shake from seeded noise,
-and parallax for layers at different depths. Every value comes from `t`, like the rest of the page.
+A camera over a 2D canvas page: keys for where it looks, how far it zooms and how it rolls, long jumps between far
+places, following something that moves, shake from seeded noise, and parallax for layers at different depths. Every
+value comes from `t`, like the rest of the page. Use it when the look calls for camera moves; a scene without one
+needs none of it.
 
 ```js
 const { camera, shake, noise } = await import('/__motlab/camera.js');
@@ -39,6 +41,8 @@ cam.apply(ctx, t, { scale: SCALE });   // then draw in the page's own units
 | Part | What it does |
 |---|---|
 | `keys: [[time, { x, y, zoom, turn }, easing], ...]` | `x`, `y` is the point of the page in the centre of the frame, `zoom` 2 shows half the width, and `turn` rolls the camera clockwise in degrees, so the picture turns the other way. A key leaves out what does not change. The easing is a name from `motion.js` or a function (default `inOutCubic`). Two keys at the same time cut the camera |
+| `fly: true` in a key | the move into that key is a long jump: the camera pulls out while it travels and pushes in at the end, so the way between two far places stays readable. A number instead of `true` says how far it pulls out (1.41 by default, 2 further) |
+| `follow: [{ from, to, target, blend, lag }]` | between `from` and `to` the camera looks at a moving thing instead of its keys: `target` is a function of `t` that returns the thing's `[x, y]`, from the same code that draws it. It eases in and out over `blend` seconds (0.3); `lag` looks at where the thing was on average over that many seconds, like an operator who reacts a little late. Zoom and turn still come from the keys |
 | `shake: [{ from, to, amount, turn, speed, seed, decay }]` | `amount` is the largest offset in page units and `turn` the largest roll in degrees; `speed` is wobbles a second, 12 to 20 for a hit and 1 to 3 for a hand-held camera. With a `to` it dies away by then, like a hit, and `decay: false` holds it instead. Without `from` and `to` it runs through the whole scene |
 | `cam.apply(ctx, t, { scale, depth })` | sets the canvas transform; draw everything after it in page units |
 | `cam.at(t)`, `cam.matrix(t, depth)`, `cam.point(t, x, y, depth)` | where the camera looks; its 2D matrix (as in `setTransform`, or a WebGL page's 3x3); where a point of the page lands in the frame, to draw a label at its own size beside something the camera zooms in on |
@@ -48,6 +52,12 @@ cam.apply(ctx, t, { scale: SCALE });   // then draw in the page's own units
 - Zoom eases in log space, so a push feels even from far to near. The end that is zoomed in further keeps its point
   moving in a straight line across the frame, so a push in on a point off centre goes straight to it instead of
   swinging out first. Put the key on the point the shot is about.
+- A long jump (`fly: true`) suits places far apart on one big canvas: a map, a timeline, a board of cards. Halfway
+  through a jump of three frame widths at zoom 1 the camera is at zoom 0.32, so the way between shows; give it the
+  time to read that, and check stills in the middle of it.
+- To follow something along a drawn path, give `target` a point on the path: with an SVG path element,
+  `t => { const p = path.getPointAtLength(len * prog(t, 2, 5)); return [p.x, p.y]; }`. Draw the thing with the same
+  function, so camera and thing never drift apart. To keep it off centre, add an offset in `target`.
 - Draw what stays put on screen (captions, a logo, a lower third) after `ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0)`,
   or as an overlay.
 - Keep the edges out of sight. A layer under a pan, a shake or a roll needs picture past the frame: with zoom 1 and a

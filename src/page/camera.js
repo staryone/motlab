@@ -15,6 +15,15 @@
 // end that is closer in keeps its point moving in a straight line across the frame: a push in on a point off centre
 // goes straight to it instead of swinging out first.
 //
+// fly: true in a key makes the move into it a long jump: the camera pulls out while it travels and pushes in at the end,
+// on the path of van Wijk and Nuij's "Smooth and efficient zooming and panning" (2003; d3.interpolateZoom and Mapbox's
+// flyTo use it). A number instead of true says how far it pulls out (1.41 by default; 2 pulls out further).
+//
+// follow keeps a moving thing in frame: [{ from, to, target: t => [x, y], blend, lag }]. target gives the thing's place
+// in page units at t, from the same code that draws it. Between from and to the camera looks at it instead of at its
+// keys, easing over blend seconds at each end (0.3 by default); zoom and turn still come from the keys. lag (seconds)
+// looks at where it was on average over that time, like an operator who reacts a little late.
+//
 // depth is a layer's parallax: 1 moves with the camera, 0 stays put (a sky), 0.5 moves half as far and zooms by the
 // square root, 1.5 moves more (a foreground). Turn and shake are the same for every layer, as when a camera turns.
 // Every value is a function of t, so frames can be drawn in any order.
@@ -55,7 +64,7 @@ export function shake(t, list) {
   return out;
 }
 
-export function camera({ width = 1920, height = 1080, keys = [[0, {}]], shake: shakes = [] } = {}) {
+export function camera({ width = 1920, height = 1080, keys = [[0, {}]], shake: shakes = [], follow = [] } = {}) {
   const W = width, H = height;
   if (!Array.isArray(keys) || !keys.length) throw new Error('camera: keys must be a list of [time, { x, y, zoom, turn }, easing]');
   let prev = { x: W / 2, y: H / 2, zoom: 1, turn: 0 };
@@ -63,11 +72,32 @@ export function camera({ width = 1920, height = 1080, keys = [[0, {}]], shake: s
     const easing = typeof e === 'function' ? e : EASE[e ?? 'inOutCubic'];
     if (!easing) throw new Error(`camera: key ${i + 1} has an unknown easing "${e}"`);
     if (!Number.isFinite(t) || (i && t < keys[i - 1][0])) throw new Error(`camera: key ${i + 1} must have a time at or after the key before`);
-    prev = { ...prev, ...v };
+    const { fly, ...values } = v;
+    if (fly !== undefined && fly !== true && !(fly > 0)) throw new Error(`camera: key ${i + 1} has fly ${fly}; it is true or a number above 0`);
+    prev = { ...prev, ...values };
     if (!(prev.zoom > 0)) throw new Error(`camera: key ${i + 1} needs a zoom above 0`);
-    return { t, ...prev, ease: easing };
+    return { t, ...prev, ease: easing, fly: fly === true ? Math.SQRT2 : fly };
+  });
+  for (let i = 1; i < K.length; i++) if (K[i].fly) K[i].path = flight(K[i - 1], K[i], K[i].fly);
+  const follows = (Array.isArray(follow) ? follow : [follow]).map((f, i) => {
+    if (typeof f?.target !== 'function') throw new Error(`camera: follow ${i + 1} needs target, a function of t that returns [x, y]`);
+    return { from: -Infinity, to: Infinity, blend: 0.3, lag: 0, ...f };
   });
   const ang = turn => -turn * RAD;   // the camera rolls clockwise, so the picture turns anticlockwise
+
+  // The long jump from key a to key b, as a function of the eased progress k: [x, y, zoom]. Views are a centre and a
+  // width (W / zoom); rho is how far it pulls out. The same sums as d3.interpolateZoom.
+  function flight(a, b, rho) {
+    const w0 = W / a.zoom, w1 = W / b.zoom, dx = b.x - a.x, dy = b.y - a.y, d2 = dx * dx + dy * dy, r2 = rho * rho;
+    if (d2 < 1e-9) return k => [a.x, a.y, a.zoom * (b.zoom / a.zoom) ** k];
+    const d1 = Math.sqrt(d2);
+    const b0 = (w1 * w1 - w0 * w0 + r2 * r2 * d2) / (2 * w0 * r2 * d1), b1 = (w1 * w1 - w0 * w0 - r2 * r2 * d2) / (2 * w1 * r2 * d1);
+    const r0 = Math.log(Math.sqrt(b0 * b0 + 1) - b0), r1 = Math.log(Math.sqrt(b1 * b1 + 1) - b1), S = (r1 - r0) / rho;
+    return k => {
+      const r = rho * k * S + r0, u = w0 / (r2 * d1) * (Math.cosh(r0) * Math.tanh(r) - Math.sinh(r0));
+      return [a.x + u * dx, a.y + u * dy, W * Math.cosh(r) / (w0 * Math.cosh(r0))];
+    };
+  }
 
   // The camera's own move at t, without shake.
   function keyed(t) {
@@ -75,6 +105,7 @@ export function camera({ width = 1920, height = 1080, keys = [[0, {}]], shake: s
     let i = 1; while (i < K.length && K[i].t <= t) i++;
     if (i === K.length) return K.at(-1);
     const a = K[i - 1], b = K[i], k = b.ease((t - a.t) / (b.t - a.t));
+    if (b.path) { const [x, y, zoom] = b.path(k); return { x, y, zoom, turn: lerp(a.turn, b.turn, k) }; }
     const zoom = Math.exp(lerp(Math.log(a.zoom), Math.log(b.zoom), k)), turn = lerp(a.turn, b.turn, k);
     // P is the point the closer end looks at; its place on screen goes from where it is at the other end, Q, to the
     // centre (or back) in a straight line.
@@ -84,10 +115,24 @@ export function camera({ width = 1920, height = 1080, keys = [[0, {}]], shake: s
     return { x: P.x - dx, y: P.y - dy, zoom, turn };
   }
 
+  // The keyed move with the follows on it, without shake.
+  function view(t) {
+    let v = keyed(t);
+    for (const f of follows) {
+      if (t <= f.from || t >= f.to) continue;
+      const e = f.blend > 0 ? Math.min(1, (t - f.from) / f.blend, (f.to - t) / f.blend) : 1, w = e * e * (3 - 2 * e);
+      let tx = 0, ty = 0;
+      const n = f.lag > 0 ? 8 : 1;
+      for (let j = 0; j < n; j++) { const [x, y] = f.target(t - (f.lag * j) / Math.max(1, n - 1)); tx += x / n; ty += y / n; }
+      v = { ...v, x: lerp(v.x, tx, w), y: lerp(v.y, ty, w) };
+    }
+    return v;
+  }
+
   // The 2D matrix [a, b, c, d, e, f] from the page's units to the frame's, for a layer at this depth (as in
   // ctx.setTransform; for a WebGL page, the same as a 3x3 matrix).
   function matrix(t, depth = 1) {
-    const v = keyed(t), s = shake(t, shakes);
+    const v = view(t), s = shake(t, shakes);
     const z = v.zoom ** depth, a = ang(v.turn + s.turn), cos = Math.cos(a) * z, sin = Math.sin(a) * z;
     const cx = W / 2 + (v.x - W / 2) * depth, cy = H / 2 + (v.y - H / 2) * depth;
     return [cos, sin, -sin, cos, W / 2 + s.x - (cos * cx - sin * cy), H / 2 + s.y - (sin * cx + cos * cy)];
@@ -101,7 +146,7 @@ export function camera({ width = 1920, height = 1080, keys = [[0, {}]], shake: s
   return {
     // Where the camera looks at t, shake included: { x, y, zoom, turn }.
     at(t) {
-      const v = keyed(t), s = shake(t, shakes), turn = v.turn + s.turn, [dx, dy] = rot(-ang(turn), s.x / v.zoom, s.y / v.zoom);
+      const v = view(t), s = shake(t, shakes), turn = v.turn + s.turn, [dx, dy] = rot(-ang(turn), s.x / v.zoom, s.y / v.zoom);
       return { x: v.x - dx, y: v.y - dy, zoom: v.zoom, turn };
     },
     matrix,

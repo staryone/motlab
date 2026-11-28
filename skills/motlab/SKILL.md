@@ -263,6 +263,11 @@ Frame `f` is rendered at `t = f / fps`. The same page runs in the viewer, so wha
 
 Mix them freely: footage with 2D captions, a 3D UI shot that ends on a recording, a Blender product over a canvas end card.
 
+When the references or the brief call for camera moves on a 2D canvas page (a push in on a detail, a pan across a big
+layout, a long jump from one place to another, following something that moves, a hand-held wobble or a hit, a whip
+pan, parallax), use `/__motlab/camera.js` instead of moving every element by hand (`references/motion-and-libraries.md`).
+three.js and gl3d pages have their own camera; `shake()` from `camera.js` works for them too.
+
 ## Kinds of video
 
 These are about direction: what each kind of video has to get across. Its look is settled separately (workflow step 1).
