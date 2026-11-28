@@ -28,7 +28,7 @@ clip is the user's own, or one they have the rights to.
 | A glow or a colour change on a real object | `motlab matte` on it | a layer `inside` its matte, `blend: 'add'` for light |
 | A real object is gone (a logo, a mark, a thing on the table) | `--plane` on the surface under it | `patch()` at its carried corners, with pixels from beside it (`offset`) or, when the camera moves past it, from another frame (`source` and `track.map`) |
 
-Not built yet: a 3D camera for three.js scenes from Blender's solver.
+| A 3D object standing on a real table or floor while the camera moves | `scripts/blender/solve.py --floor` (the 3D camera) | a three.js scene drawn with `track.setCamera()`, a `ShadowMaterial` floor for its shadow, laid on the footage with `comp.layer` and `match` |
 
 ## 1. Find the positions
 
@@ -174,6 +174,60 @@ A layer also takes:
 
 Helpers: `C.quad(x, y, w, h, { angle, scale, anchor })` gives corners of a box; `C.grow(corners, d)` moves every
 edge out by `d` page units; `C.homography(a, b)` and `C.squareTo(q)` for anything else.
+
+## 4. A 3D camera
+
+For three.js in a shot whose camera moves through space (a dolly, a walk, a handheld move with depth), Blender's
+tracker and solver work out the real camera, frame by frame, with no window:
+
+```bash
+blender -b --factory-startup -P scripts/blender/solve.py -- footage/room.mp4 --floor 560,880 1420,850 1000,760
+```
+
+- `--floor` takes three points, in the clip's pixels at `--at` seconds, on the surface the object stands on (a
+  floor, a table top). The solved details nearest to them become y = 0, with y up; the script prints how far each
+  detail was from its point. Pick spots with texture (a grain, a mark, a corner), well apart.
+- `--focal` is a first guess of the lens in mm on a `--sensor` mm wide sensor (35 on 36 by default); the solver
+  refines it. `--fixed-focal` keeps a known lens. `--range from to` solves part of the clip.
+- It writes a `camera3d` entry into `<clip>.track.json`: the camera's matrix per frame for three.js, its field of
+  view, the error in pixels, and the solved details as 3D `points` (`track.tracks.camera3d.points`). The units are
+  the solver's own: size objects from what they should look like at a spot (below), or from the points.
+- It needs parallax: the camera has to move through space, not only turn. A pan or tilt on a tripod has none; use
+  `track.py --camera` for those. An error under 1 pixel is good.
+- Lens distortion is taken as none. A wide lens with strong distortion lets things drift at the frame's edges.
+- More details make the solve much slower, not much better. A 1080p clip of 288 frames with 761 details had not
+  finished its first solve after 30 minutes; with the defaults (at most 30 new details every 24 frames), 157 frames
+  of it solved in 137 s with an error of 0.18 px. Solve only the part a scene uses (`--range`).
+
+On a clip rendered in Blender with a known camera (960 x 540, 90 frames, a 28 mm lens), it found the lens at 27.9 mm
+and an error of 0.36 px in 66 s, and the camera path was within 0.8 cm of the true one over 6.6 m on average (3.9 cm
+at most), turned at most 0.8 degrees off. The solver gives a slightly different answer on each run, so the script
+solves again until the lens and the error settle. On a real Mixkit clip of a room (a slow dolly, 157 frames at
+1080p), a box placed on the table through the 3D camera stayed within 0.43 px on average (1.01 px at most) of the
+same spot followed by `track.py --plane` on the table top.
+
+```js
+import * as THREE from 'three';                       // the three.js template's import map
+const gl = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+gl.setSize(W * S, H * S, false); gl.setClearColor(0x000000, 0); gl.shadowMap.enabled = true;
+const camera = new THREE.PerspectiveCamera(40, W / H, 0.01, 100);
+const floor = new THREE.Mesh(new THREE.PlaneGeometry(50, 50), new THREE.ShadowMaterial({ opacity: 0.35 }));
+floor.rotation.x = -Math.PI / 2; floor.receiveShadow = true; scene.add(floor);
+// in window.ready: the spot on the floor under a pixel of the clip, and a size that looks right there
+track.setCamera('camera3d', IN, camera);
+const ray = new THREE.Raycaster(); ray.setFromCamera(new THREE.Vector2(x / track.width * 2 - 1, 1 - y / track.height * 2), camera);
+const at = ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), 0), new THREE.Vector3());
+const size = 2 * at.distanceTo(camera.position) * Math.tan(THREE.MathUtils.degToRad(camera.fov / 2)) * 170 / track.height;   // 170 px tall
+// in renderAt
+comp.footage(await clip.frame(ct), { fit, noise: true, frame: track.frame(ct) });
+track.setCamera('camera3d', ct, camera);
+gl.render(scene, camera);
+comp.layer(gl.domElement, { at: C.quad(0, 0, W, H, { anchor: [0, 0] }), match: { levels: 0.4, tint: 0.4, grain: 'auto', wrap: 0.2 } });
+```
+
+Light the object like the shot: a directional light from where the light in the clip comes from, and the
+`ShadowMaterial` floor so its shadow falls on the real surface. A real object in front of it still needs a matte
+(`behind`).
 
 ## Warps
 

@@ -4,7 +4,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 
 ## Not built yet
 
-- The rest of the footage tools: a 3D camera for three.js scenes from Blender's tracker and solver. Blender 5.2 tracked and solved a made clip without its window (a clip editor set up in the background): 77 details in 1.0 s and a re-projection error of 0.73 px, its camera path within 9.5 cm of the true one over 6.6 m on average. Marks drawn on footage in the viewer would come after.
+- Marks drawn on footage in the viewer (a click on a point, the corners of a screen, an outline), saved as data the scene reads, for when the footage tools get it wrong.
 - From the viewer on a VPS, sending a render to the personal laptop when it is on. The viewer itself runs on a domain behind a password now (`motlab start --domain`), and its Export renders on the server it runs on.
 - Less setup to open the viewer from a phone. Today it is a domain behind Caddy, or `tailscale serve` with `--domain` (docs/viewer.md). Two ideas: `motlab start --tailscale`, which would run `tailscale serve` and start the viewer on the tailnet name, where the password could be optional since only your own devices reach it; and `motlab start --tunnel` through Cloudflare Tunnel, either a free `trycloudflare.com` address for a quick review or a domain whose DNS is on Cloudflare, with no Caddy and no open ports. The free address does not carry server-sent events, so the page would have to ask for changes every few seconds instead; it also changes on every start, and Cloudflare offers it for testing only.
 - A dark sign-in page for a viewer on a domain (src/access.js). The viewer follows the system's dark mode now, but the sign-in page stays light.
@@ -24,6 +24,7 @@ What is not built, what has not been tested, and ideas that came up while using 
 - The project history with large footage (how big `.motlab/history/` grows), and the compare on a real phone.
 - Beats on the viewer's timeline with a long track zoomed out, where the ticks crowd.
 - `camera.js` in a real video, and a three.js or gl3d page using its `shake`.
+- `blender/solve.py` on phone footage (rolling shutter, strong motion blur), with lens distortion, on clips longer than 12 s, and on macOS and Linux. It was measured on a clip rendered in Blender and tried on one Mixkit clip.
 - `motlab matte` on people, hair, fast motion and long clips, on the CPU, and on macOS and Linux. Its mattes are 256 pixels across the frame, so a thin thing in front (a lamp's rod in the test) leaves a gap of about 10 pixels at 1080p around it; finer edges from the footage itself are not built.
 - `track.py` and `comp.js` in a real video, on footage filmed on a phone (rolling shutter, strong motion blur, low light) and on clips longer than 13 s, and `track.py` on macOS and Linux. The tests were Mixkit stock clips and clips made with numpy. `comp.js` on a machine without a GPU beyond the small test in CI.
 - `motlab depth` on macOS and Linux, and on a machine whose Chrome has no WebGPU, where it should fall back to the CPU. `depth_layers.py` on more than one street photo and on frames of footage.
