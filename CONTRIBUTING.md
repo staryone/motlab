@@ -21,7 +21,7 @@ src/page/              code that runs inside Chrome: the render runtime, footage
 src/editor.html        the viewer, one file (its design is in DESIGN.md)
 skills/motlab/         the video skill: SKILL.md, references, templates, helper scripts
 skills/motlab-assets/  the asset skill: kits of 2D and 3D assets built as code
-skills/motlab-styles/  ready-made looks: rules and templates, used only when asked for
+skills/motlab-styles/  ready-made styles: rules and templates, a guide used only when asked for
 example/               a sample project
 test/                  node:test, including an end-to-end render
 docs/                  install, projects, viewer, command line, rendering
