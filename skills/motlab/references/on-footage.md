@@ -1,0 +1,163 @@
+# Animation on real footage: tracks, warps and matching
+
+For animation that has to sit in a real shot: an app on a phone someone holds, a poster on a wall the camera moves
+past, a label that stays on a table, a hit that cracks the picture, a drop that ripples a puddle. Each of these is
+put together from the same few parts instead of being built as one effect:
+
+- a track says where something is in every frame of the clip (`scripts/track.py`, made once)
+- the compositor in `/__motlab/comp.js` draws the footage, bends it with warps, and lays canvases on it at
+  tracked places, matched to the shot
+
+Models that make pictures or video stay out. The clip is the user's own, or one they have the rights to.
+
+## Which parts an interaction needs
+
+| The shot | Track | On the page |
+|---|---|---|
+| An app on a phone held in a hand | `--plane` on the screen's corners, `--grow 0.15` when the screen is plain | `layer()` at `grow(plane, 3)` so it reaches under the bezel; `match` levels, grain, a little wrap; `shutter()` for motion blur |
+| A poster, sign or screen on a wall | `--plane` on a patch of the wall around it | `carry()` the poster's corners from the first frame; a `shadow` layer a few pixels below; `match` levels and tint 0.5 or more |
+| A label that stays on a far or flat background while the camera moves | `--camera` | `carry('camera', ...)` its corners from the first frame |
+| Text or a mark that follows a thing | `--points` on a sharp detail of it (two for its turn and size) | `pose()` on a Canvas 2D page, or `quad()` around the point on a layer |
+| A hit: the picture cracks, a shockwave runs out | `--camera` or `--plane`, so the hit stays on its spot | `crack` and `shockwave` warps at the carried point, and a short `push` with radius 0 as shake |
+| A drop or a stone in water | `--camera` if the shot moves | `ripple` warps, one per drop |
+| A lens or a magnifier | the thing under it | `bulge` |
+| A twist into the next shot | none | `swirl`, its angle eased up to the cut |
+
+Not built yet: a matte (fingers that cross the phone's screen, a person walking in front of the poster), drawing
+an animated object behind a real one, covering a real object, and a 3D camera for three.js from Blender's solver.
+Until they are, keep the action where nothing passes in front of the surface, or cut before it does.
+
+## 1. Find the positions
+
+Export a frame where nothing covers the surface and read the coordinates off a grid:
+
+```bash
+ffmpeg -ss 2.6 -i footage/phone.mp4 -frames:v 1 frame.png
+python3 scripts/grid.py frame.png grid.jpg --step 50
+```
+
+Positions are in the clip's pixels as it plays (a phone's rotation applied). For a plane, take the corners in the
+order top left, top right, bottom right, bottom left of what will be drawn on it, on the surface's own edges. On a
+green or blue screen, the corners of the keyed colour inside the bezel are exact.
+
+## 2. Track
+
+```bash
+python3 scripts/track.py footage/phone.mp4 --plane screen=766,169,1015,169,1015,677,770,678 --grow 0.15 --at 2.6 --sheet check.jpg
+python3 scripts/track.py footage/stairs.mp4 --plane wall=1170,110,1500,110,1500,720,1170,720 --points button=1172,822 --sheet check.jpg
+python3 scripts/track.py footage/clock.mp4 --camera --range 4 9
+```
+
+- `--at` is the time in the clip where the positions are true; tracking runs from there to both ends. `--range`
+  tracks only the part a scene uses, which saves time on a long clip.
+- Every run adds its tracks to `<clip>.track.json` next to the clip, replacing tracks of the same name.
+- `--sheet check.jpg` draws the tracks on 8 frames. Look at it before building on a track: the outline should stay
+  on the surface's edges, the points on their details, and the camera's grid fixed to the wall.
+- A point needs a small, sharp detail (a corner, a screw, a mark); on a plain area it cannot be followed. Its window
+  is `--window` pixels from its centre (15 by default; smaller for a small detail near other moving things).
+- A plane follows the texture inside it. A plain screen has almost none, so `--grow` takes in the bezel. Fingers and
+  other things that move their own way are left out by themselves, as long as the surface's own details are most of
+  what is in the region at `--at`. Start on a frame where the surface is clear.
+- `--camera` fits one flat move to the whole frame. It is right for a pan or a shake over a wall or a distant view.
+  In a deep scene (railings in front of a wall) the near and far parts move differently: track the surface the
+  animation sits on with `--plane` instead.
+- Each frame has a confidence from 0 to 1, the share of details that agreed. Frames where it was lost are `null`
+  and the page holds the nearest frame that was found. The script prints how many frames were weak or lost.
+
+Measured on the test laptop (Windows, numpy and scipy on the CPU), on 1920 x 1080 clips from Mixkit:
+
+| Clip | Track | Time | How close |
+|---|---|---|---|
+| A hand holding a green-screen phone, a finger crossing it, 787 frames at 60 fps | plane, `--grow 0.15` | 39 s | screen edges 1.85 px from the visible edge on average (1.6 px on the start frame itself, the limit of that measure); started again in the middle and tracked both ways, the two runs agreed within 0.53 px on average, 4.4 px at most while a finger covered a corner |
+| A stairwell, the camera drifting, 288 frames at 24 fps | plane on the wall, and two points | 29 s and 13 s | tracked to the end and back to the start, the corners came back within 0.17 px and the points within 0.15 px |
+| A white wall with a clock, a pan, 307 frames at 24 fps | camera | 20 s | a grid fixed to the wall stayed on the same numbers of the clock |
+
+On a made clip with known motion (a card turning, growing and tilting, 960 x 540, 90 frames), the corners were
+0.33 px from the truth on average and 0.55 px at most. The method: pyramidal Lucas-Kanade on details spread over the
+region; each frame is warped by the predicted homography into a keyframe and matched there, so the error does not
+add up from frame to frame; the homography is fitted with RANSAC.
+
+## 3. Draw it
+
+```js
+let clip, track, comp, C;
+window.ready = (async () => {
+  const { openFootage } = await import('/__motlab/footage.js');
+  C = await import('/__motlab/comp.js');
+  clip = await openFootage('../footage/phone.mp4');
+  track = await C.loadTrack('../footage/phone.track.json');
+  comp = C.compositor({ width: W, height: H, scale: S });
+})();
+window.renderAt = async t => {
+  await window.ready;
+  const ct = IN + t, fit = [0, 0, W, H];                   // the time in the clip, and where the clip is drawn
+  comp.footage(await clip.frame(ct), { fit, noise: true, frame: track.frame(ct), region: [600, 600, 500, 480] });
+  drawApp(t);                                              // the animation, on its own canvas `app`
+  const screen = x => C.grow(track.plane('screen', x, fit), 3);
+  comp.layer(app, { at: screen(ct), ...track.shutter(screen, ct), match: { levels: 0.35, tint: 0.2, grain: 'auto', wrap: 0.25 } });
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.drawImage(comp.canvas, 0, 0);
+};
+```
+
+Everything the compositor takes is in page units. Track values are in the clip's pixels until a `fit` is given:
+`[x, y, w, h]`, where the clip is drawn on the page, the same rectangle passed to `footage()`.
+
+The track (`loadTrack`), with `t` the time in the clip:
+
+| Call | Gives |
+|---|---|
+| `track.plane(name, t, fit)` | a plane's four corners |
+| `track.points(name, t, fit)` | a points track's points |
+| `track.carry(name, t, pts, fit)` | points given in the track's first frame, moved with the plane, the points or the camera to time `t`: a poster beside a tracked patch of wall, a label on a wall the camera pans over |
+| `track.pose(name, t, fit)` | `{ x, y, scale, angle }` against the first frame, for `ctx.translate`, `rotate`, `scale` on a Canvas 2D page |
+| `track.shutter(fn, t, open)` | `{ from, to }` corners for motion blur, from the frames before and after; `fn(time)` gives corners. `open` 0.5 is a 180 degree shutter |
+| `track.confidence(name, t)`, `track.frame(t)` | the confidence at that frame (0 where lost), and the frame's number |
+
+The compositor, called in this order every frame:
+
+| Call | Does |
+|---|---|
+| `comp.footage(frame, { fit, warps, noise, region, frame })` | draws the clip and measures its light. `region` is the part whose light the layers match (leave out a green screen or a bright sky); `noise: true` measures its grain; `frame: track.frame(ct)` changes the grain with the footage's |
+| `comp.layer(canvas, { at, from, to, samples, opacity, match, shadow, blend })` | lays a canvas on four corners, in perspective. `from` and `to` blur it along its move. `shadow: { opacity, blur }` draws its shape as a soft dark shadow instead (lay it first, a few pixels down on the same surface). `blend: 'add'` for light |
+| `comp.canvas` | the result, to copy onto `#c` |
+
+`match`, each from 0 to 1:
+
+- `levels` moves the layer's black and white to the footage's darkest and brightest colours. 0.3 to 0.7; a flat
+  graphic on a dim wall needs more.
+- `tint` takes on the footage's colour of light. Keep it low for brand colours that must stay true.
+- `grain` adds noise on the footage's pixel grid; `'auto'` uses the footage's measured noise. Without it a clean
+  graphic floats above the shot.
+- `wrap` lets the footage's light spill over the layer's edges (`wrapSize`, 12 page units by default).
+
+Helpers: `C.quad(x, y, w, h, { angle, scale, anchor })` gives corners of a box; `C.grow(corners, d)` moves every
+edge out by `d` page units; `C.homography(a, b)` and `C.squareTo(q)` for anything else.
+
+## Warps
+
+Warps bend the footage itself. They are given to `footage()` as a list, up to 8 at once, in page units, with `age`
+the seconds since the warp began (`t - HIT`). Any value left out takes its default:
+
+| Warp | Values (defaults) | For |
+|---|---|---|
+| `ripple` | `amp` 6, `wavelength` 40, `speed` 260, `decay` 1.2, `rings` 4, `shine` 0.15 | a drop in water, a tap on a surface |
+| `shockwave` | `amp` 30, `width` 40, `speed` 900, `decay` 2.5, `split` 0.15 (colour fringe) | an impact, a bass hit, a reveal |
+| `bulge` | `amount` 0.4 (below 0 pinches), `radius` 200 | a lens, a magnifier, a breath |
+| `swirl` | `angle` 2 radians, `radius` 220 | a twist out of a shot |
+| `push` | `dx`, `dy`, `radius` (0: the whole frame) | a nudge, or shake with radius 0 and an offset from `shake()` in `camera.js` |
+| `crack` | `radius` 300, `shift` 4, `cracks` 11, `darkness` 0.6, `seed` 1 | glass or a screen breaking; grow `radius` from 0 over about 0.1 s |
+
+A hit reads when its parts land on the same frame: the crack, the shockwave, a shake and the sound. Keep it on a
+tracked spot (`carry`) so it does not slide when the camera moves.
+
+## Checking it
+
+- Look at `--sheet` before building, then at stills where the surface moves fastest and where something passes
+  close to it.
+- Step through a move frame by frame in the viewer. A layer that swims against the footage by a pixel or two is a
+  track that slipped: start it on another frame, give the plane more texture (`--grow`), or shorten `--range`.
+- A layer that looks pasted on usually lacks grain, has blacks deeper than the footage's, or is sharper than the
+  footage while it moves. Raise `levels`, use `grain: 'auto'`, and give it `shutter()` blur.
+- The footage drawn by `comp.js` matches `f.draw` within 1 of 255 per channel, so a scene can switch between them.
+- `comp.js` needs WebGL2. On a machine without a GPU, Chrome draws it with SwiftShader, which is slower.

@@ -54,6 +54,7 @@ The renderer and the viewer serve a few files for scene pages at fixed paths, so
 | `/__motlab/cuts.js` | plays a cut list over one recording ([Cut lists](#cut-lists)) |
 | `/__motlab/motion.js` | easings, CSS `cubic-bezier`, exact springs, keyframes, stagger and motion blur, all pure functions of time |
 | `/__motlab/sprite.js` | sprite sheets and Aseprite exports played from `t`, and sprite stacks: an object as slices drawn one above another and turned, so it reads as solid |
+| `/__motlab/comp.js` | animation on real footage: reads the tracks `track.py` makes, and draws the footage with warps (ripple, shockwave, bulge, swirl, push, crack) and canvases laid on it at tracked corners, matched to the shot ([Tracks and warps](#tracks-and-warps)) |
 | `/__motlab/camera.js` | a 2D camera from keys (where it looks, zoom, roll), long jumps between far places, following a moving thing, shake from seeded noise, and parallax for layers at different depths |
 | `/__motlab/transitions.js` | the scene transitions, also usable inside a page to mix two canvases |
 
@@ -209,6 +210,12 @@ Tested: a 60 fps clip trimmed from 1.5 s into a 30 fps scene renders the exact s
 - VP9 in WebM and MP4, and H.264 in MKV, MP4 and MOV, at 24, 25, 29.97, 30 and 60 fps, rendered at 30 fps and at the clip's own rate: every frame right, in 64x64 test clips where each frame is a different grey. WebM and MKV store timestamps in whole milliseconds, so for them `clip.frame(t)` rounds `t` to the millisecond.
 
 These were made with ffmpeg, not filmed on a phone, and played by a Chrome that could decode HEVC on this laptop. Chrome on a machine without HEVC decoding stops at `openFootage` with "this browser cannot decode".
+
+### Tracks and warps
+
+For animation that sits in the shot, `skills/motlab/scripts/track.py` follows points, a flat surface (four corners) or the whole frame through a clip and writes `<clip>.track.json` next to it, and `/__motlab/comp.js` reads it on the page. Its compositor draws the footage in WebGL2, bends it with warps, and lays canvases on it at tracked corners in perspective, with the footage's black and white levels, colour of light, grain, light wrap at the edges, motion blur from the track and a soft contact shadow. The skill's `references/on-footage.md` says which parts each kind of shot needs, and how to call them.
+
+Tested on the test laptop on 1920 x 1080 clips from Mixkit: a green-screen phone in a hand (787 frames at 60 fps) tracked in 39 s, its screen's edges 1.85 px from the visible edge on average; a wall in a stairwell (288 frames at 24 fps) tracked to the end and back again came back within 0.17 px; a pan over a wall with a clock (307 frames) as a camera track in 20 s. A test project of four 4 s scenes on those clips (a phone screen, a poster, a label and a crack, ripples) rendered at 1080p at 20 to 32 fps a scene. Footage drawn through `comp.js` matches `f.draw` within 1 of 255. Not built yet: mattes, drawing behind a real object, and a 3D camera from Blender.
 
 ## Cut lists
 
