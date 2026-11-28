@@ -98,8 +98,11 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
   screen's own rate, so a 30 fps export shows the same move in steps twice as long: the street test's car entered at
   54 to 58 screen pixels a frame at 30 fps, choppy in the export though smooth in the viewer, and 24 to 28 at 60 fps.
   The 7.5 s scene then took 12 s to render instead of 6, and the file was 2.1 MB instead of 1.4 MB. Step through a fast
-  move frame by frame in the viewer to see what the export will show. At 30 fps, keep fast things under about 5 art
-  pixels a frame.
+  move frame by frame in the viewer to see what the export will show.
+- Keep a hard-edged thing under about 2 art pixels (12 screen pixels) a frame. Nothing blurs pixel art, so a faster
+  one strobes even at 60 fps: the car at 24 to 28 screen pixels a frame still looked choppy; brought in slower,
+  braking evenly from about 2 art pixels a frame, it moved in steps of 10 to 12. Something that must be faster gets
+  a smear instead: afterimages dithered out behind it, or speed lines.
 - Zoom only in whole steps (1x, 2x), with a cut or a hard switch between them. A smooth zoom smears the grid.
 - A roll is drawn inside the buffer, so the pixels stay chunky; keep stacks upright with `turn`. Use it rarely.
 - Parallax layers each move in whole pixels; far layers move less.
@@ -137,7 +140,8 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 | edges that crawl | whole-pixel positions; the camera rounded to the grid |
 | the scroll ticks or judders | a smooth camera: layers drawn with its whole part, put on screen with its fraction |
 | a followed object jumps a pixel back and forth | give it a layer of its own at its exact place |
-| smooth in the viewer, choppy in the export | 60 fps in `project.json`, or slower fast moves (under 5 art pixels a frame at 30 fps) |
+| smooth in the viewer, choppy in the export | 60 fps in `project.json` |
+| a fast thing strobes, even at 60 fps | under about 2 art pixels a frame, or a smear of dithered afterimages behind it |
 | uneven pixels in an export | a buffer of the page / 6, scaled whole; nothing drawn at page resolution |
 
 ## Checklist before opening the viewer
