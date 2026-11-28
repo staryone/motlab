@@ -11,12 +11,13 @@ motlab stills <page.html> <outDir> <t1> <t2> ...  single frames as PNG or JPEG
 motlab stills <project> <outDir> <t1> <t2> ...    frames of the whole video at those times
 motlab video  <page.html> <out.mp4> [options]     one page as an MP4
 motlab events <page.html> <out.json>              the page's EVENTS, for syncing sound
+motlab depth  <image> [<image> ...] [--cpu]       a depth map of each photo or frame, for parallax layers
 motlab help                                       this list and the engine folder (also motlab --help or -h)
 motlab version                                    the installed version, such as 0.4.0 (also motlab --version or -v)
 motlab doctor                                     check Node, Chrome, ffmpeg, the skill's Python packages and earshot
 motlab setup [--skill <target>] [--update] ...    copy the skills to agent folders after npm install -g, and add the command if needed
 motlab update [--dry-run]                         the newest motlab (from GitHub, or the npm commands that get it), and the skills copied again where they were installed
-motlab uninstall [--dry-run] [--yes]              remove the skills, ~/.motlab, the encoder cache and a clone's command
+motlab uninstall [--dry-run] [--yes]              remove the skills, ~/.motlab, the cache folder and a clone's command
 ```
 
 The viewer commands are described in [the viewer](viewer.md), `motlab working` in [Live updates](viewer.md#live-updates), `motlab history` in [History](viewer.md#history), `--domain` in [On a VPS with a domain](viewer.md#on-a-vps-with-a-domain), `motlab setup` in [From npm](install.md#from-npm), `motlab update` in [Updating](install.md#updating) and `motlab uninstall` in [Removing](install.md#removing).
@@ -38,6 +39,19 @@ Given a project folder or project file instead of a page, `stills` takes times o
 `stills`, `events` and `video` serve the nearest folder above the page that has a `project.json`, the same folder the viewer serves, so a scene can load `../` files. A page outside a project is served from its own folder. Pass `--root` to serve another folder.
 
 When the page throws while loading, the error names the file, line and column, for example `SyntaxError: Illegal return statement (/scenes/bad.html:4:1)`.
+
+## Depth maps
+
+```bash
+motlab depth photo.jpg frame-0040.png
+motlab depth photo.jpg --cpu
+```
+
+`depth` writes `photo.depth.png` next to each image, as large as the image: a grey picture where nearer is lighter. It is for cutting a photo into layers for parallax (`skills/motlab/scripts/depth_layers.py`, then `/__motlab/camera.js` in the scene); the skill's `references/motion-and-libraries.md` has the steps. JPEG, PNG, WebP, AVIF and BMP are read.
+
+The model is [Depth Anything V2 Small](https://huggingface.co/onnx-community/depth-anything-v2-small) (Apache 2.0), run by [transformers.js](https://github.com/huggingface/transformers.js) 4.3.2 in headless Chrome: through WebGPU on the GPU in half precision when Chrome has it, else on the CPU in 8-bit (`--cpu` asks for the CPU). It measures depth and makes no picture. The first run downloads transformers.js and the ONNX runtime from jsDelivr and the model from Hugging Face, about 70 MB (27 MB more for the CPU model), into a Chrome profile kept in the cache folder (`depth-chrome` in `MOTLAB_CACHE_DIR`); later runs need no network. The profile was 107 MB after the first run.
+
+On the test laptop (Windows, RTX 3060 Laptop) the first run took 16 s with the download, and a later one 2.4 s in all for an 800x800 photo, of which the map took 0.2 s. Several images in one command load the model once. On the CPU the same photo took 3.9 s. Not tried: macOS, Linux, and a machine whose Chrome has no WebGPU.
 
 ## Options
 
@@ -70,7 +84,7 @@ When the page throws while loading, the error names the file, line and column, f
 | `CHROME` | Path to Chrome or Chromium |
 | `MOTLAB_GPU` | Set to `default` to leave out `--force_high_performance_gpu` so headless Chrome uses its default (integrated) GPU. Useful on dual-GPU laptops whose discrete GPU has no hardware video encoder |
 | `MOTLAB_VIEWER_PASSWORD` | The viewer's password with `motlab start --domain` or `motlab restart` on a domain, at least 12 characters. See [On a VPS with a domain](viewer.md#on-a-vps-with-a-domain) |
-| `MOTLAB_CACHE_DIR` | Where the encoder timings and the cached scene parts are saved. Default `%LOCALAPPDATA%\motlab` on Windows, `~/.cache/motlab` elsewhere |
+| `MOTLAB_CACHE_DIR` | Where the encoder timings, the cached scene parts and the depth model are saved. Default `%LOCALAPPDATA%\motlab` on Windows, `~/.cache/motlab` elsewhere |
 
 ## Page contract
 

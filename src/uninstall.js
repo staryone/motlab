@@ -36,7 +36,7 @@ function targets() {
   if (existsSync(STATE)) out.push({ path: STATE, what: 'install record, recent projects, viewer log' });
   const cache = cacheFile(), cacheDir = dirname(cache);
   // The default cache folder is motlab's own; a folder from MOTLAB_CACHE_DIR may hold other things, so only the file goes.
-  if (!process.env.MOTLAB_CACHE_DIR && existsSync(cacheDir)) out.push({ path: cacheDir, what: 'encoder timings and cached scene parts' });
+  if (!process.env.MOTLAB_CACHE_DIR && existsSync(cacheDir)) out.push({ path: cacheDir, what: 'encoder timings, cached scene parts and the depth model' });
   else if (existsSync(cache)) out.push({ path: cache, what: 'encoder timings' });
   return out;
 }
