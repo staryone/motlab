@@ -125,9 +125,9 @@ car.draw(ctx, 960, 600, { angle: 40 * t, scale: 8 });
 | `loadStack('x.stack.json' or 'x.png', { slices, vertical, topFirst, shade })` | a stack from the motlab-assets skill's `slices.py`, or an image of equal slices (bottom first in a row, unless `vertical` or `topFirst` says otherwise). `shade` darkens the lower slices so the height reads |
 | `stack.draw(ctx, x, y, { angle, scale, spacing, squash, turn })` | the stack with the middle of its bottom slice at x, y, turned by `angle` (degrees, clockwise seen from above); `scale` is page units a voxel, `spacing` the step between slices (1), and a `squash` below 1 looks more from the side |
 
-- Pixel art stays sharp: nothing is smoothed. Use a whole-number `scale` and whole-number positions so every sprite
-  pixel is the same size. The viewer's 1080p and 4K exports keep the pixels even; 1440p and 720p draw a 1080p page at
-  4/3 and 2/3, where they come out uneven.
+- Pixel art stays sharp: nothing is smoothed. The viewer exports a 1920 x 1080 page at 2/3 (720p), 1, 4/3 (1440p)
+  and 2 (4K), so a sprite pixel of 3, 6, 9 or 12 page units at whole-pixel positions stays even in all four: 6 units
+  is 4, 6, 8 and 12 device pixels. Other sizes, and a camera zoom between whole steps, come out uneven somewhere.
 - A stack goes under the camera like anything else (`cam.apply`) and zooms with it. With a camera that rolls, pass
   `turn: cam.at(t).turn`, so the slices still step straight up the screen. Draw sprites that should stay upright after
   `ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0)`.

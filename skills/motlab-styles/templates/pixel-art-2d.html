@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Scene (pixel art)</title>
+<style>
+  /* A pixel font next to the page (get_font.py get "Silkscreen"); without it, monospace thresholded to hard pixels. */
+  @font-face { font-family: Pixel; src: url("fonts/Pixel.ttf") format("truetype"); }
+  html, body { margin: 0; height: 100%; background: #000; display: grid; place-items: center; }
+  canvas { display: block; width: min(100vw, 100vh * 16 / 9); aspect-ratio: 16 / 9; image-rendering: pixelated; }
+</style></head><body><canvas id="c"></canvas>
+<script type="module">
+// The Pixel art style (styles/pixel-art.md): everything is drawn into a buffer of the page / 6 and scaled up whole,
+// so every export keeps square pixels. A light buffer is added on top. Replace draw(); keep the helpers.
+// Page contract: renderAt(t), TOTAL, ready, EVENTS, ?t=, ?scale=.
+const W = 1920, H = 1080, PIX = 6, BW = W / PIX, BH = H / PIX;   // 320 x 180 art pixels
+const params = new URLSearchParams(location.search), SCALE = parseFloat(params.get('scale') || '1');
+const cv = document.querySelector('#c'), ctx = cv.getContext('2d');
+cv.width = Math.round(W * SCALE); cv.height = Math.round(H * SCALE);
+const layer = () => Object.assign(document.createElement('canvas'), { width: BW, height: BH });
+const buf = layer(), lit = layer(), g = buf.getContext('2d', { willReadFrequently: true }), l = lit.getContext('2d');
+
+// Every time in the scene comes from here.
+const B = { hop: 1.0, land: 1.45, title: 1.8, END: 5 };
+window.EVENTS = [{ name: 'hop', t: B.hop }, { name: 'land', t: B.land }, { name: 'title', t: B.title }];
+
+// ---- colour: hue-shifted ramps, dark to bright ----
+// Shadows lean towards cool and deep (blue, 230 degrees), highlights towards warm and pale (yellow, 55 degrees).
+const toward = (h, target, k) => { const d = ((target - h + 540) % 360) - 180; return (h + d * k + 360) % 360; };
+const hsl = (h, s, v) => `hsl(${h.toFixed(1)} ${(s * 100).toFixed(1)}% ${(v * 100).toFixed(1)}%)`;
+function ramp(hue, n = 6, { sat = 0.6, shift = 0.35, lo = 0.08, hi = 0.88 } = {}) {
+  return Array.from({ length: n }, (_, i) => {
+    const k = i / (n - 1), h = k < 0.5 ? toward(hue, 230, (0.5 - k) * 2 * shift) : toward(hue, 55, (k - 0.5) * 2 * shift);
+    return hsl(h, sat * (1 - 0.45 * Math.abs(2 * k - 1) ** 2), lo + (hi - lo) * k);
+  });
+}
+const INK = '#120f1c';                                   // the darkest colour: a tinted near-black, never #000
+const SKY = ramp(245, 6, { sat: 0.45, lo: 0.06, hi: 0.42 }), MOON = ramp(48, 5, { sat: 0.5, lo: 0.55, hi: 0.95 });
+const GRASS = ramp(130, 5, { sat: 0.45, lo: 0.12, hi: 0.5 }), WOOD = ramp(28, 6, { sat: 0.55 }), SLIME = ramp(150, 6, { sat: 0.7 });
+const PALETTE = [INK, ...SKY, ...MOON, ...GRASS, ...WOOD, ...SLIME, '#ffffff'];
+
+// ---- pixels ----
+const BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + 0.5) / 16);   // 4 x 4 ordered dither
+function dither(x0, y0, w, h, colour, a) {   // an opaque colour faded by dithering, never by blending
+  g.fillStyle = colour;
+  for (let y = y0; y < y0 + h; y++) for (let x = x0; x < x0 + w; x++) if (a > BAYER[((y & 3) << 2) | (x & 3)]) g.fillRect(x, y, 1, 1);
+}
+function sprite(rows, pal, x, y, flip = false) {   // a sprite from strings: one character a pixel, '.' empty
+  rows.forEach((row, j) => [...row].forEach((ch, i) => {
+    if (ch === '.') return;
+    g.fillStyle = pal[ch]; g.fillRect(Math.round(x) + (flip ? row.length - 1 - i : i), Math.round(y) + j, 1, 1);
+  }));
+}
+// Text with hard edges: drawn small, then every pixel either on or off.
+const scratch = Object.assign(document.createElement('canvas'), { width: BW, height: 64 }), sg = scratch.getContext('2d', { willReadFrequently: true });
+function text(str, x, y, colour, { size = 8, align = 'left', shadow = INK } = {}) {
+  sg.clearRect(0, 0, scratch.width, scratch.height); sg.font = `${size}px Pixel, monospace`; sg.textBaseline = 'top';
+  const w = Math.ceil(sg.measureText(str).width), h = Math.ceil(size * 1.4);
+  sg.fillStyle = '#fff'; sg.fillText(str, 0, 0);
+  const d = sg.getImageData(0, 0, w, h).data, x0 = Math.round(align === 'center' ? x - w / 2 : align === 'right' ? x - w : x);
+  for (const [c, o] of [[shadow, 1], [colour, 0]]) {
+    if (!c) continue;
+    g.fillStyle = c;
+    for (let j = 0; j < h; j++) for (let i = 0; i < w; i++) if (d[(j * w + i) * 4 + 3] >= 128) g.fillRect(x0 + i + o, Math.round(y) + j + o, 1, 1);
+  }
+}
+// Light: soft and additive, in its own buffer; k 0.2 to 0.5, more only on a core.
+function glow(x, y, r, colour, k) {
+  const gr = l.createRadialGradient(x, y, 0, x, y, r);
+  gr.addColorStop(0, colour); gr.addColorStop(1, 'rgba(0,0,0,0)');
+  l.globalAlpha = k; l.fillStyle = gr; l.fillRect(x - r, y - r, r * 2, r * 2); l.globalAlpha = 1;
+}
+// Snaps every pixel of the buffer to the nearest colour of the palette, so nothing from outside it gets in. Each
+// colour met is looked up once.
+const PAL_RGB = PALETTE.map(c => { g.fillStyle = c; g.fillRect(0, 0, 1, 1); return [...g.getImageData(0, 0, 1, 1).data.slice(0, 3)]; });
+const nearest = new Map();
+function lock() {
+  const img = g.getImageData(0, 0, BW, BH), d = img.data;
+  for (let i = 0; i < d.length; i += 4) {
+    const key = (d[i] << 16) | (d[i + 1] << 8) | d[i + 2];
+    let best = nearest.get(key);
+    if (best === undefined) {
+      let bd = Infinity;
+      for (let p = 0; p < PAL_RGB.length; p++) {
+        const [r, gg, b] = PAL_RGB[p], e = (d[i] - r) ** 2 * 3 + (d[i + 1] - gg) ** 2 * 4 + (d[i + 2] - b) ** 2 * 2;
+        if (e < bd) { bd = e; best = p; }
+      }
+      nearest.set(key, best);
+    }
+    [d[i], d[i + 1], d[i + 2]] = PAL_RGB[best]; d[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+}
+
+// ---- timing ----
+const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const step = (t, fps = 12) => Math.floor(t * fps + 1e-6) / fps;   // poses hold on steps
+const outQuart = k => 1 - (1 - clamp(k)) ** 4;
+const hash = n => { const s = Math.sin(n * 91.345) * 24634.6345; return s - Math.floor(s); };
+
+let crate, cam;
+const BLOB = { a: ['..ggg..', '.gGGGg.', 'gGWGWGg', 'gGGGGGg', '.ggggg.'], b: ['.......', '..ggg..', 'gGWGWGg', 'gGGGGGg', 'ggggggg'] };
+const BLOB_PAL = { g: SLIME[2], G: SLIME[4], W: '#ffffff' };
+
+function draw(t) {
+  // the camera, in art pixels and rounded: a slow pan of 6 pixels a second
+  const v = cam.at(t), ox = Math.round(BW / 2 - v.x), oy = Math.round(BH / 2 - v.y);
+  g.setTransform(1, 0, 0, 1, 0, 0); l.setTransform(1, 0, 0, 1, 0, 0);
+  g.fillStyle = INK; g.fillRect(0, 0, BW, BH); l.clearRect(0, 0, BW, BH);   // every frame from nothing
+  // sky: ramp steps in bands, each band's edge dithered into the next
+  const band = 28;   // five bands down to the ground at 140
+  for (let i = 0; i < 5; i++) { g.fillStyle = SKY[i]; g.fillRect(0, i * band, BW, band); }
+  for (let i = 1; i < 5; i++) dither(0, i * band - 4, BW, 4, SKY[i], 0.5);
+  // stars twinkle on 8 steps a second
+  for (let i = 0; i < 40; i++) {
+    const x = Math.floor(hash(i) * BW), y = Math.floor(hash(i + 50) * 80), on = hash(i * 7 + Math.floor(step(t, 8) * 8)) > 0.25;
+    if (on) { g.fillStyle = i % 5 ? SKY[5] : MOON[4]; g.fillRect(x, y, 1, 1); }
+  }
+  g.setTransform(1, 0, 0, 1, ox, oy); l.setTransform(1, 0, 0, 1, ox, oy);
+  // the moon, lit by the light buffer rather than painted white
+  g.fillStyle = MOON[2]; g.beginPath(); g.arc(250, 38, 10, 0, Math.PI * 2); g.fill();
+  g.fillStyle = MOON[3]; g.beginPath(); g.arc(247, 35, 7, 0, Math.PI * 2); g.fill();
+  glow(250, 38, 40, MOON[1], 0.25);
+  // ground
+  g.fillStyle = GRASS[1]; g.fillRect(-40, 140, BW + 80, 40); g.fillStyle = GRASS[2]; g.fillRect(-40, 140, BW + 80, 2);
+  for (let x = -40; x < BW + 40; x += 7) { g.fillStyle = GRASS[3]; g.fillRect(x + (x % 3), 139, 1, 1); }
+  // a sprite stack turning: one voxel to one art pixel
+  crate.draw(g, 110, 146, { angle: 30 * t, scale: 1 });
+  glow(110, 136, 24, WOOD[4], 0.15);
+  // a blob that hops: poses on 12 steps a second, a squash on landing, one frame of white on contact
+  const ts = step(t), up = Math.sin(Math.PI * prog(ts, B.hop, B.land)) * 26, landed = ts >= B.land && ts < B.land + 1 / 12;
+  const x = 160 + 40 * outQuart(prog(ts, B.hop, B.land));
+  if (landed) { g.fillStyle = '#ffffff'; g.fillRect(Math.round(x) - 4, 135, 9, 5); }
+  else sprite(ts > B.land && ts < B.land + 0.25 ? BLOB.b : BLOB.a, BLOB_PAL, x - 3, 135 - up);
+  if (ts >= B.land) for (let i = 0; i < 6; i++) {   // dust: dithered out as it spreads
+    const k = prog(t, B.land, B.land + 0.6), dx = (i - 2.5) * (4 + 14 * outQuart(k));
+    dither(Math.round(x + dx), 138 - Math.round(3 * k * (i % 2)), 2, 2, GRASS[4], 1 - k);
+  }
+  // title: a pixel font at its own size, hard-edged, a one-pixel ink shadow
+  g.setTransform(1, 0, 0, 1, 0, 0);   // on screen, not in the world
+  const a = prog(t, B.title, B.title + 0.3);
+  if (a > 0) text('REPLACE THIS SCENE', 160, 70 + Math.round(6 * (1 - outQuart(a))), MOON[4], { size: 8, align: 'center' });
+}
+
+function render(t) {
+  draw(t);
+  lock();
+  ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.imageSmoothingEnabled = false;
+  ctx.globalCompositeOperation = 'source-over'; ctx.drawImage(buf, 0, 0, cv.width, cv.height);
+  ctx.globalCompositeOperation = 'lighter'; ctx.drawImage(lit, 0, 0, cv.width, cv.height);
+  ctx.globalCompositeOperation = 'source-over';
+}
+
+window.TOTAL = B.END;
+window.renderAt = async t => { await window.ready; render(t); };
+window.ready = (async () => {
+  await document.fonts.load('8px Pixel').catch(() => {});
+  const { loadStack } = await import('/__motlab/sprite.js');
+  const { camera } = await import('/__motlab/camera.js');
+  // A crate as 8 slices of 8 x 8, made in code; a real object comes from the asset skill's slices.py.
+  const s = Object.assign(document.createElement('canvas'), { width: 64, height: 8 }), sc = s.getContext('2d');
+  for (let k = 0; k < 8; k++) for (let z = 0; z < 8; z++) for (let x = 0; x < 8; x++) {
+    const edge = x === 0 || x === 7 || z === 0 || z === 7, rim = edge && (k === 0 || k === 7 || (x % 7 === 0 && z % 7 === 0));
+    if (!edge && k !== 7) continue;
+    sc.fillStyle = rim ? WOOD[1] : k === 7 ? WOOD[(x + z) % 3 ? 4 : 3] : k % 3 === 0 ? WOOD[2] : WOOD[3];
+    sc.fillRect(k * 8 + x, z, 1, 1);
+  }
+  crate = await loadStack(s.toDataURL(), { slices: 8, shade: 0.25 });
+  cam = camera({ width: BW, height: BH, keys: [[0, { x: BW / 2, y: BH / 2 }], [B.END, { x: BW / 2 + 30 }, 'linear']] });
+  // Opened on its own, the page loops. In a render or in the viewer, only renderAt draws.
+  if (params.has('t') || window.top !== window) render(parseFloat(params.get('t') || '0'));
+  else requestAnimationFrame(function loop(ms) { render((ms / 1000) % B.END); requestAnimationFrame(loop); });
+  return true;
+})();
+</script></body></html>
