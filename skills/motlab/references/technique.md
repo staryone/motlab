@@ -36,7 +36,8 @@ building. The look decides which kind; with nothing in the references or the bri
 ## 4. Motion done accurately
 
 - Pieces that move together are driven from one shared value with even spacing, so they never collide or drift apart.
-- A camera distance eases in log space, so a push feels even from far to near:
+- A camera on a 2D page is keys in `/__motlab/camera.js`, which eases zoom in log space so a push feels even from
+  far to near (`motion-and-libraries.md`). A 3D camera's distance eases the same way:
   `Math.exp(lerp(Math.log(2500), Math.log(1700), outCubic(prog(t, 1.1, 3.75))))`.
 - A move that carries across a hard cut: the next scene's `t = 0` shows what the previous one would show at its
   `TOTAL`, one frame after its last frame.

@@ -119,6 +119,55 @@ const lines = edit.captions(await (await fetch('../transcript.json')).json(), { 
 - motlab does not transcribe. If there is no transcript, ask the user for one; they can make it with Whisper, which
   they install themselves. Without one, ask the user where each section starts.
 
+## B-roll over a talking head
+
+B-roll is a short clip over the speaker while the voice goes on. It shows what they are talking about and hides a jump
+cut. Pick the moments from the transcript and write them down before getting any clip:
+
+| Word (seconds of the recording) | Length | What it shows | Clip | Move |
+|---|---|---|---|---|
+| 14.2, "the whole city" | 2.6 s | a city street at night from above | Pexels 857195, from 1.0 s | slow push |
+
+- A good moment is something concrete in the words (a place, an object, an action, a number made visible), or a long
+  stretch of one framing. Start on the word and stay 2 to 4 s. Keep the face on screen for the hook, the key lines and
+  the call to action. One clip every 8 to 15 s is plenty for a talking head.
+- Show the list to the user before getting anything. The clips are the user's own when they have them. Otherwise
+  search Pexels with the user's API key in `PEXELS_API_KEY` (free at https://www.pexels.com/api/ with their own
+  account: ask them for it, never make one):
+
+```bash
+python3 scripts/get_broll.py search "city street at night aerial" --orientation landscape --min 4 --n 10
+python3 scripts/get_broll.py get 857195 --out footage/broll
+```
+
+  `get` saves the MP4 at 1080 on its short side (`--height`) and adds a line to `footage/broll/CREDITS.md`. Look at a
+  clip before using it, with a contact sheet as above.
+- Pexels clips need no credit. People in them may not be shown in a bad light or seem to endorse the product, and the
+  licence says nothing about model releases, so in an ad prefer clips without recognisable faces and tell the user
+  when a clip has them.
+- Draw the clips in the talking-head scene, over the cut list. `edit.toOut()` places each on its word, so it moves with
+  the cuts:
+
+```js
+const { camera } = await import('/__motlab/camera.js');
+const BROLL = [{ at: 14.2, len: 2.6, file: '../footage/broll/city-street-at-night-857195.mp4', from: 1.0, zoom: [1, 1.08] }];
+const shots = await Promise.all(BROLL.map(async b => {   // inside window.ready
+  const clip = await openFootage(b.file), start = edit.toOut(b.at);
+  return { ...b, clip, start, cam: camera({ width: W, height: H, keys: [[start, { zoom: b.zoom[0] }], [start + b.len, { zoom: b.zoom[1] }, 'linear']] }) };
+}));
+// in renderAt, after edit.draw(ctx, t, 0, 0, W, H):
+const b = shots.find(b => t >= b.start && t < b.start + b.len);
+if (b) {
+  const f = await b.clip.frame(b.from + t - b.start), k = Math.max(W / b.clip.width, H / b.clip.height);   // cover the frame
+  b.cam.apply(ctx, t, { scale: S });
+  f.draw(ctx, (W - b.clip.width * k) / 2, (H - b.clip.height * k) / 2, b.clip.width * k, b.clip.height * k);
+  ctx.setTransform(S, 0, 0, S, 0, 0);   // captions after this stay put
+}
+```
+
+  Each clip opens its own decoder, so keep a scene to a few clips; a long take is one scene per section anyway. Cut in
+  and out of B-roll on a hard cut, and give a still shot a slow push (zoom 1 to 1.08) so it does not sit dead.
+
 ## Footage sound
 
 List the video file in `project.json` like any audio file, with `from` (seconds into the file) and `duration`:

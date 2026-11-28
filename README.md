@@ -172,6 +172,8 @@ Footage is decoded inside the page with Mediabunny, so a scene can cut and trim 
 <br>
 
 > No. Your agent writes every scene as code, and motlab draws it frame by frame in Chrome. The pictures come from your references and from what the code draws.
+>
+> One model is used to measure pictures, never to make them: `motlab depth` runs Depth Anything V2 Small to find how far each part of a photo is, so the photo can be cut into layers that move apart when the camera moves. Models that make images or video stay out.
 
 </details>
 

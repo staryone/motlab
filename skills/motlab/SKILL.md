@@ -254,11 +254,11 @@ Frame `f` is rendered at `t = f / fps`. The same page runs in the viewer, so wha
 
 | Approach | Use it for | Tools |
 |---|---|---|
-| 2D canvas | Flat brand animation, kinetic type, explainers, captions, edits | `templates/template-2d.html`; illustrations: `references/engine-2d-puppet.md` |
+| 2D canvas | Flat brand animation, kinetic type, explainers, captions, edits | `templates/template-2d.html`; illustrations: `references/engine-2d-puppet.md`; camera moves, shake and parallax: `/__motlab/camera.js` |
 | UI in 3D space | Apps and software: real screenshots as panels with a camera and depth of field | `templates/template-3d.html`, `scripts/gl3d.js`, `references/engine-3d.md` |
 | three.js | Real 3D objects that turn: a product, character or logo from a GLB or glTF file, or built from shapes | `templates/template-three.html`, `references/engine-3d.md` |
 | p5.js | Generative graphics: noise fields, particles, patterns, data drawn as shapes | `templates/template-p5.html`, `references/engine-p5.md` |
-| Footage | Screen recordings, camera clips, tutorials, reels made from real video | `references/footage.md`; jump cuts in a talking head: `scripts/cut_pauses.py` and `/__motlab/cuts.js` |
+| Footage | Screen recordings, camera clips, tutorials, reels made from real video | `references/footage.md`; jump cuts in a talking head: `scripts/cut_pauses.py` and `/__motlab/cuts.js`; B-roll: `scripts/get_broll.py` |
 | Blender | Photoreal products or a filmed studio look. Slower, and Blender must be installed | `scripts/blender/`, `references/blender.md` |
 
 Mix them freely: footage with 2D captions, a 3D UI shot that ends on a recording, a Blender product over a canvas end card.
@@ -311,7 +311,7 @@ Before the video is shared, settle these with the user:
 | rendering a product in Blender, shaded or in the flat look | `references/blender.md` |
 | ending an animation on real footage | `references/into-footage.md` |
 | sound effects, a voiceover or music | `references/sound-and-music.md` |
-| easing, springs, motion blur, transitions between scenes, GSAP, Anime.js, Lottie or Theatre.js | `references/motion-and-libraries.md` |
+| easing, springs, motion blur, a camera, shake, parallax, transitions between scenes, GSAP, Anime.js, Lottie or Theatre.js | `references/motion-and-libraries.md` |
 | a frame looks wrong or a render misbehaves | `references/pitfalls.md` |
 
 ## Setup
@@ -330,15 +330,17 @@ and how to install it before you start.
   `templates/overlay.js`: a starting point for an overlay.
 - `contact_sheet.py`: puts the stills from `motlab stills` on one sheet, labelled with their times.
 - `key.py` removes a flat background, `split.py` cuts a cut-out into layers, `grid.py` overlays pixel coordinates.
+  `motlab depth <photo>` makes a depth map and `depth_layers.py` cuts the photo into layers along it, for parallax.
 - `gl3d.js` places 2D-canvas panels in 3D; `puppet.js` bends a cut-out with pins.
 - `get_font.py`: searches the Google Fonts catalog and downloads a family into the project. `templates/font-specimen.html`
   shows the downloaded fonts side by side for `motlab stills`.
 - In every scene page: `/__motlab/motion.js` (easings, `cubicBezier`, `spring`, `tween`, `stagger`, `motionBlur`),
-  `/__motlab/footage.js` (video files) and `/__motlab/cuts.js` (a cut list over one recording, by section, with
-  captions from a transcript).
+  `/__motlab/camera.js` (a camera from keys, shake, parallax), `/__motlab/footage.js` (video files) and
+  `/__motlab/cuts.js` (a cut list over one recording, by section, with captions from a transcript).
 - `cut_pauses.py`: cuts the pauses out of a talking-head recording into `cuts.json`, with `--audio-out` writes the
   voice with the same cuts, and with `--sections` splits the take into one scene per section.
   The take ends at the shorter audio/video duration (container duration if unavailable), ignoring subtitle and data tracks.
+  `get_broll.py`: finds stock video for B-roll on Pexels with the user's API key and downloads it with a `CREDITS.md`.
 - `mix.py`: puts library sounds on the page's events at a level set by their role, lowers them under a voiceover,
   reports how close each landed and which moments to listen to, and with `--beats` puts them on bars of the music.
   `beats.py`: the tempo, beats, bars and biggest rise of a music track, in video time. `synth_sfx.py`: builds a free sound kit. `get_sfx.py`: finds openly licensed sounds on

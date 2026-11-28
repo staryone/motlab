@@ -29,6 +29,15 @@ test('motlab version, --version and -v print the version from package.json and s
   }
 });
 
+test('motlab depth checks its images before it starts Chrome', () => {
+  const none = run('depth');
+  assert.equal(none.status, 1);
+  assert.match(none.stderr + none.stdout, /depth needs one or more images/);
+  const text = run('depth', 'README.md');
+  assert.equal(text.status, 1);
+  assert.match(text.stderr + text.stdout, /README\.md: a depth map needs a JPEG, PNG, WebP, AVIF or BMP image/);
+});
+
 test('motlab working checks its note and scene numbers before it looks for a viewer', () => {
   const r = run('working', 'example', '--note', '3,x');
   assert.equal(r.status, 1);

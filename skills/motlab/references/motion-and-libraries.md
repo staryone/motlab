@@ -23,6 +23,76 @@ const { ease, cubicBezier, spring, tween, stagger, prog, lerp, clamp, motionBlur
 
 A spring for an element that pops in after a beat: `const s = spring({ stiffness: 180, damping: 12 }); scale = s(t - beat)`.
 
+## camera.js: a camera, shake and parallax
+
+A camera over a 2D canvas page: keys for where it looks, how far it zooms and how it rolls, shake from seeded noise,
+and parallax for layers at different depths. Every value comes from `t`, like the rest of the page.
+
+```js
+const { camera, shake, noise } = await import('/__motlab/camera.js');
+const cam = camera({ width: W, height: H,
+  keys: [[0, { x: 960, y: 540, zoom: 1 }], [1.6, { x: 1240, y: 470, zoom: 1.8, turn: 3 }, 'inOutCubic']],
+  shake: [{ from: 2.1, to: 2.6, amount: 18, turn: 1, speed: 14 }] });
+cam.apply(ctx, t, { scale: SCALE });   // then draw in the page's own units
+```
+
+| Part | What it does |
+|---|---|
+| `keys: [[time, { x, y, zoom, turn }, easing], ...]` | `x`, `y` is the point of the page in the centre of the frame, `zoom` 2 shows half the width, and `turn` rolls the camera clockwise in degrees, so the picture turns the other way. A key leaves out what does not change. The easing is a name from `motion.js` or a function (default `inOutCubic`). Two keys at the same time cut the camera |
+| `shake: [{ from, to, amount, turn, speed, seed, decay }]` | `amount` is the largest offset in page units and `turn` the largest roll in degrees; `speed` is wobbles a second, 12 to 20 for a hit and 1 to 3 for a hand-held camera. With a `to` it dies away by then, like a hit, and `decay: false` holds it instead. Without `from` and `to` it runs through the whole scene |
+| `cam.apply(ctx, t, { scale, depth })` | sets the canvas transform; draw everything after it in page units |
+| `cam.at(t)`, `cam.matrix(t, depth)`, `cam.point(t, x, y, depth)` | where the camera looks; its 2D matrix (as in `setTransform`, or a WebGL page's 3x3); where a point of the page lands in the frame, to draw a label at its own size beside something the camera zooms in on |
+| `cam.speed(t)` | how fast the picture moves, in page units a second |
+| `shake(t, list)`, `noise(x, seed)` | the shake and the noise on their own, for a three.js or gl3d camera |
+
+- Zoom eases in log space, so a push feels even from far to near. The end that is zoomed in further keeps its point
+  moving in a straight line across the frame, so a push in on a point off centre goes straight to it instead of
+  swinging out first. Put the key on the point the shot is about.
+- Draw what stays put on screen (captions, a logo, a lower third) after `ctx.setTransform(SCALE, 0, 0, SCALE, 0, 0)`,
+  or as an overlay.
+- Keep the edges out of sight. A layer under a pan, a shake or a roll needs picture past the frame: with zoom 1 and a
+  shake of 20, draw the background at least 20 units larger on every side, or zoom in to 1.05.
+- A whip pan is a fast key (`inOutExpo` over 0.3 to 0.5 s) with motion blur only while it is fast, since every sample
+  draws the frame again:
+
+```js
+const shutter = 0.5 / fps, samples = Math.min(32, Math.ceil(cam.speed(t) * shutter / 4));
+await motionBlur(canvas, t, time => draw(time), { samples, shutter });   // draw(time) calls cam.apply(ctx, time) first
+```
+
+  With at most 12 samples, the fastest frames of a 2400-unit whip over 0.4 s showed stripes; 32 hid them, and that
+  3.5 s scene took 1.5 s to render at 1080p instead of 1.3 s (the test laptop, RTX 3060 Laptop). For a whip across a
+  cut, the outgoing scene speeds up (`inExpo`) towards a point out of frame and the next one starts at full speed and
+  slows down (`outExpo`), with the cut on the fastest frame.
+
+### Parallax from layers
+
+`depth` in `cam.apply` says how far a layer is: 1 moves with the camera, 0 stays put (a sky), 0.6 moves 0.6 as far and
+zooms less, and 1.3 moves more (a foreground). Draw the layers from far to near, each at its own depth:
+
+```js
+for (const l of layers) { cam.apply(ctx, t, { scale: SCALE, depth: l.depth }); ctx.drawImage(l.img, 0, 0, W, H); }
+```
+
+The layers come from the assets: an illustration drawn in layers, cut-outs from `key.py`, parts from `split.py`, or a
+photo cut along its depth:
+
+```bash
+motlab depth photo.jpg                                 # photo.depth.png next to it, nearer is lighter
+python3 scripts/depth_layers.py photo.jpg --layers 3 --out img/layers
+```
+
+`depth_layers.py` writes `photo-1.png` (far, opaque) up to `photo-3.png` (near), and `photo-layers.json` with each
+layer's `depth` for `cam.apply`: `--far` (0.6) for the far one and 1 for the nearest. Under each layer's nearer
+neighbours, the hidden part is smeared in from its own edges, so a small move shows picture behind an object instead of
+a hole, and a large move shows the smear. It suits a subject in front of a background. A floor or a road that runs from
+near to far is cut into bands, and the seam shows where two bands move apart, so keep that move small or use two
+layers. Check stills at both ends of the move.
+
+`motlab depth` runs Depth Anything V2 Small, a model that measures depth and makes no picture. The first run downloads
+about 70 MB; later runs work offline. On the test laptop it took 0.2 to 0.4 s a photo on the GPU, and 3.9 s for an
+800x800 photo with `--cpu`.
+
 ## Transitions between scenes
 
 Set in `project.json` on the scene a transition leads into. The viewer and the render draw it with the same shader:

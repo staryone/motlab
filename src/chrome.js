@@ -72,8 +72,10 @@ export const SANDBOX_FLAGS = typeof process.getuid === 'function' && process.get
 const live = new Set();
 process.on('exit', () => { for (const c of live) c.killSync(); });
 
-export async function launchChrome({ chromePath, extraArgs = [] }) {
-  const profile = mkdtempSync(join(tmpdir(), 'motlab-chrome-'));
+// profile: a folder Chrome keeps between runs (its cache, for a model it downloads once). Without it the profile is a
+// new temporary folder, removed on close.
+export async function launchChrome({ chromePath, extraArgs = [], profile: keep }) {
+  const profile = keep || mkdtempSync(join(tmpdir(), 'motlab-chrome-'));
   const proc = spawn(chromePath, [
     '--headless=new', ...gpuFlags(), ...SANDBOX_FLAGS,
     '--remote-debugging-port=0', `--user-data-dir=${profile}`,
@@ -121,7 +123,7 @@ export async function launchChrome({ chromePath, extraArgs = [] }) {
 
   const chrome = {
     send, on,
-    killSync() { try { proc.kill(); } catch {} try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch {} },
+    killSync() { try { proc.kill(); } catch {} if (!keep) try { rmSync(profile, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 }); } catch {} },
     async close() {
       live.delete(chrome);
       if (proc.exitCode !== null || proc.signalCode !== null) return chrome.killSync();
