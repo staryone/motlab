@@ -89,6 +89,10 @@ function lock() {
   g.putImageData(img, 0, 0);
 }
 
+// A camera that follows something that moves: snap it to that thing's pixel. Rounding the camera and the thing apart
+// makes the thing jump a pixel back and forth on screen. camX = snapTo(cam.at(t).x, thingX).
+const snapTo = (camX, x) => Math.round(x) - Math.round(x - camX);
+
 // ---- timing ----
 const clamp = (v, lo = 0, hi = 1) => Math.min(hi, Math.max(lo, v));
 const prog = (t, a, b) => clamp((t - a) / (b - a));

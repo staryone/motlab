@@ -79,6 +79,11 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 
 - The camera moves in whole buffer pixels (`camera.js` keys in buffer units, rounded before drawing). Pans and follows
   work well; a slow pan of 4 to 12 pixels a second reads as calm.
+- A camera that follows something that moves is snapped to that thing's pixel, not rounded on its own:
+  `camX = Math.round(x) - Math.round(x - cam.at(t).x)` (the template's `snapTo`). Rounded apart, the two cross half
+  a pixel at different frames and the thing jumps a pixel back and forth on screen: in a 7.5 s test with a car
+  followed with a lag, 5 times, each 6 screen pixels at 1080p. Snapped, it moved one way only, on screen and against
+  the road.
 - Zoom only in whole steps (1x, 2x), with a cut or a hard switch between them. A smooth zoom smears the grid.
 - A roll is drawn inside the buffer, so the pixels stay chunky; keep stacks upright with `turn`. Use it rarely.
 - Parallax layers each move in whole pixels; far layers move less.
@@ -114,6 +119,7 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 | floaty, no punch | fast in, slow out, a white hero frame, a freeze on contact, a shorter total |
 | stiff | vary size, speed and delay of every particle; secondary motion |
 | edges that crawl | whole-pixel positions; the camera rounded to the grid |
+| a followed object jumps a pixel back and forth | snap the camera to its pixel (`snapTo`), don't round the two apart |
 | uneven pixels in an export | a buffer of the page / 6, scaled whole; nothing drawn at page resolution |
 
 ## Checklist before opening the viewer
@@ -124,4 +130,5 @@ Copy it into `<video>/scenes/` and replace its `draw()`.
 - [ ] Light comes from one side, and the light buffer stays under 0.5 except on cores
 - [ ] No speckle inside shapes; the buffer reads at 1x
 - [ ] Poses hold on 12 a second; positions are whole pixels; the camera does not zoom smoothly
+- [ ] A camera that follows something is snapped to its pixel; step through the follow frame by frame
 - [ ] Transitions are cuts or drawn in the buffer
