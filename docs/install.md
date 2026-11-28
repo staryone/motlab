@@ -1,6 +1,6 @@
 # Installing motlab
 
-motlab has two parts: the engine (the `motlab` command, the viewer and the renderer) and three agent skills: `skills/motlab/` makes videos, `skills/motlab-assets/` makes reusable asset kits for them, and `skills/motlab-styles/` holds ready-made looks to use when the user asks for one. There are two ways to install them: from npm, or from a clone with the installer. Take npm to use motlab, and the clone to work on it. If an agent is doing the install for you, point it at [install-for-agents.md](install-for-agents.md).
+motlab has two parts: the engine (the `motlab` command, the viewer and the renderer) and three agent skills: `skills/motlab/` makes videos, `skills/motlab-assets/` makes reusable asset kits for them, and `skills/motlab-styles/` holds ready-made styles, a guide to use when the user asks for one. There are two ways to install them: from npm, or from a clone with the installer. Take npm to use motlab, and the clone to work on it. If an agent is doing the install for you, point it at [install-for-agents.md](install-for-agents.md).
 
 ## Requirements
 

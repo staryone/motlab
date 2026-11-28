@@ -1,6 +1,6 @@
 ---
 name: motlab-styles
-description: "Ready-made looks for motlab videos: rules in numbers for shots, transitions, camera, easing, text and sound, with a template. Use only when the user asks for a style, names one from this skill, asks which styles there are, or wants the look of a reference video written down as a style. Never a default. The motlab skill builds the video; this one only sets the look."
+description: "Ready-made styles for motlab videos: rules in numbers for shots, transitions, camera, easing, text and sound, with a template. A style guides what the user's references leave open and is not a look to copy exactly; the references and the user's words come first. Use only when the user asks for a style, names one from this skill, asks which styles there are, or wants the look of a reference video written down as a style. Never a default. The motlab skill builds the video."
 ---
 
 # motlab-styles
@@ -10,13 +10,18 @@ viewer, notes and export. It does not choose a look. A look comes from the user'
 user has, or from a style in this folder when the user asks for one. This skill never installs, renders or builds
 anything itself; the motlab skill does all of that.
 
+A style here is a direction, not a recipe to follow to the letter. Its numbers keep a video from going the wrong way
+where the references and the brief leave something open. The user's references and words always come first.
+
 ## Using a style
 
 1. Read the style's file all the way through before planning. A style changes the shot plan, not only the finish.
 2. Copy its template, if it has one, into `<video>/scenes/` next to the motlab skill's scripts it uses.
-3. Apply it to every scene, and check its checklist with stills before opening the viewer.
-4. The user's material still comes first: their logo, fonts, colours, screens and footage. The style decides how they
-   are framed and how they move.
+3. Use it in every scene for what the references leave open, and check its checklist with stills before opening the
+   viewer. Leave out a check that the references contradict.
+4. The user's references and words come first, and not only their material (logo, fonts, colours, screens, footage).
+   When the references show how things move, a colour scheme, a pace or a kind of type that differs from the style,
+   follow the references and keep the rest of the style. Tell the user which of its rules you set aside.
 5. With an asset kit, the kit's `style.md` sets how things are drawn and the video style sets how they move. Where the
    two disagree, ask the user.
 6. A note from the user beats a rule of the style. Make the change, and say which rule it breaks in case they want the

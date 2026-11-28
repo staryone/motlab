@@ -36,7 +36,7 @@ The ad above (19 seconds, 7 scenes) was made with motlab and its skill, reviewed
 - A long talking-head take is cut at its pauses and can be split into one scene per section, with captions placed from a transcript.
 - Frames are encoded with WebCodecs inside the page, so they never leave Chrome as images. On a GPU that made it 2 to 4 times as fast as Remotion and HyperFrames on the [benchmark scene](#speed).
 - A second skill, `motlab-assets`, builds reusable asset kits the same way: icons, illustrations, 2D characters with a rig, transitions, 3D objects and textures, rendered to transparent PNG plus SVG, or GLB, FBX and OBJ with PBR textures. Every video that uses the kit shares one look.
-- The motlab skill has no look of its own: it knows the engine, its tools and how to direct and build a video, and the look comes from your references or from another skill you use. A third skill, `motlab-styles`, holds ready-made looks with their rules and templates, for when you ask for one, and writes down the look of a reference video as a style.
+- The motlab skill has no look of its own: it knows the engine, its tools and how to direct and build a video, and the look comes from your references or from another skill you use. A third skill, `motlab-styles`, holds ready-made styles with their rules and templates, for when you ask for one, and writes down the look of a reference video as a style. A style is a guide that keeps a video on course where your references leave things open, not a look to copy exactly: your references and words come first.
 
 ## Watch the demo
 
